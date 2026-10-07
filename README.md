@@ -59,6 +59,11 @@ filesystem write, not completion of a cloud upload.
 
 ## Platforms and validation
 
+Download the compiled Windows ZIP and Fedora RPM/portable bundle from the
+[IHTD 0.2.0 release](https://github.com/Plexyer/ihtd/releases/tag/v0.2.0).
+The private release includes SHA-256 checksums and Fedora install instructions.
+Source and build scripts are tracked in Git; compiled packages are release assets.
+
 Windows x64 was built and exercised on this computer. Rust domain/storage tests
 and a real Windows Flutter integration test passed. Fedora 44 x86-64 packages
 are in `dist/fedora`: an RPM and a portable tar.gz bundle. All 47 Rust tests,
