@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=IHTD
+Comment=Tasks and folders with shared identities
+Exec=ihtd
+Icon=ihtd
+Terminal=false
+Categories=Office;ProjectManagement;
+StartupWMClass=dev.ihtd.app

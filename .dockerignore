@@ -1,0 +1,12 @@
+.git
+dist
+**/target
+**/build
+**/.dart_tool
+**/ephemeral
+**/.gradle
+**/.idea
+**/*.iml
+**/local.properties
+**/.flutter-plugins-dependencies
+*.ihtd

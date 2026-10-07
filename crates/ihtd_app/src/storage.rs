@@ -1,0 +1,432 @@
+//! Closed SQLite document snapshots. No SQLite connection touches a mounted path.
+use ihtd_core::model::{Document, Item, Link, Tag, View};
+use rusqlite::{params, Connection, OptionalExtension};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
+use tempfile::NamedTempFile;
+
+const APPLICATION_ID: i64 = 0x49485444;
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+    use ihtd_core::model::ItemKind;
+    #[test]
+    fn version_one_documents_migrate_and_shared_roots_roundtrip() {
+        let mut doc = Document::new("legacy".into());
+        let a = doc.add_item(ItemKind::Folder, "A".into(), None).unwrap();
+        let b = doc.add_item(ItemKind::Folder, "B".into(), None).unwrap();
+        let task = doc
+            .add_item(ItemKind::Task, "Task".into(), Some(a))
+            .unwrap();
+        doc.link(b, task).unwrap();
+        let file = NamedTempFile::new().unwrap();
+        fs::write(file.path(), encode(&doc).unwrap()).unwrap();
+        let connection = Connection::open(file.path()).unwrap();
+        connection.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version'; DELETE FROM metadata WHERE key='root_order';").unwrap();
+        connection.close().unwrap();
+        let mut migrated = decode(&fs::read(file.path()).unwrap()).unwrap();
+        assert_eq!(migrated, doc);
+        migrated.move_item(task, Some(a), None, Some(b)).unwrap();
+        let reopened = decode(&encode(&migrated).unwrap()).unwrap();
+        assert_eq!(reopened, migrated);
+        assert!(reopened.roots().contains(&task));
+        assert!(reopened
+            .links
+            .iter()
+            .any(|l| l.parent == b && l.child == task));
+    }
+}
+pub fn fingerprint(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+fn err(e: impl std::fmt::Display) -> String {
+    e.to_string()
+}
+
+pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
+    document.validate()?;
+    let tmp = NamedTempFile::new().map_err(err)?;
+    let mut connection = Connection::open(tmp.path()).map_err(err)?;
+    connection.execute_batch(&format!(
+        "PRAGMA application_id={APPLICATION_ID}; PRAGMA user_version=2;
+        CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE items (id INTEGER PRIMARY KEY, data TEXT NOT NULL);
+        CREATE TABLE tags (id INTEGER PRIMARY KEY, data TEXT NOT NULL);
+        CREATE TABLE views (id INTEGER PRIMARY KEY, data TEXT NOT NULL);
+        CREATE TABLE links (parent INTEGER NOT NULL, child INTEGER NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(parent, child));"
+    )).map_err(err)?;
+    let transaction = connection.transaction().map_err(err)?;
+    for (key, value) in [
+        ("document_id", document.document_id.clone()),
+        ("revision", document.revision.to_string()),
+        ("next_id", document.next_id.to_string()),
+        ("schema_version", document.schema_version.to_string()),
+        (
+            "root_order",
+            serde_json::to_string(&document.root_order).map_err(err)?,
+        ),
+    ] {
+        transaction
+            .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
+            .map_err(err)?;
+    }
+    for item in document.items.values() {
+        transaction
+            .execute(
+                "INSERT INTO items VALUES (?1,?2)",
+                params![item.id, serde_json::to_string(item).map_err(err)?],
+            )
+            .map_err(err)?;
+    }
+    for tag in document.tags.values() {
+        transaction
+            .execute(
+                "INSERT INTO tags VALUES (?1,?2)",
+                params![tag.id, serde_json::to_string(tag).map_err(err)?],
+            )
+            .map_err(err)?;
+    }
+    for view in document.views.values() {
+        transaction
+            .execute(
+                "INSERT INTO views VALUES (?1,?2)",
+                params![view.id, serde_json::to_string(view).map_err(err)?],
+            )
+            .map_err(err)?;
+    }
+    for (position, link) in document.links.iter().enumerate() {
+        transaction
+            .execute(
+                "INSERT INTO links VALUES (?1,?2,?3)",
+                params![link.parent, link.child, position as i64],
+            )
+            .map_err(err)?;
+    }
+    transaction.commit().map_err(err)?;
+    connection.close().map_err(|(_, error)| err(error))?;
+    fs::read(tmp.path()).map_err(err)
+}
+
+pub fn decode(bytes: &[u8]) -> Result<Document, String> {
+    let mut local = NamedTempFile::new().map_err(err)?;
+    local.write_all(bytes).map_err(err)?;
+    local.flush().map_err(err)?;
+    let connection =
+        Connection::open_with_flags(local.path(), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(err)?;
+    let app_id: i64 = connection
+        .query_row("PRAGMA application_id", [], |r| r.get(0))
+        .map_err(err)?;
+    let version: i64 = connection
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(err)?;
+    if app_id != APPLICATION_ID || !(1..=2).contains(&version) {
+        return Err("This is not a supported IHTD document".into());
+    }
+    let check: String = connection
+        .query_row("PRAGMA quick_check", [], |r| r.get(0))
+        .map_err(err)?;
+    if check != "ok" {
+        return Err(format!("Document integrity check failed: {check}"));
+    }
+    let metadata = |key: &str| -> Result<String, String> {
+        connection
+            .query_row("SELECT value FROM metadata WHERE key=?1", [key], |r| {
+                r.get(0)
+            })
+            .map_err(err)
+    };
+    let read_map = |table: &str| -> Result<Vec<(i64, String)>, String> {
+        // Table names are constants chosen here, never input from a file or filter.
+        let mut statement = connection
+            .prepare(&format!("SELECT id,data FROM {table} ORDER BY id"))
+            .map_err(err)?;
+        let result = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(err)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(err)?;
+        Ok(result)
+    };
+    let stored_schema: u32 = metadata("schema_version")?.parse().map_err(err)?;
+    if i64::from(stored_schema) != version {
+        return Err("Inconsistent document schema".into());
+    }
+    let root_order: Option<String> = connection
+        .query_row(
+            "SELECT value FROM metadata WHERE key='root_order'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?;
+    let mut document = Document {
+        schema_version: ihtd_core::model::SCHEMA_VERSION,
+        document_id: metadata("document_id")?,
+        revision: metadata("revision")?.parse().map_err(err)?,
+        next_id: metadata("next_id")?.parse().map_err(err)?,
+        items: BTreeMap::new(),
+        tags: BTreeMap::new(),
+        views: BTreeMap::new(),
+        links: Vec::new(),
+        root_order: root_order
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
+    };
+    for (id, data) in read_map("items")? {
+        document
+            .items
+            .insert(id, serde_json::from_str::<Item>(&data).map_err(err)?);
+    }
+    for (id, data) in read_map("tags")? {
+        document
+            .tags
+            .insert(id, serde_json::from_str::<Tag>(&data).map_err(err)?);
+    }
+    for (id, data) in read_map("views")? {
+        document
+            .views
+            .insert(id, serde_json::from_str::<View>(&data).map_err(err)?);
+    }
+    let mut statement = connection
+        .prepare("SELECT parent,child FROM links ORDER BY position")
+        .map_err(err)?;
+    document.links = statement
+        .query_map([], |row| {
+            Ok(Link {
+                parent: row.get(0)?,
+                child: row.get(1)?,
+            })
+        })
+        .map_err(err)?
+        .collect::<Result<_, _>>()
+        .map_err(err)?;
+    document.validate()?;
+    document.recompute_completion()?;
+    Ok(document)
+}
+
+/// Replacement never truncates the previous document if a write fails.
+pub fn publish(path: &Path, bytes: &[u8], overwrite: bool) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut candidate = NamedTempFile::new_in(parent).map_err(err)?;
+    candidate.write_all(bytes).map_err(err)?;
+    candidate.as_file().sync_all().map_err(err)?;
+    if overwrite {
+        candidate.persist(path).map_err(|e| err(e.error))?;
+    } else {
+        candidate
+            .persist_noclobber(path)
+            .map_err(|e| err(e.error))?;
+    }
+    #[cfg(unix)]
+    if let Ok(directory) = fs::File::open(parent) {
+        let _ = directory.sync_all();
+    }
+    Ok(())
+}
+
+pub struct Session {
+    pub document: Document,
+    pub path: PathBuf,
+    pub baseline: String,
+    pub dirty: bool,
+    pub recovery_path: PathBuf,
+}
+impl Session {
+    pub fn open(path: PathBuf, recovery_dir: &Path) -> Result<Self, String> {
+        let bytes = fs::read(&path).map_err(err)?;
+        let document = decode(&bytes)?;
+        let recovery_path = recovery_dir.join(format!(
+            "{}.ihtd",
+            fingerprint(document.document_id.as_bytes())
+        ));
+        Ok(Self {
+            document,
+            path,
+            baseline: fingerprint(&bytes),
+            dirty: false,
+            recovery_path,
+        })
+    }
+    pub fn new(path: PathBuf, recovery_dir: &Path) -> Result<Self, String> {
+        let document = Document::new(uuid::Uuid::new_v4().to_string());
+        let bytes = encode(&document)?;
+        publish(&path, &bytes, false)?;
+        Self::open(path, recovery_dir)
+    }
+    pub fn check_external(&mut self) -> Result<bool, String> {
+        let bytes = fs::read(&self.path).map_err(|e| format!("Cannot read the open file: {e}"))?;
+        let fingerprint = fingerprint(&bytes);
+        if fingerprint == self.baseline {
+            return Ok(false);
+        }
+        let replacement = decode(&bytes)?;
+        if self.dirty {
+            return Err("The file changed while local edits are waiting to save. Use Save a copy as to preserve your edits.".into());
+        }
+        if replacement.document_id != self.document.document_id {
+            return Err("The open file was replaced by a different collection. Open it explicitly to switch collections.".into());
+        }
+        if replacement.revision <= self.document.revision {
+            return Err("The file contains an older or conflicting revision. Your open collection has been preserved; reopen the file explicitly if you want that version.".into());
+        }
+        self.document = replacement;
+        self.baseline = fingerprint;
+        Ok(true)
+    }
+    pub fn commit(&mut self, document: Document) -> Result<(), String> {
+        let bytes = encode(&document)?;
+        let current = fs::read(&self.path).map_err(err)?;
+        if fingerprint(&current) != self.baseline {
+            return Err("The file changed before this edit could be saved. Refresh the collection and try the edit again.".into());
+        }
+        if let Some(parent) = self.recovery_path.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
+        }
+        publish(&self.recovery_path, &bytes, true)?;
+        self.document = document;
+        self.dirty = true;
+        // Check again after preparing recovery data; mounts can still hide remote changes.
+        if fingerprint(&fs::read(&self.path).map_err(err)?) != self.baseline {
+            return Err("External changes were detected during save. Your local edits are preserved; use Save a copy as.".into());
+        }
+        publish(&self.path,&bytes,true).map_err(|e| format!("Changes are preserved locally but could not be saved to the selected file: {e}. Use Retry or Save a copy as."))?;
+        self.baseline = fingerprint(&bytes);
+        self.dirty = false;
+        Ok(())
+    }
+    pub fn save_as(&mut self, path: PathBuf) -> Result<(), String> {
+        let bytes = encode(&self.document)?;
+        publish(&path, &bytes, false)?;
+        self.path = path;
+        self.baseline = fingerprint(&bytes);
+        self.dirty = false;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ihtd_core::model::ItemKind;
+    #[test]
+    fn sqlite_roundtrip_is_self_contained_and_preserves_shared_ids() {
+        let mut doc = Document::new("roundtrip".into());
+        let a = doc.add_item(ItemKind::Folder, "A".into(), None).unwrap();
+        let b = doc.add_item(ItemKind::Folder, "B".into(), None).unwrap();
+        let t = doc
+            .add_item(ItemKind::Task, "Same".into(), Some(a))
+            .unwrap();
+        doc.link(b, t).unwrap();
+        let bytes = encode(&doc).unwrap();
+        assert_eq!(&bytes[..16], b"SQLite format 3\0");
+        assert_eq!(decode(&bytes).unwrap(), doc);
+    }
+    #[test]
+    fn newer_replacement_reloads_but_corrupt_or_conflicting_file_cannot_discard_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("test.ihtd");
+        let mut session = Session::new(path.clone(), tmp.path()).unwrap();
+        let mut newer = session.document.clone();
+        newer
+            .add_item(ItemKind::Task, "Remote".into(), None)
+            .unwrap();
+        publish(&path, &encode(&newer).unwrap(), true).unwrap();
+        assert!(session.check_external().unwrap());
+        assert_eq!(session.document, newer);
+        publish(&path, b"partial upload", true).unwrap();
+        assert!(session.check_external().is_err());
+        assert_eq!(session.document, newer);
+    }
+    #[test]
+    fn external_edit_before_save_is_not_overwritten() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("test.ihtd");
+        let mut s = Session::new(path.clone(), tmp.path()).unwrap();
+        let mut local = s.document.clone();
+        local
+            .add_item(ItemKind::Task, "Local".into(), None)
+            .unwrap();
+        let mut remote = s.document.clone();
+        remote
+            .add_item(ItemKind::Task, "Remote".into(), None)
+            .unwrap();
+        let bytes = encode(&remote).unwrap();
+        publish(&path, &bytes, true).unwrap();
+        assert!(s.commit(local).is_err());
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+    #[test]
+    fn new_and_save_as_do_not_overwrite_existing_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("test.ihtd");
+        let mut s = Session::new(path.clone(), tmp.path()).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(Session::new(path.clone(), tmp.path()).is_err());
+        assert!(s.save_as(path.clone()).is_err());
+        assert_eq!(fs::read(path).unwrap(), before);
+    }
+    #[test]
+    fn replacement_is_detected_even_when_size_and_timestamp_are_unchanged() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("file.ihtd");
+        let mut s = Session::new(path.clone(), tmp.path()).unwrap();
+        let mut first = s.document.clone();
+        first
+            .add_item(ItemKind::Task, "Alpha".into(), None)
+            .unwrap();
+        s.commit(first).unwrap();
+        let before = fs::metadata(&path).unwrap();
+        let mut next = s.document.clone();
+        next.items.values_mut().next().unwrap().title = "Bravo".into();
+        next.revision += 1;
+        publish(&path, &encode(&next).unwrap(), true).unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().len(), before.len());
+        assert!(s.check_external().unwrap());
+        assert_eq!(s.document, next);
+    }
+    #[test]
+    fn failed_replacement_keeps_destination_and_save_as_preserves_pending_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("file.ihtd");
+        let mut s = Session::new(path.clone(), tmp.path()).unwrap();
+        let mut candidate = s.document.clone();
+        candidate
+            .add_item(ItemKind::Task, "Keep me".into(), None)
+            .unwrap();
+        // A directory destination fails atomically without modifying its contents.
+        let directory = tmp.path().join("directory.ihtd");
+        fs::create_dir(&directory).unwrap();
+        let marker = directory.join("marker");
+        fs::write(&marker, "untouched").unwrap();
+        assert!(publish(&directory, &encode(&candidate).unwrap(), true).is_err());
+        assert_eq!(fs::read_to_string(marker).unwrap(), "untouched");
+        // A failed publication after recovery is represented by dirty state; retry
+        // and Save As use the exact same validated snapshot publication path.
+        let recovery = encode(&candidate).unwrap();
+        publish(&s.recovery_path, &recovery, true).unwrap();
+        s.document = candidate.clone();
+        s.dirty = true;
+        let copy = tmp.path().join("recovered.ihtd");
+        s.save_as(copy.clone()).unwrap();
+        assert_eq!(decode(&fs::read(copy).unwrap()).unwrap(), candidate);
+        assert!(!s.dirty);
+    }
+}

@@ -1,0 +1,22 @@
+name: app
+description: Portable tasks and folders with shared identities and saved views.
+publish_to: none
+version: 0.2.0+2
+environment:
+  sdk: ^3.13.4
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.0.0
+  file_selector: ^1.0.3
+  path_provider: ^2.1.5
+  flutter_rust_bridge: 2.13.0
+  flutter_rust_bridge_hooks: 2.13.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true

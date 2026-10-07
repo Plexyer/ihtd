@@ -1,0 +1,14 @@
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.dart text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+CMakeLists.txt text eol=lf
+Dockerfile text eol=lf
+*.png binary
+*.ico binary
