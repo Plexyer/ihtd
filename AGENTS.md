@@ -32,6 +32,32 @@ before changing behavior. Ask the user when product semantics are unclear.
 
 ## Working across computers
 
+The user has explicitly authorized this default GitHub synchronization workflow
+for future coding tasks in this repository:
+
+1. At the start, inspect the current branch, upstream, and working-tree status.
+   With a clean checkout, pull the upstream using `git pull --ff-only` before
+   editing. If the checkout is dirty or histories have diverged, preserve all
+   work and resolve the situation without overwriting changes or force-pushing.
+2. Implement the requested changes and run the relevant checks.
+3. At completion, stage all source/documentation changes belonging to the task,
+   commit with a descriptive message, and push to the current branch's upstream.
+   A new task branch should use the `codex/` prefix and get an upstream on push.
+   A docs-only task does not require rerunning the app's full test suite.
+4. Verify the push succeeded and report the commit and any remaining changes.
+   If authentication, a conflict, or the usage reserve blocks completion, report
+   the exact outstanding sync step. Never claim a failed push was successful.
+
+These routine pulls, commits, and pushes do not need fresh user confirmation.
+The source repository is private `https://github.com/Plexyer/ihtd.git`; its
+initial default branch is `master`. This workflow synchronizes local work with
+GitHub; it does not move a local Codex session to cloud execution.
+
+On the original Windows workstation, Git Credential Manager is already signed
+in. If the inherited helper selector stalls, use the existing manager directly:
+`git -c credential.helper= -c credential.helper=manager <pull-or-push-command>`.
+Never print credentials or store them in the repository.
+
 - Keep requirements, checklist, and build instructions updated so a fresh
   session can resume without the original chat history.
 - Commit source and lockfiles. Keep personal `.ihtd` data, credentials, build
