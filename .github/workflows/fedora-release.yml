@@ -19,7 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Fedora 44 image
-        run: docker build -f packaging/fedora/Dockerfile -t ihtd-fedora-builder .
+        run: |
+          if ! docker build -f packaging/fedora/Dockerfile -t ihtd-fedora-builder . > /tmp/fedora-image.log 2>&1; then
+            python3 - <<'PY'
+          from pathlib import Path
+          detail = '\n'.join(Path('/tmp/fedora-image.log').read_text().splitlines()[-80:])
+          detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Fedora image build failure::' + detail)
+          PY
+            tail -80 /tmp/fedora-image.log
+            exit 1
+          fi
+          cat /tmp/fedora-image.log
       - name: Build, test and verify installed RPM
         run: |
           docker run --name ihtd-fedora-package ihtd-fedora-builder bash -c 'bash packaging/fedora/build.sh && bash packaging/fedora/verify.sh'
