@@ -2,12 +2,17 @@
 .github
 dist
 target
+**/target
 **/build
 **/.dart_tool
 **/.gradle
 **/.kotlin
+**/.idea
+**/*.iml
+**/.flutter-plugins-dependencies
 **/ephemeral
 **/local.properties
 **/*.ihtd
+*.ihtd
 .env
 .env.*
