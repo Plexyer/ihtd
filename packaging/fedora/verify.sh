@@ -2,7 +2,8 @@
 # Run inside the disposable Fedora build environment after build.sh.
 set -euo pipefail
 cd /workspace
-dnf install -y ./dist/fedora/ihtd-0.2.0-1.fc44.x86_64.rpm
+version="$(sed -n 's/^version: \([^+]*\).*/\1/p' app/pubspec.yaml)"
+dnf install -y "./dist/fedora/ihtd-$version-1.fc44.x86_64.rpm"
 rpm -V ihtd
 for binary in /opt/ihtd/ihtd /opt/ihtd/lib/*.so; do
   dependencies="$(ldd "$binary")"
