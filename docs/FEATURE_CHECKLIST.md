@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-07 for version 0.2.0. Unchecked suggestions are not approved
+Updated 2026-10-08 for the Android first milestone. Unchecked suggestions are not approved
 requirements; clarify their behavior before implementing them.
 
 ## Remaining agreed work
@@ -11,8 +11,30 @@ requirements; clarify their behavior before implementing them.
   - [x] Pass 47 Rust tests, Flutter analysis, and Linux UI integration test.
   - [x] Build RPM/portable packages and verify installed release launch.
   - [ ] Verify on the laptop: file picker, Wayland/scaling, and rclone mount.
-- [ ] Android (later phase): phone interface, document picker/storage access,
-  and a tested APK using the shared model.
+- [ ] Android: Google Pixel 9 Pro running GrapheneOS is the first phone target.
+  - [ ] Confirm the phone's installed Android version (minimum API 35/Android 15).
+  - [x] Choose direct editing through Android's Storage Access Framework (SAF)
+    with private working copies and local recovery.
+  - [x] Build an ARM64 APK with the shared Rust model and bundled SQLite.
+  - [x] Verify native libraries and APK packaging support 16 KB page sizes.
+  - [x] Implement collection creation, reopening, save-copy and export on Android;
+    never pass a `content://` URI to Rust as a filesystem path.
+  - [ ] Verify those document actions through Files on the actual phone.
+  - [ ] Preserve pending edits and recovery copies across backgrounding, screen
+    lock and process restart; exercise failed saves and revoked file access.
+  - [ ] Adapt touch scrolling, dragging, keyboard/insets, back navigation and
+    narrow-screen editors, including large text and portrait/landscape.
+  - [x] Pass Flutter analysis, six document-adapter tests, five native provider
+    checks, 47 Rust tests and both host UI integration tests.
+  - [ ] Verify installation, launch and document round trips on the actual Pixel
+    with GrapheneOS default settings.
+  - [ ] Verify core operation without Google Play services or network access;
+    use scoped document grants rather than broad storage permissions.
+  - [ ] Define durable release signing and test an APK update preserving data.
+    Development-signed APKs must be clearly labelled as test builds.
+  - [x] Document installation, file transfer/backup and any remaining limitations.
+  - [ ] Follow up with automatic external-provider reload; the first milestone
+    reports external changes and requires reopening or saving a separate copy.
 - [ ] Design refinement after using the prototype, as originally planned.
   These are areas to review together, not a requirement to redesign everything.
   - [ ] Layout: sidebar/details-panel sizes, spacing, and information density.

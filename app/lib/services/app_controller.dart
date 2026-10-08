@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../src/rust/api/simple.dart' as api;
+import 'android_documents.dart';
 
 final appProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
@@ -26,6 +28,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   bool busy = false;
   bool _polling = false;
   bool _disposed = false;
+  final AndroidDocuments? _android = Platform.isAndroid
+      ? AndroidDocuments()
+      : null;
+  bool _providerPending = false;
+  String? _providerError;
+  String? get documentName =>
+      _android?.name ?? path?.replaceAll('\\', '/').split('/').last;
   String? error;
   String status = 'Open a collection to begin';
   String? path;
@@ -58,6 +67,19 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final dir = await getApplicationSupportDirectory();
       await _send({'op': 'initialize', 'recovery_dir': '${dir.path}/recovery'});
+      final previous = await _android?.initialize();
+      if (previous != null) {
+        await _send({'op': 'open', 'path': previous['path']});
+        await refreshRows();
+        try {
+          await _publishAndroid();
+        } catch (e) {
+          // Rust accepted and retained the edit. Keep the editor in sync with
+          // that revision while visibly reporting the provider save failure.
+          error = '$e';
+        }
+        notifyListeners();
+      }
     } catch (e) {
       error = '$e';
       notifyListeners();
@@ -86,7 +108,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         !_map(document?['items']).containsKey('$selectedItemId')) {
       selectedItemId = null;
     }
-    status = state['dirty'] == true
+    status = state['dirty'] == true || _providerPending
         ? 'Pending save — local recovery retained'
         : 'Saved to file';
   }
@@ -110,6 +132,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     try {
       final result = await _send(command);
+      if (!const {
+        'query',
+        'creation_defaults',
+        'snapshot',
+        'open',
+        'new',
+        'export',
+      }.contains(command['op'])) {
+        try {
+          await _publishAndroid();
+        } catch (e) {
+          // The private commit succeeded; provider failure must not leave the
+          // text editor holding a stale revision of its own accepted edit.
+          error = '$e';
+        }
+      }
       await refreshRows();
       return result;
     } catch (e) {
@@ -145,6 +183,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (_disposed || busy || _polling || document == null) return;
     _polling = true;
     try {
+      await _publishAndroid();
       final result = await _send({'op': 'poll'});
       if (result['reloaded'] == true) {
         await refreshRows();
@@ -165,6 +204,92 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) poll();
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      finishDraft().then((_) => poll());
+    }
+  }
+
+  Future<void> _publishAndroid() async {
+    if (_android?.binding == null) return;
+    final wasPending = _providerPending;
+    _providerPending = true;
+    status = 'Pending save — local recovery retained';
+    try {
+      await _android!.publish();
+    } catch (e) {
+      _providerError = '$e';
+      rethrow;
+    }
+    _providerPending = false;
+    status = 'Saved to selected file';
+    if (error == _providerError) error = null;
+    _providerError = null;
+    if (wasPending) notifyListeners();
+  }
+
+  Future<void> _androidFileAction(String action, [String? format]) async {
+    if (!await finishDraft()) return;
+    await ready;
+    while (busy || _polling) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    busy = true;
+    error = null;
+    notifyListeners();
+    final storage = _android!;
+    try {
+      if (action == 'open' || action == 'new') {
+        await storage.checkBeforeSwitch();
+      }
+      if (action == 'open') {
+        final selected = await storage.pick();
+        if (selected == null) return;
+        final staged = await storage.stage(selected);
+        await _send({'op': 'open', 'path': staged['path']});
+        await storage.remember(staged);
+        _providerPending = false;
+        status = 'Opened selected file';
+      } else {
+        final extension = format == 'markdown' ? 'md' : format ?? 'ihtd';
+        final selected = await storage.pick(suggested: 'Tasks.$extension');
+        if (selected == null) return;
+        if (action == 'new') {
+          final local = storage.freshPath();
+          final original = await storage.read(selected['uri'] as String);
+          if ((original['bytes'] as List).isNotEmpty) {
+            throw StateError(
+              'Choose a new file; the selected document already contains data.',
+            );
+          }
+          await _send({'op': 'new', 'path': local});
+          await storage.remember({
+            ...selected,
+            'path': local,
+            'hash': original['hash'],
+          });
+          await _publishAndroid();
+        } else if (action == 'copy') {
+          // Publishing a separate copy is also the escape route for conflicts.
+          await storage.copyTo(selected, path!);
+          final staged = await storage.stage(selected);
+          await _send({'op': 'open', 'path': staged['path']});
+          await storage.remember(staged);
+          _providerPending = false;
+          status = 'Saved to selected file';
+        } else {
+          final local = storage.freshPath(extension);
+          await _send({'op': 'export', 'format': format, 'path': local});
+          await storage.copyTo(selected, local);
+        }
+      }
+    } catch (e) {
+      error = '$e';
+    } finally {
+      await refreshRows();
+      busy = false;
+      notifyListeners();
+    }
   }
 
   void toggleExpand(String key) {
@@ -205,6 +330,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> openDocument() async {
+    if (_android != null) return _androidFileAction('open');
     if (!await finishDraft()) return;
     try {
       final file = await openFile(
@@ -233,6 +359,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> newDocument() async {
+    if (_android != null) return _androidFileAction('new');
     if (!await finishDraft()) return;
     try {
       final selected = await _savePath('My tasks.ihtd', 'ihtd');
@@ -244,6 +371,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> saveAs() async {
+    if (_android != null) return _androidFileAction('copy');
     if (!await finishDraft()) return;
     try {
       final selected = await _savePath('Tasks copy.ihtd', 'ihtd');
@@ -255,6 +383,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> exportDocument(String format) async {
+    if (_android != null) return _androidFileAction('export', format);
     if (!await finishDraft()) return;
     try {
       final extension = format == 'markdown' ? 'md' : format;

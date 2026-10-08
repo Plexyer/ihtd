@@ -32,9 +32,15 @@ class ItemDragSource extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = intValue(row['id']);
     final item = itemById(app, id);
+    // Swipes scroll on phones; holding an item starts a move.
+    final drag = switch (Theme.of(context).platform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS => LongPressDraggable<ItemPlacement>.new,
+      _ => Draggable<ItemPlacement>.new,
+    };
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
-      child: Draggable<ItemPlacement>(
+      child: drag(
         key: ValueKey('drag-${row['path']}'),
         data: ItemPlacement(
           '${app.document?['document_id']}',

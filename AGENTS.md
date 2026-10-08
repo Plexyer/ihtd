@@ -9,8 +9,9 @@ before changing behavior. Ask the user when product semantics are unclear.
   `crates/ihtd_core`, storage/application commands in `crates/ihtd_app`.
 - Flutter Rust Bridge 2.13.0; bridge toolchain Rust 1.93.1 is pinned in
   `app/rust/rust-toolchain.toml`. Keep generated bindings consistent with APIs.
-- Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android is a future
-  phase: scaffold exists, but document access and phone UX are not complete.
+- Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android development
+  targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
+  copies and local recovery; physical phone validation remains outstanding.
 - Items have unique IDs and shared placements in an acyclic graph. Dragging
   moves only the grabbed placement. Do not duplicate shared item state.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve

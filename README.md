@@ -71,12 +71,18 @@ Flutter analysis, and the Linux UI integration test passed in Fedora under WSL.
 The RPM was installed and its release launched as an ordinary Linux user.
 See [Fedora installation instructions](packaging/fedora/INSTALL.md). Physical
 laptop testing (including Wayland, scaling, and the rclone mount) remains. Android
-has a project scaffold and can reuse the Rust model and Flutter widgets; its
-document access and phone UX still need implementation and device testing.
+reuses the Rust model and Flutter widgets; its first phone milestone is described
+below and still needs physical device testing.
 
 See [build instructions](docs/building.md), [requirements](REQUIREMENTS.md),
 and [storage design](docs/document-storage.md).
 Track remaining work and undecided ideas in the [feature checklist](docs/FEATURE_CHECKLIST.md).
+
+Android development now targets **Google Pixel 9 Pro with GrapheneOS** first
+(ARM64, Android 15 or newer). The first milestone adds system document-picker
+access, private recovery copies, and touch/keyboard adaptations. See the
+[Android build and phone-test instructions](docs/building.md#android-pixel-9-pro--grapheneos).
+Physical phone validation and durable release signing are still pending.
 
 ## Source layout
 

@@ -23,6 +23,17 @@ class AppShell extends ConsumerWidget {
             child: Column(
               children: [
                 _FileBar(app: app, drawer: drawer),
+                if (constraints.maxWidth <= 540 && app.document != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      app.status,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
                 if (app.busy) const LinearProgressIndicator(minHeight: 2),
                 if (app.error != null)
                   Material(
@@ -64,19 +75,66 @@ class AppShell extends ConsumerWidget {
                                       context: context,
                                       isScrollControlled: true,
                                       useSafeArea: true,
-                                      showDragHandle: true,
+                                      isDismissible: false,
+                                      enableDrag: false,
                                       constraints: const BoxConstraints(
                                         maxWidth: 620,
                                       ),
-                                      builder: (context) => SizedBox(
-                                        height:
-                                            MediaQuery.sizeOf(context).height *
-                                            .88,
-                                        child: Consumer(
-                                          builder: (context, ref, child) =>
-                                              ItemEditor(
-                                                app: ref.watch(appProvider),
-                                              ),
+                                      builder: (context) => Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: MediaQuery.viewInsetsOf(
+                                            context,
+                                          ).bottom,
+                                        ),
+                                        child: PopScope(
+                                          canPop: false,
+                                          onPopInvokedWithResult:
+                                              (didPop, result) async {
+                                                if (!didPop &&
+                                                    await app.finishDraft() &&
+                                                    context.mounted) {
+                                                  Navigator.of(context).pop();
+                                                }
+                                              },
+                                          child: SizedBox(
+                                            height:
+                                                MediaQuery.sizeOf(context)
+                                                    .height *
+                                                .88,
+                                            child: Column(
+                                              children: [
+                                                Align(
+                                                  alignment:
+                                                      Alignment.centerRight,
+                                                  child: TextButton.icon(
+                                                    onPressed: () async {
+                                                      if (await app
+                                                              .finishDraft() &&
+                                                          context.mounted) {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      }
+                                                    },
+                                                    icon: const Icon(
+                                                      Icons.close,
+                                                    ),
+                                                    label: const Text('Done'),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: Consumer(
+                                                    builder:
+                                                        (context, ref, child) =>
+                                                            ItemEditor(
+                                                              app: ref.watch(
+                                                                appProvider,
+                                                              ),
+                                                            ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     );
@@ -109,7 +167,7 @@ class _FileBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = app.path?.replaceAll('\\', '/').split('/').last;
+    final name = app.documentName;
     return Container(
       height: 58,
       padding: EdgeInsets.only(left: drawer ? 4 : 20, right: 12),
@@ -380,7 +438,9 @@ class _TaskPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final view = asMap(asMap(app.document?['views'])['${app.selectedViewId}']);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+      padding: MediaQuery.sizeOf(context).width < 540
+          ? const EdgeInsets.fromLTRB(12, 16, 12, 12)
+          : const EdgeInsets.fromLTRB(28, 28, 28, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -515,7 +575,10 @@ class _TaskPane extends StatelessWidget {
                         row: row,
                         child: Padding(
                           padding: EdgeInsets.only(
-                            left: (depth * 22.0).clamp(0, 220),
+                            left: (depth * 22.0).clamp(
+                              0,
+                              MediaQuery.sizeOf(context).width < 540 ? 72 : 220,
+                            ),
                             bottom: 6,
                           ),
                           child: Material(
