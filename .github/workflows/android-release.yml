@@ -1,0 +1,68 @@
+name: Android test release
+on:
+  push:
+    branches: [codex/pixel-grapheneos-android]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned native tools
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
+          rustup target add aarch64-linux-android --toolchain 1.93.1
+          sdkmanager 'platforms;android-36' 'platforms;android-35' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+      - name: Build test APK
+        run: bash scripts/build-android.sh
+      - name: Test document saving
+        working-directory: app
+        run: |
+          flutter test test/android_documents_test.dart
+          cd android
+          ./gradlew :app:testDebugUnitTest -Ptarget-platform=android-arm64
+      - name: Verify and package
+        run: |
+          mkdir -p dist/android
+          cp app/build/app/outputs/flutter-apk/app-release.apk dist/android/IHTD-0.2.1-pixel-grapheneos-test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose dist/android/*.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 dist/android/*.apk
+          cp packaging/android/INSTALL.md dist/android/INSTALL.md
+          (cd dist/android && sha256sum *.apk > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IHTD-0.2.1-pixel-grapheneos-test
+          path: dist/android/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload draft prerelease
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=v0.2.1-android-test
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" --title 'IHTD 0.2.1 Pixel GrapheneOS test APK' --notes 'ARM64/API 35+ development-signed APK. This build may use a different development key from the installed app: export collections before uninstalling. Durable release signing and actual phone validation remain outstanding.' --repo "$GITHUB_REPOSITORY"
+          fi
+          gh release upload "$tag" dist/android/*.apk dist/android/SHA256SUMS dist/android/INSTALL.md --clobber --repo "$GITHUB_REPOSITORY"
