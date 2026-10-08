@@ -37,12 +37,19 @@ jobs:
         working-directory: app
         shell: pwsh
         run: |
-          flutter test test/android_documents_test.dart
-          if ($LASTEXITCODE -ne 0) { throw 'Storage adapter tests failed' }
-          flutter test integration_test/app_test.dart -d windows
-          if ($LASTEXITCODE -ne 0) { throw 'Desktop integration test failed' }
-          flutter test integration_test/phone_layout_test.dart -d windows
-          if ($LASTEXITCODE -ne 0) { throw 'Phone layout test failed' }
+          function Invoke-IhtdTest([string[]] $TestArguments, [string] $LogName) {
+            & flutter @TestArguments 2>&1 | Tee-Object -FilePath $LogName
+            $testExitCode = $LASTEXITCODE
+            if ($testExitCode -ne 0) {
+              $detail = (Get-Content $LogName -Tail 80) -join "`n"
+              $detail = $detail.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error title=Windows test failure::$detail"
+              throw "Flutter test failed: $LogName"
+            }
+          }
+          Invoke-IhtdTest -TestArguments @('test', 'test/android_documents_test.dart') -LogName 'adapter-test.log'
+          Invoke-IhtdTest -TestArguments @('test', 'integration_test/app_test.dart', '-d', 'windows') -LogName 'desktop-test.log'
+          Invoke-IhtdTest -TestArguments @('test', 'integration_test/phone_layout_test.dart', '-d', 'windows') -LogName 'phone-test.log'
       - name: Verify release launch and package
         shell: pwsh
         run: |
