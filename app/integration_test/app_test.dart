@@ -13,6 +13,13 @@ void main() {
   testWidgets('create through UI, shared completion, filters, and reopen', (
     tester,
   ) async {
+    // Exercise the desktop detail panel regardless of the runner's display/DPI.
+    tester.view.physicalSize = const Size(1360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     await app.main();
     await tester.pumpAndSettle();
     expect(find.text('Create collection'), findsOneWidget);
