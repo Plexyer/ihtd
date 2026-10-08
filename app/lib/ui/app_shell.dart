@@ -18,7 +18,11 @@ class AppShell extends ConsumerWidget {
         final wide = constraints.maxWidth >= 1100;
         final drawer = constraints.maxWidth < 780;
         return Scaffold(
-          drawer: drawer ? Drawer(child: _Sidebar(app: app)) : null,
+          drawer: drawer
+              ? Drawer(
+                  child: SafeArea(child: _Sidebar(app: app)),
+                )
+              : null,
           body: SafeArea(
             child: Column(
               children: [

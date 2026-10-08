@@ -17,10 +17,12 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 32, bottom: 24);
       addTearDown(() {
         debugDefaultTargetPlatformOverride = null;
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
+        tester.view.resetPadding();
       });
       await app.main();
       await tester.pumpAndSettle();
@@ -69,6 +71,12 @@ void main() {
       expect(controller.document!['revision'], revision);
       expect('${controller.document!['links']}', links);
       expect(tester.takeException(), isNull);
+      tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('MY COLLECTION')).dy,
+        greaterThanOrEqualTo(32),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       debugDefaultTargetPlatformOverride = null;
     },
