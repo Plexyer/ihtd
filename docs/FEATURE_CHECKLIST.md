@@ -5,6 +5,9 @@ requirements; clarify their behavior before implementing them.
 
 ## Remaining agreed work
 
+- [x] Allow moving a task/folder into its own descendant by promoting its direct
+  children to the dragged placement's former parent/top level, preserving their
+  subtrees and shared IDs. Verify ordering, completion and phone drag acceptance.
 - [ ] Fedora: build, test, and provide a runnable Linux package; verify on laptop.
   - [x] Prepare Fedora RPM and portable-bundle build definitions.
   - [x] Unblock the Linux build environment (Fedora 44 under updated WSL).

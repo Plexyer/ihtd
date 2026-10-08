@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-03. This records the implemented prototype and the user's
+Updated 2026-10-08. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Model
@@ -15,8 +15,14 @@ task completion settings; converting to a task starts unfinished.
 ## Moving items
 
 Drag-and-drop moves only the dragged parent relationship or root placement.
-Other parents and the item's subtree are preserved. Root and sibling order
-persist, and moving onto an existing placement coalesces the links. Moves are
+Other parents and the item's subtree are preserved for ordinary moves. When
+moving into a descendant, first detach all direct children and promote them to
+the grabbed placement's former parent (or top level), preserving their order
+and subtrees. Then attach the moved item under the destination. Children are
+shared state: this detaches them from every placement of the moved item, while
+preserving their other parent links. Existing promoted placements coalesce.
+Root and sibling order persist, and moving onto an existing placement coalesces
+the links. Moves are
 atomic, reject cycles, and recompute completion. Ordering is document-wide.
 
 ## Completion

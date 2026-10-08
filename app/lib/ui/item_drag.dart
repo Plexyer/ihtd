@@ -121,17 +121,6 @@ class ItemDropTarget extends StatelessWidget {
         source.id == before) {
       return false;
     }
-    final links = (app.document?['links'] as List? ?? []).map(asMap).toList();
-    final pending = [source.id];
-    final visited = <int>{};
-    while (pending.isNotEmpty) {
-      final id = pending.removeLast();
-      if (!visited.add(id)) continue;
-      if (id == parent) return false;
-      pending.addAll(
-        links.where((l) => l['parent'] == id).map((l) => intValue(l['child'])),
-      );
-    }
     return true;
   }
 

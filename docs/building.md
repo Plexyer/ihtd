@@ -72,6 +72,9 @@ covers UI creation, flushing title edits, dragging into a container, moving a
 shared placement to the top level, reordering, shared completion, tag defaults,
 and reopening a saved document. Rust tests cover domain rules and migration
 from the original .ihtd format.
+Descendant-move checks cover promotion to the former parent/top level, shared
+placements, sibling order, stale targets and completion. The phone integration
+test exercises a long-press drop into a nested descendant through the UI.
 
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match

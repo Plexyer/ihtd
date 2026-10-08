@@ -13,13 +13,15 @@ before changing behavior. Ask the user when product semantics are unclear.
   targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
   copies and local recovery; physical phone validation remains outstanding.
 - Items have unique IDs and shared placements in an acyclic graph. Dragging
-  moves only the grabbed placement. Do not duplicate shared item state.
+  moves only the grabbed placement. Descendant moves first promote direct
+  children to its former parent/root; children are shared across placements.
+  Do not duplicate shared item state.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
 
 ## Verification
 
-- Core/storage: `cargo test --workspace --locked` (47 tests at this baseline).
+- Core/storage: `cargo test --workspace --locked` (51 tests at this baseline).
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.
 - Linux UI: `GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test integration_test/app_test.dart -d linux`.

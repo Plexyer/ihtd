@@ -58,7 +58,7 @@ mod move_tests {
     }
 
     #[test]
-    fn moves_reorder_and_reject_cycles_or_stale_sources_atomically() {
+    fn moves_reorder_and_reject_self_or_stale_sources_atomically() {
         let mut doc = Document::new("moves".into());
         let a = doc.add_item(ItemKind::Folder, "A".into(), None).unwrap();
         let b = doc.add_item(ItemKind::Task, "B".into(), Some(a)).unwrap();
@@ -73,10 +73,148 @@ mod move_tests {
             [c, b]
         );
         let saved = doc.clone();
-        assert!(doc.move_item(a, None, Some(b), None).is_err());
+        assert!(doc.move_item(a, None, Some(a), None).is_err());
         assert!(doc.move_item(b, None, None, None).is_err());
         assert!(doc.move_item(c, Some(a), Some(a), Some(c)).is_err());
         assert_eq!(doc, saved);
+    }
+
+    #[test]
+    fn moving_root_into_deep_descendant_promotes_children_in_place() {
+        let mut doc = Document::new("moves".into());
+        let first = doc.add_item(ItemKind::Task, "First".into(), None).unwrap();
+        let moved = doc.add_item(ItemKind::Task, "Moved".into(), None).unwrap();
+        let last = doc.add_item(ItemKind::Task, "Last".into(), None).unwrap();
+        let branch = doc
+            .add_item(ItemKind::Folder, "Branch".into(), Some(moved))
+            .unwrap();
+        let sibling = doc
+            .add_item(ItemKind::Task, "Sibling".into(), Some(moved))
+            .unwrap();
+        let target = doc
+            .add_item(ItemKind::Task, "Target".into(), Some(branch))
+            .unwrap();
+        doc.move_item(moved, None, Some(target), None).unwrap();
+        assert_eq!(doc.roots(), [first, branch, sibling, last]);
+        assert_eq!(
+            doc.links,
+            [
+                Link {
+                    parent: branch,
+                    child: target
+                },
+                Link {
+                    parent: target,
+                    child: moved
+                }
+            ]
+        );
+        doc.validate().unwrap();
+    }
+
+    #[test]
+    fn descendant_move_promotes_to_former_parent_and_keeps_shared_placements() {
+        let mut doc = Document::new("moves".into());
+        let parent = doc
+            .add_item(ItemKind::Folder, "Parent".into(), None)
+            .unwrap();
+        let other = doc
+            .add_item(ItemKind::Folder, "Other".into(), None)
+            .unwrap();
+        let first = doc
+            .add_item(ItemKind::Task, "First".into(), Some(parent))
+            .unwrap();
+        let moved = doc
+            .add_item(ItemKind::Task, "Moved".into(), Some(parent))
+            .unwrap();
+        let last = doc
+            .add_item(ItemKind::Task, "Last".into(), Some(parent))
+            .unwrap();
+        let target = doc
+            .add_item(ItemKind::Folder, "Target".into(), Some(moved))
+            .unwrap();
+        let sibling = doc
+            .add_item(ItemKind::Task, "Sibling".into(), Some(moved))
+            .unwrap();
+        let nested = doc
+            .add_item(ItemKind::Task, "Nested".into(), Some(sibling))
+            .unwrap();
+        doc.link(other, moved).unwrap();
+        doc.link(other, sibling).unwrap();
+        doc.link(parent, target).unwrap();
+        doc.move_item(moved, Some(parent), Some(target), None)
+            .unwrap();
+        let children: Vec<_> = doc
+            .links
+            .iter()
+            .filter(|l| l.parent == parent)
+            .map(|l| l.child)
+            .collect();
+        assert_eq!(children, [first, target, sibling, last]);
+        assert!(doc.links.contains(&Link {
+            parent: other,
+            child: moved
+        }));
+        assert!(doc.links.contains(&Link {
+            parent: other,
+            child: sibling
+        }));
+        assert!(doc.links.contains(&Link {
+            parent: sibling,
+            child: nested
+        }));
+        assert!(doc.links.contains(&Link {
+            parent: target,
+            child: moved
+        }));
+        assert!(!doc.links.iter().any(|l| l.parent == moved));
+        assert_eq!(doc.items.len(), 8);
+        doc.validate().unwrap();
+    }
+
+    #[test]
+    fn descendant_move_rejects_stale_target_without_promoting_children() {
+        let mut doc = Document::new("moves".into());
+        let moved = doc.add_item(ItemKind::Task, "Moved".into(), None).unwrap();
+        let target = doc
+            .add_item(ItemKind::Folder, "Target".into(), Some(moved))
+            .unwrap();
+        let sibling = doc
+            .add_item(ItemKind::Task, "Sibling".into(), Some(moved))
+            .unwrap();
+        let saved = doc.clone();
+        assert!(doc
+            .move_item(moved, None, Some(target), Some(sibling))
+            .is_err());
+        assert_eq!(doc, saved);
+    }
+
+    #[test]
+    fn descendant_move_recomputes_completion_and_supports_target_ordering() {
+        let mut doc = Document::new("moves".into());
+        let moved = doc.add_item(ItemKind::Task, "Moved".into(), None).unwrap();
+        let target = doc
+            .add_item(ItemKind::Task, "Auto".into(), Some(moved))
+            .unwrap();
+        let done = doc
+            .add_item(ItemKind::Task, "Done".into(), Some(target))
+            .unwrap();
+        doc.set_completed(done, true, false).unwrap();
+        doc.set_auto_complete(target, true).unwrap();
+        assert!(doc.items[&target].completed);
+        doc.move_item(moved, None, Some(target), Some(done))
+            .unwrap();
+        assert_eq!(doc.roots(), [target]);
+        assert_eq!(
+            doc.links
+                .iter()
+                .filter(|l| l.parent == target)
+                .map(|l| l.child)
+                .collect::<Vec<_>>(),
+            [moved, done]
+        );
+        assert!(!doc.items[&target].completed);
+        doc.validate().unwrap();
     }
 
     #[test]
@@ -305,6 +443,7 @@ impl Document {
             if destination == Some(id) || before == Some(id) {
                 return Err("Cannot move an item onto itself".into());
             }
+            let mut promote_children = false;
             if let Some(parent) = destination {
                 document.item(parent)?;
                 if document
@@ -313,7 +452,7 @@ impl Document {
                     .map_err(|e| e.to_string())?
                     .contains(&item_id(parent)?)
                 {
-                    return Err("Cannot move an item into one of its descendants".into());
+                    promote_children = true;
                 }
             }
             if let Some(sibling) = before {
@@ -326,6 +465,40 @@ impl Document {
                 };
                 if !exists {
                     return Err("The target position no longer exists".into());
+                }
+            }
+            if promote_children {
+                // Break the descendant path before attaching the dragged item.
+                // Children belong to the shared identity, so detach them once
+                // and promote them into the grabbed placement's former parent.
+                let children: Vec<_> = document
+                    .links
+                    .iter()
+                    .filter(|l| l.parent == id)
+                    .map(|l| l.child)
+                    .collect();
+                document.links.retain(|l| l.parent != id);
+                if let Some(parent) = source {
+                    document
+                        .links
+                        .retain(|l| !(l.parent == parent && children.contains(&l.child)));
+                    let index = document
+                        .links
+                        .iter()
+                        .position(|l| l.parent == parent && l.child == id)
+                        .unwrap();
+                    for (offset, &child) in children.iter().enumerate() {
+                        document
+                            .links
+                            .insert(index + offset, Link { parent, child });
+                    }
+                } else {
+                    roots.retain(|root| !children.contains(root));
+                    let index = roots.iter().position(|&root| root == id).unwrap();
+                    roots.splice(index..index, children.iter().copied());
+                }
+                for child in children {
+                    document.reveal_new_tasks(child)?;
                 }
             }
             if let Some(parent) = source {

@@ -71,6 +71,42 @@ void main() {
       expect(controller.document!['revision'], revision);
       expect('${controller.document!['links']}', links);
       expect(tester.takeException(), isNull);
+      // Exercise the phone gesture and drop acceptance, not just the command.
+      await controller.dispatch({
+        'op': 'new',
+        'path': '${directory.path}/descendant.ihtd',
+      });
+      Future<int> add(String title, String kind, [int? parent]) async {
+        final result = await controller.dispatch({
+          'op': 'add_item',
+          'kind': kind,
+          'title': title,
+          'parent_id': parent,
+          'view_id': 1,
+        });
+        return result!['id'] as int;
+      }
+
+      final moved = await add('test2', 'task');
+      final branch = await add('test', 'folder', moved);
+      final target = await add('Destination', 'task', branch);
+      await tester.pumpAndSettle();
+      final start = tester.getCenter(find.byKey(ValueKey('drag-$moved')));
+      final end = tester.getCenter(
+        find.byKey(ValueKey('into-$moved/$branch/$target')),
+      );
+      final gesture = await tester.startGesture(start);
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveTo(end);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.error, isNull);
+      expect(controller.document!['root_order'], [branch]);
+      expect(controller.document!['links'], [
+        {'parent': branch, 'child': target},
+        {'parent': target, 'child': moved},
+      ]);
       tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
       await tester.pumpAndSettle();
       expect(
