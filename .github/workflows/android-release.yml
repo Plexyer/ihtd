@@ -28,6 +28,10 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install pinned native tools
         run: |
           rustup toolchain install 1.93.1 --profile minimal
