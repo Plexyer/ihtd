@@ -5,9 +5,9 @@ try {
     cargo test --workspace --locked
     if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
     Set-Location (Join-Path $projectRoot 'app')
-    flutter pub get
+    flutter pub get --enforce-lockfile
     if ($LASTEXITCODE -ne 0) { throw 'Dependency resolution failed' }
-    flutter analyze lib integration_test/app_test.dart
+    flutter analyze lib test integration_test
     if ($LASTEXITCODE -ne 0) { throw 'Static analysis failed' }
     flutter build windows --release
     if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }

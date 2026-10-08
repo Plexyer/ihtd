@@ -1,0 +1,80 @@
+name: Windows release
+on:
+  push:
+    branches: [codex/windows-release-0.2.1]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Install pinned Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          if ($LASTEXITCODE -ne 0) { throw 'Rust installation failed' }
+          rustup default 1.93.1
+          if ($LASTEXITCODE -ne 0) { throw 'Rust selection failed' }
+      - name: Test and build
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Exercise desktop and phone layout
+        working-directory: app
+        shell: pwsh
+        run: |
+          flutter test test/android_documents_test.dart
+          if ($LASTEXITCODE -ne 0) { throw 'Storage adapter tests failed' }
+          flutter test integration_test/app_test.dart -d windows
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop integration test failed' }
+          flutter test integration_test/phone_layout_test.dart -d windows
+          if ($LASTEXITCODE -ne 0) { throw 'Phone layout test failed' }
+      - name: Verify release launch and package
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $PWD 'app/build/windows/x64/runner/Release'
+          $process = Start-Process (Join-Path $bundle 'ihtd.exe') -WorkingDirectory $bundle -PassThru
+          try {
+            Start-Sleep -Seconds 15
+            if ($process.HasExited) { throw 'Release exited before smoke check completed' }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id }
+          }
+          ./scripts/package-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IHTD-0.2.1-windows-x64
+          path: |
+            dist/windows/*.zip
+            dist/windows/SHA256SUMS
+            dist/windows/INSTALL.md
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload draft prerelease
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'v0.2.1-windows'
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --draft --prerelease --target $env:GITHUB_SHA --title 'IHTD 0.2.1 Windows test release' --notes 'Windows x64 portable package. Includes shared descendant moves. Review the attached checksums and installation guide before publication.' --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
+          }
+          gh release upload $tag dist/windows/IHTD-0.2.1-windows-x64.zip dist/windows/SHA256SUMS dist/windows/INSTALL.md --clobber --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
