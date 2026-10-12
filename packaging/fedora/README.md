@@ -1,5 +1,9 @@
 # Fedora 44 x86-64 packaging
 
+The 0.2.1 branch rebuilds the shared Android/desktop changes in a disposable
+Fedora 44 container. The historical verification below describes 0.2.0.
+Current build results are recorded in `docs/release-0.2.1.md`.
+
 Built and validated on 2026-10-07 in Fedora 44 under WSL 3.0.1.
 Artifacts are in `dist/fedora`; see [installation instructions](INSTALL.md).
 All 47 Rust tests, Flutter analysis, and Linux UI integration test passed.
@@ -29,7 +33,7 @@ the resulting RPM and portable bundle do not require Flutter or Rust to run.
 After a successful build, on the Fedora laptop:
 
 ```
-sudo dnf install ./ihtd-0.2.0-1.fc44.x86_64.rpm
+sudo dnf install ./ihtd-0.2.1-1.fc44.x86_64.rpm
 ```
 
 Launch IHTD from the application menu, then open the existing .ihtd document

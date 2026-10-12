@@ -1,5 +1,7 @@
 plugins {
     id("com.android.application")
+    // This project opts out of AGP's built-in Kotlin in gradle.properties.
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -15,11 +17,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "dev.ihtd.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // The pinned Rust native-assets toolchain links against Android API 35.
+        // Pixel 9 Pro / GrapheneOS is our first supported Android target.
+        minSdk = 35
+        // Exclude transitive JNI libraries for unsupported phone architectures.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -46,4 +53,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
 }

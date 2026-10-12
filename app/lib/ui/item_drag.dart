@@ -32,9 +32,15 @@ class ItemDragSource extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = intValue(row['id']);
     final item = itemById(app, id);
+    // Swipes scroll on phones; holding an item starts a move.
+    final drag = switch (Theme.of(context).platform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS => LongPressDraggable<ItemPlacement>.new,
+      _ => Draggable<ItemPlacement>.new,
+    };
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
-      child: Draggable<ItemPlacement>(
+      child: drag(
         key: ValueKey('drag-${row['path']}'),
         data: ItemPlacement(
           '${app.document?['document_id']}',
@@ -114,17 +120,6 @@ class ItemDropTarget extends StatelessWidget {
         source.id == parent ||
         source.id == before) {
       return false;
-    }
-    final links = (app.document?['links'] as List? ?? []).map(asMap).toList();
-    final pending = [source.id];
-    final visited = <int>{};
-    while (pending.isNotEmpty) {
-      final id = pending.removeLast();
-      if (!visited.add(id)) continue;
-      if (id == parent) return false;
-      pending.addAll(
-        links.where((l) => l['parent'] == id).map((l) => intValue(l['child'])),
-      );
     }
     return true;
   }

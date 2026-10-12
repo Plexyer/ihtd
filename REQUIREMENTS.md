@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-03. This records the implemented prototype and the user's
+Updated 2026-10-08. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Model
@@ -15,8 +15,14 @@ task completion settings; converting to a task starts unfinished.
 ## Moving items
 
 Drag-and-drop moves only the dragged parent relationship or root placement.
-Other parents and the item's subtree are preserved. Root and sibling order
-persist, and moving onto an existing placement coalesces the links. Moves are
+Other parents and the item's subtree are preserved for ordinary moves. When
+moving into a descendant, first detach all direct children and promote them to
+the grabbed placement's former parent (or top level), preserving their order
+and subtrees. Then attach the moved item under the destination. Children are
+shared state: this detaches them from every placement of the moved item, while
+preserving their other parent links. Existing promoted placements coalesce.
+Root and sibling order persist, and moving onto an existing placement coalesces
+the links. Moves are
 atomic, reject cycles, and recompute completion. Ordering is document-wide.
 
 ## Completion
@@ -80,4 +86,31 @@ Windows 11 and Fedora desktop first. Flutter/Dart with Riverpod is shared
 across desktop and future Android. Rust implements the domain and file
 operations, connected by flutter_rust_bridge. SQLite is bundled through
 rusqlite. Android packaging, document-provider integration, and phone testing
-remain a later phase.
+are now being developed first for a Google Pixel 9 Pro running GrapheneOS.
+
+## Android first milestone
+
+Target ARM64 and Android 15/API 35 or newer, matching the pinned Rust native
+toolchain. Confirm the installed Android version during physical phone testing.
+Core operation must not depend on Google Play services or a network connection.
+Use GrapheneOS default security settings; do not require broad storage access.
+
+The user chose direct document access through Android's Storage Access Framework
+with private local recovery. Create/open uses the system document picker and
+retains access to the selected URI. Rust works only on private filesystem copies.
+After a local commit, compare the provider content with the previously read
+content, publish the complete document, and verify the bytes by reading back.
+Show failed/conflicting saves and keep local edits available for Retry or Save
+a copy. Save-copy switches to the newly saved collection, as on desktop.
+Reopen the retained working collection after process restart.
+
+Provider writes are not guaranteed atomic, and the comparison cannot prevent a
+second device writing between the check and publication. Continue using one
+editing device at a time. The first Android milestone reports external changes
+and requires reopening when there are no pending local changes, or saving a
+separate copy first when there are conflicts. Automatic provider reload is a
+follow-up. A provider-confirmed save is not a guarantee of cloud synchronization.
+
+On phones, swipe to scroll and long-press to move a placement. Keep save feedback
+visible at narrow widths and accommodate the on-screen keyboard in item details.
+Physical Pixel/GrapheneOS validation is required before calling Android supported.

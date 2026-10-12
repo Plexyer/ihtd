@@ -72,17 +72,69 @@ covers UI creation, flushing title edits, dragging into a container, moving a
 shared placement to the top level, reordering, shared completion, tag defaults,
 and reopening a saved document. Rust tests cover domain rules and migration
 from the original .ihtd format.
+Descendant-move checks cover promotion to the former parent/top level, shared
+placements, sibling order, stale targets and completion. The phone integration
+test exercises a long-press drop into a nested descendant through the UI.
 
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match
 the Rust and Dart bridge packages.
 
-## Android follow-up
+## Android: Pixel 9 Pro / GrapheneOS
 
-The Android runner is scaffolded and the shared Rust core is platform-neutral.
-Android still needs Storage Access Framework document-provider handling,
-phone-specific interaction work, and device testing. Desktop filesystem paths
-must not be treated as Android content URIs. No Android APK is delivered yet.
+The first target is ARM64, Android 15 (API 35) or newer. Use the same Flutter and
+Rust versions above, JDK 21, Android platform 36, build-tools 36.0.0 and NDK
+28.2.13676358. Install the `aarch64-linux-android` Rust target. Set `ANDROID_HOME`
+to your SDK directory and ensure Java is on PATH. Then run:
+
+```sh
+bash scripts/build-android.sh
+```
+
+The output is `app/build/app/outputs/flutter-apk/app-release.apk`. The current
+scaffold uses a development signing key even in release mode: this is a test
+APK, not a production release. Do not put keystores or passwords in Git. Durable
+release signing and update verification remain checklist items.
+
+The Android UI opens/creates files through the system document picker. Private
+working copies and the current document binding survive ordinary process
+restart. Changes are checked against provider content before saving and verified
+afterward. On a save conflict, use **Save a copy as** to preserve edits and then
+reopen the desired document. External changes are reported rather than silently
+overwritten; automatic provider reload is not part of this first milestone.
+Export important documents before uninstalling or clearing application data.
+
+Android provider checks live in `DocumentWriterTest` (run `:app:testDebugUnitTest`
+from `app/android` with Gradle). Flutter storage-adapter tests run with
+`flutter test test/android_documents_test.dart` from `app`.
+The narrow-screen interaction check is `integration_test/phone_layout_test.dart`;
+it can run on the Linux host with `-d linux`, but does not exercise Android's
+document providers. In the restricted cloud workspace, after an APK build,
+the JVM checks can skip `:app:compileFlutterBuildDebug` with Gradle's `-x` option
+to avoid launching Flutter outside its writable-home wrapper.
+
+To try the test APK, transfer it to the Pixel and open it in Files. Allow APK
+installation for that source when Android prompts, then open IHTD. Start with a
+new test collection in local Files, and import a copy of any important desktop
+collection. Keep GrapheneOS protections enabled; neither Google Play services nor
+network access is required by the core app. Keep exported copies outside IHTD's
+private storage for backup. This development key is local to the build workspace;
+do not assume a later build from another workspace can update this installation.
+
+Cloud verification on 2026-10-08 passed 47 Rust tests, six Flutter document-adapter
+tests, five Kotlin document-writer tests, Flutter analysis, and the existing
+desktop and new narrow-screen integration tests on Linux. APK checks verify the
+development signature, API 35 minimum, absence of internet/broad-storage
+permissions, and 16 KB ZIP/native-library alignment. These are build and host
+checks; physical Pixel/GrapheneOS validation is still outstanding.
+
+On the actual Pixel, verify installation with default GrapheneOS protections,
+creation/opening/export through Files, text edits and keyboard layout, touch
+scrolling/long-press moves, lock/unlock and process restart, revoked document
+access, external changes, and operation without Play services or network access.
+Only providers installed on the phone can appear in its picker. Test local Files
+first, then any chosen sync provider. Physical device checks cannot be replaced
+by a successful APK build or desktop integration test.
 
 ## Build on this development machine
 
