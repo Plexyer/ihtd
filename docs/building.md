@@ -13,11 +13,16 @@ From the repository root run:
 
 ```powershell
 ./scripts/build-windows.ps1
+./scripts/package-windows.ps1
 ```
 
 The result is `app/build/windows/x64/runner/Release/ihtd.exe`. Distribute the
 whole Release directory, including its data directory and DLLs. On a machine
 without the C++ runtime, install Microsoft's x64 Visual C++ Redistributable.
+Packaging creates `dist/windows/IHTD-0.2.1-windows-x64.zip`, installation
+instructions and `SHA256SUMS`. The Windows release workflow runs the build,
+storage tests, both UI integration tests and a release-launch check on a native
+Windows 2022 runner, then uploads artifacts and a draft prerelease.
 See [Flutter's Windows packaging guidance](https://docs.flutter.dev/platform-integration/windows/building).
 
 ## Fedora x64
