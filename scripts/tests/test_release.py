@@ -15,6 +15,17 @@ def module(name):
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_production_rejects_wrong_certificate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / 'android-package'
+            directory.mkdir()
+            (directory / 'SIGNING-CERTIFICATE.sha256').write_text('a' * 64)
+            with self.assertRaises(ValueError):
+                module('assemble-release').assemble(root, root / 'out', '0.2.1',
+                                                   production=True, certificate='b' * 64)
+            self.assertFalse((root / 'out').exists())
+
     def test_all_platforms_assemble_without_name_collisions(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

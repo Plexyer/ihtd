@@ -1,6 +1,10 @@
 name: Android build
 on:
   workflow_call:
+    inputs:
+      production:
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -10,6 +14,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: Validate version
@@ -51,6 +57,48 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 dist/android/*.apk
           sed 's/@VERSION@/${{ steps.version.outputs.version }}/g' packaging/android/INSTALL.md > dist/android/INSTALL.md
           (cd dist/android && sha256sum *.apk > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.production && 'android-signing-candidate' || 'android-package' }}
+          path: dist/android/
+          if-no-files-found: error
+          retention-days: 14
+  sign:
+    if: inputs.production && startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: android-release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: 'build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-signing-candidate
+          path: candidate
+      - name: Sign and verify production APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          APP_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          python3 scripts/android-signing.py sign \
+            --apk "candidate/IHTD-$APP_VERSION-android-arm64-test.apk" \
+            --output "dist/android/IHTD-$APP_VERSION-android-arm64.apk" \
+            --apksigner "$ANDROID_HOME/build-tools/36.0.0/apksigner" \
+            --zipalign "$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          cp packaging/android/release-certificate.sha256 dist/android/SIGNING-CERTIFICATE.sha256
+          sed "s/@VERSION@/$APP_VERSION/g" packaging/android/INSTALL-release.md > dist/android/INSTALL.md
+          (cd dist/android && sha256sum *.apk SIGNING-CERTIFICATE.sha256 > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: android-package

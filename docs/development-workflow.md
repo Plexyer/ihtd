@@ -46,9 +46,11 @@ prerelease** with generated notes and all packages. A failed build creates no
 release. An upload failure can leave a partial draft; inspect and remove only
 that failed draft before rerunning. Existing releases are never overwritten.
 
-Review all files and notes before publishing. Permanent Android signing and
-physical-device validation are still required before stable public distribution.
-The development APK may not update previously installed APKs. Checksums detect
+Review all files and notes before publishing. Android tag builds require the
+protected signing environment and pinned release certificate described in
+[Android signing](android-signing.md). Owner backups, secret activation and
+physical-device update validation are required before stable public distribution.
+The first permanent-key APK cannot update old development-key APKs. Checksums detect
 corruption but do not replace publisher signatures. The repository is private:
 downloads require repository access until public distribution is configured.
 

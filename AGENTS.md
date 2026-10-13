@@ -18,6 +18,10 @@ before changing behavior. Ask the user when product semantics are unclear.
   Do not duplicate shared item state.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
+- Android release identity is pinned in `packaging/android/release-certificate.sha256`.
+  Follow `docs/android-signing.md`; never regenerate/replace the key casually or
+  commit private signing files. The owner-approved key is stored privately outside
+  Git pending owner home backups and protected GitHub environment activation.
 
 ## Verification
 
