@@ -1,5 +1,8 @@
 # Permanent Android signing
 
+For the repository owner's step-by-step home-computer checklist, see
+[`android-signing-home-setup.md`](android-signing-home-setup.md).
+
 The permanent key identifies every public IHTD Android installation. Android
 accepts an update only from that identity (or a deliberately configured signing
 lineage). Never generate a replacement casually. The existing v0.2.1 APKs use
