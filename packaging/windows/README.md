@@ -18,7 +18,7 @@ $env:IHTD_ISCC = Join-Path $env:LOCALAPPDATA 'IHTD-BuildTools\InnoSetup-6.4.3\IS
 ```
 
 The compiler download is pinned by SHA-256 and its Authenticode signature must
-be valid. An existing Inno Setup 6 compiler can instead be selected with
+be valid. An existing Inno Setup 6.4.3 or later 6.x compiler can be selected with
 `-CompilerPath` on the packaging script. Microsoft redistributable CRT DLLs
 come from the installed Visual Studio `VC/Redist/MSVC` x64 directory and are
 bundled app-locally. Use a properly licensed Visual Studio installation and
@@ -83,6 +83,13 @@ document-schema migration. The UI integration test separately proves that a
 startup path containing spaces and Japanese characters loads the correct
 collection. Physical Windows 11 Explorer/default-app and interactive wizard
 checks remain necessary before declaring the installer ready for public use.
+
+Native verification passed on 2026-10-13 in
+[Windows run 38405384372](https://github.com/Plexyer/ihtd/actions/runs/38405384372).
+Both UI scenarios, installer compilation, every installer check above and
+artifact upload passed. Its `windows-package` artifact contains the setup EXE,
+portable ZIP, rendered installation guide and two-package checksums; retention
+is 14 days. This is a task-branch test build, not a new published version.
 
 For a physical Windows 11 test, use backed-up sample collections: install,
 choose shortcuts, set IHTD as the default if desired, open a collection through
