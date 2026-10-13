@@ -104,10 +104,13 @@ to your SDK directory and ensure Java is on PATH. Then run:
 bash scripts/build-android.sh
 ```
 
-The output is `app/build/app/outputs/flutter-apk/app-release.apk`. The current
-scaffold uses a development signing key even in release mode: this is a test
-APK, not a production release. Do not put keystores or passwords in Git. Durable
-release signing and update verification remain checklist items.
+The output is `app/build/app/outputs/flutter-apk/app-release.apk`, a development
+test/candidate APK. Tagged releases re-sign that candidate in the protected
+`android-release` environment and verify the pinned public certificate before
+uploading the final APK. See [permanent signing](android-signing.md) for owner
+backups, GitHub secret setup and local signing. Do not put private keys/passwords
+in Git. Secrets activation, owner backup and physical update testing remain
+required before declaring durable signing complete.
 
 The Android UI opens/creates files through the system document picker. Private
 working copies and the current document binding survive ordinary process
