@@ -56,7 +56,9 @@ function Assert-Installed([string] $ExpectedVersion) {
 }
 function Assert-Launch([string] $Executable, [string[]] $Options = @()) {
     # Launch from a different directory, as Explorer does for a document.
-    $process = Start-Process $Executable -ArgumentList $Options -WorkingDirectory $work -PassThru
+    $launch = @{ FilePath = $Executable; WorkingDirectory = $work; PassThru = $true }
+    if ($Options.Count -gt 0) { $launch.ArgumentList = $Options }
+    $process = Start-Process @launch
     try {
         Start-Sleep -Seconds 10
         $process.Refresh()
