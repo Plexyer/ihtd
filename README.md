@@ -72,8 +72,10 @@ The existing 0.2.0 downloads do not include these changes. Build results and
 pull-request preparation are recorded in [release preparation](docs/release-0.2.1.md).
 Future work follows the [development and release policy](docs/development-workflow.md):
 task branches integrate into development, and one version tag builds all platforms
-into a combined draft GitHub Release. Pull requests and branch builds provide
-Actions artifacts. Production signing remains a prerequisite for stable releases.
+into a combined draft GitHub Release. Master PRs provide Actions artifacts;
+development PRs run faster checks, and ordinary
+merges trigger no duplicate build. Production signing remains a prerequisite for
+stable releases.
 
 Windows x64 was built and exercised on this computer. Rust domain/storage tests
 and a real Windows Flutter integration test passed. Fedora 44 x86-64 packages

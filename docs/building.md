@@ -3,8 +3,10 @@
 See [development and releases](development-workflow.md) for branch policy,
 version validation, reusable platform CI, and the coordinated draft release.
 `app/pubspec.yaml` controls package versions; installation files in packaging/
-are templates rendered when packaging. CI artifacts are available after PR and
-branch builds; only matching version tags create a combined draft prerelease.
+are templates rendered when packaging. Full CI artifacts are available for PRs
+into master and manual runs; development PRs run faster tests. Ordinary branch
+pushes/merges trigger no duplicate build. Matching version tags create a
+combined draft prerelease. Testing artifacts are retained for 14 days.
 
 The tested Windows build uses Flutter 3.47.5 (Dart 3.13.4), Rust 1.93.1 for
 the bridge, and flutter_rust_bridge 2.13.0. The root Rust tests also passed with
