@@ -115,9 +115,18 @@ and verification.
     Pro/GrapheneOS target and verify its signature and 16 KB alignment.
   - [ ] Windows: add an Inno Setup `.exe` installer while retaining the complete
     portable `.zip` bundle.
+    - [x] Implement per-user setup, shared-version packaging and EXE/ZIP release
+      assembly with checksums; include app-local redistributable runtime DLLs.
+    - [ ] Pass the native Windows installer verification workflow.
+    - [ ] Verify the interactive wizard and Explorer/default-app behavior on
+      an actual Windows 11 PC before stable publication.
   - [ ] Windows: make the installer support upgrades, clean uninstall, Start
     Menu integration, optional desktop shortcut, preserved user data, and
     `.ihtd` file association.
+    - [x] Implement stable upgrade identity, recorded-file uninstall, shortcuts,
+      optional Open-with registration and startup document loading.
+    - [ ] Verify upgrade/removal and real collection/recovery preservation on
+      the native Windows runner; physical Windows 11 validation also remains.
   - [ ] Windows: add trusted code signing before automatically executing a
     downloaded installer; consider MSIX later only for Store/enterprise needs.
   - [ ] Fedora: retain the installable `.rpm` and optional portable `.tar.gz`,

@@ -1,13 +1,26 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ui/app_shell.dart';
 import 'src/rust/frb_generated.dart';
+import 'services/app_controller.dart';
 
-Future<void> main() async {
+Future<void> main([List<String> arguments = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  runApp(const ProviderScope(child: IhtdApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        if (!Platform.isAndroid && arguments.isNotEmpty)
+          appProvider.overrideWith(
+            (ref) => AppController(initialDocumentPath: arguments.first),
+          ),
+      ],
+      child: const IhtdApp(),
+    ),
+  );
 }
 
 class IhtdApp extends StatelessWidget {

@@ -41,6 +41,9 @@ tag on the chosen master commit and push it. The tag must match pubspec and its
 commit must be reachable from master. Do not move or reuse a distributed tag.
 The coordinator waits for all platforms, verifies expected filenames and each
 checksum, and stages unique installation guides and one combined SHA256SUMS.
+Windows contributes both the setup EXE and the complete portable ZIP. The
+Windows workflow also supports a manual single-platform build on a task branch
+for testing installer changes without waiting on other platforms.
 Only its final job has release-write permission. It creates one **draft
 prerelease** with generated notes and all packages. A failed build creates no
 release. An upload failure can leave a partial draft; inspect and remove only
