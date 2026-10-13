@@ -1,10 +1,9 @@
 name: Release validation
 on:
   push:
-    branches: [master, development]
     tags: ['v*']
   pull_request:
-    branches: [master, development]
+    branches: [master]
   workflow_dispatch:
 permissions:
   contents: read
