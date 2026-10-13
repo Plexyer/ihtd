@@ -1,7 +1,9 @@
 # Feature checklist
 
-Updated 2026-10-08 for the Android first milestone. Unchecked suggestions are not approved
-requirements; clarify their behavior before implementing them.
+Updated 2026-10-13 for the Android first milestone and agreed release/update
+workflow. Unchecked suggestions are not approved requirements unless they are
+listed under "Agreed release and update work"; clarify their behavior before
+implementing them.
 
 ## Remaining agreed work
 
@@ -54,6 +56,83 @@ requirements; clarify their behavior before implementing them.
     later, phones.
 - [ ] Version/change history (later idea): decide how to inspect and restore
   earlier changes before implementing it.
+
+## Agreed release and update work
+
+Work through this section in dependency order. Do not offer automatic updates
+until the corresponding packages have stable identities, signing, versioning,
+and verification.
+
+- [ ] Establish the shared development and release foundation.
+  - [ ] Use `master` only for reviewed, releasable code and protect it from
+    direct everyday changes.
+  - [ ] Create `development` for integration of the next version; merge
+    short-lived `feature/*` and `fix/*` branches into it through pull requests.
+  - [ ] Document when to use temporary `release/x.y.z` stabilization branches
+    and require their fixes to be merged back into `development`.
+  - [ ] Document `hotfix/*`: branch from `master`, merge into `master`, then
+    merge the same fix back into `development`.
+  - [ ] Define one authoritative application version shared by Android,
+    Windows, Fedora, package metadata, filenames, and release notes.
+  - [ ] Build every platform for an official release from the same immutable
+    `vX.Y.Z` Git tag; do not maintain permanent platform source branches.
+- [ ] Rework GitHub Actions around pull requests, `master`, and version tags.
+  - [ ] On pull requests, run tests and relevant platform builds and retain only
+    temporary workflow artifacts; do not publish a stable release.
+  - [ ] After a successful merge to `master`, test/build all platforms and
+    optionally replace one clearly labelled "Latest development build"
+    prerelease for testers.
+  - [ ] On a `vX.Y.Z` tag, test and build Android, Windows, and Fedora from the
+    tagged commit, then attach all verified outputs to one GitHub Release.
+  - [ ] Publish a stable release only after every required platform succeeds;
+    include generated release notes, installation instructions, package sizes,
+    and SHA-256 checksums.
+  - [ ] Keep downloadable application files in GitHub Releases. Use GitHub
+    Packages only if a future registry/container use case requires it.
+- [ ] Finish production-ready packages and signing.
+  - [ ] Android: establish one backed-up permanent release-signing key, store
+    it and its password as protected GitHub Actions secrets, document recovery
+    ownership, and verify that a newly built APK updates an earlier public APK
+    without losing app data.
+  - [ ] Android: publish a clearly named ARM64 APK compatible with the Pixel 9
+    Pro/GrapheneOS target and verify its signature and 16 KB alignment.
+  - [ ] Windows: add an Inno Setup `.exe` installer while retaining the complete
+    portable `.zip` bundle.
+  - [ ] Windows: make the installer support upgrades, clean uninstall, Start
+    Menu integration, optional desktop shortcut, preserved user data, and
+    `.ihtd` file association.
+  - [ ] Windows: add trusted code signing before automatically executing a
+    downloaded installer; consider MSIX later only for Store/enterprise needs.
+  - [ ] Fedora: retain the installable `.rpm` and optional portable `.tar.gz`,
+    with desktop/icon integration, clean upgrade/removal, and `.ihtd`
+    association.
+  - [ ] Fedora: sign the RPM and document verification; later decide whether
+    public usage justifies hosting a signed DNF repository.
+- [ ] Add a shared, privacy-conscious update experience.
+  - [ ] Check the latest compatible GitHub release infrequently, compare its
+    semantic version with the installed version, and show a small update icon
+    only when a newer release is available.
+  - [ ] Add an update screen with version, release notes, download size, and a
+    user-confirmed action; also provide **Check for updates** and an option to
+    disable automatic checks.
+  - [ ] Keep stable releases as the default channel; expose development builds
+    only through an explicit opt-in if that channel is added.
+  - [ ] Verify downloaded metadata/package authenticity before offering an
+    install action, and show useful offline, download, and verification errors.
+- [ ] Implement the platform-specific update handoff.
+  - [ ] Android/GrapheneOS: download the signed ARM64 APK and hand it to the
+    system package installer; explain the one-time "install unknown apps"
+    permission and require Android's normal user confirmation.
+  - [ ] Android: confirm an update preserves app data, retained document grants,
+    working copies, and recovery data on the physical Pixel.
+  - [ ] Windows: first provide a guided download/open of the signed setup EXE;
+    later add verified download, graceful app shutdown, installer launch, and
+    restart if that flow proves reliable.
+  - [ ] Fedora: initially open/download the signed RPM and hand installation to
+    Fedora's graphical package tooling rather than overwriting package-owned
+    files from inside IHTD.
+  - [ ] Fedora: if a signed DNF repository is introduced, let DNF/GNOME Software
+    provide normal system updates; keep portable `.tar.gz` updates manual.
 
 ## Optional features to discuss
 
