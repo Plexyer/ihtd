@@ -1,6 +1,6 @@
-# IHTD 0.2.1 for Windows 11 x64
+# IHTD @VERSION@ for Windows 11 x64
 
-Extract `IHTD-0.2.1-windows-x64.zip` and open `IHTD-0.2.1/ihtd.exe`.
+Extract `IHTD-@VERSION@-windows-x64.zip` and open `IHTD-@VERSION@/ihtd.exe`.
 Keep the entire folder together, including the DLLs and `data` directory.
 No Flutter or Rust installation is needed. If a VCRUNTIME/MSVCP DLL is missing,
 install Microsoft's Visual C++ x64 Redistributable.

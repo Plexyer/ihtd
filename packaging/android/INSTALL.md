@@ -1,7 +1,7 @@
-# IHTD 0.2.1 test APK for Pixel 9 Pro / GrapheneOS
+# IHTD @VERSION@ test APK for Pixel 9 Pro / GrapheneOS
 
 Requires ARM64 and Android 15/API 35 or newer. Transfer
-`IHTD-0.2.1-pixel-grapheneos-test.apk` to the phone and open it in Files. Allow
+`IHTD-@VERSION@-android-arm64-test.apk` to the phone and open it in Files. Allow
 APK installation for that source when Android prompts, then open IHTD.
 Keep GrapheneOS protections enabled. Core operation needs neither Google Play
 services nor internet permission.

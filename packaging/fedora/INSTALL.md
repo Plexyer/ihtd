@@ -1,10 +1,10 @@
-# IHTD 0.2.1 for Fedora 44 (Intel/AMD, x86-64)
+# IHTD @VERSION@ for Fedora 44 (Intel/AMD, x86-64)
 
-Copy `ihtd-0.2.1-1.fc44.x86_64.rpm` to your Fedora laptop. In a terminal opened
+Copy `ihtd-@VERSION@-1.fc44.x86_64.rpm` to your Fedora laptop. In a terminal opened
 in the folder containing it, run:
 
 ```sh
-sudo dnf install ./ihtd-0.2.1-1.fc44.x86_64.rpm
+sudo dnf install ./ihtd-@VERSION@-1.fc44.x86_64.rpm
 ```
 
 Launch **IHTD** from the application menu, or run `ihtd` in a terminal.
@@ -18,7 +18,7 @@ This prototype RPM is unsigned and is intended for local installation.
 
 ## Portable alternative
 
-Extract `IHTD-0.2.1-fedora44-x86_64.tar.gz` and run `IHTD/ihtd`. Keep the entire
+Extract `IHTD-@VERSION@-fedora44-x86_64.tar.gz` and run `IHTD/ihtd`. Keep the entire
 `IHTD` folder together, including `lib` and `data`. This bundle targets Fedora 44
 and still requires its system libraries; the RPM is the recommended option
 because it installs those dependencies automatically.

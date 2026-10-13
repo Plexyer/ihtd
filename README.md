@@ -66,10 +66,14 @@ Download the compiled Windows ZIP and Fedora RPM/portable bundle from the
 The private release includes SHA-256 checksums and Fedora install instructions.
 Source and build scripts are tracked in Git; compiled packages are release assets.
 
-Version 0.2.1 is being prepared on separate Android, Windows and Fedora branches.
+Version 0.2.1 platform changes have been merged into master.
 It includes Android document access, status-bar spacing and descendant moves.
 The existing 0.2.0 downloads do not include these changes. Build results and
 pull-request preparation are recorded in [release preparation](docs/release-0.2.1.md).
+Future work follows the [development and release policy](docs/development-workflow.md):
+task branches integrate into development, and one version tag builds all platforms
+into a combined draft GitHub Release. Pull requests and branch builds provide
+Actions artifacts. Production signing remains a prerequisite for stable releases.
 
 Windows x64 was built and exercised on this computer. Rust domain/storage tests
 and a real Windows Flutter integration test passed. Fedora 44 x86-64 packages
