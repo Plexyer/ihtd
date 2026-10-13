@@ -59,7 +59,7 @@ Name: "{userdesktop}\IHTD"; Filename: "{app}\ihtd.exe"; WorkingDir: "{app}"; Tas
 [Registry]
 ; Advertise an Open-with handler without replacing another app's default or
 ; Windows UserChoice. Windows lets the user select the default application.
-Root: HKCU; Subkey: "Software\Classes\.ihtd\OpenWithProgids"; ValueType: none; ValueName: "IHTD.Collection"; Flags: uninsdeletevalue; Tasks: fileassociation
+Root: HKCU; Subkey: "Software\Classes\.ihtd\OpenWithProgids"; ValueType: string; ValueName: "IHTD.Collection"; ValueData: ""; Flags: uninsdeletevalue; Tasks: fileassociation
 Root: HKCU; Subkey: "Software\Classes\IHTD.Collection"; ValueType: string; ValueName: ""; ValueData: "IHTD collection"; Flags: uninsdeletekey; Tasks: fileassociation
 Root: HKCU; Subkey: "Software\Classes\IHTD.Collection\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\ihtd.exe,0"; Tasks: fileassociation
 Root: HKCU; Subkey: "Software\Classes\IHTD.Collection\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\ihtd.exe"" ""%1"""; Tasks: fileassociation

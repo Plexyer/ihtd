@@ -69,6 +69,14 @@ jobs:
         env:
           IHTD_INSTALLER_TEST_COLLECTION: ${{ runner.temp }}/ihtd-installer-fixture.ihtd
         run: ./scripts/verify-windows-installer.ps1
+      - name: Retain failed installer test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-test-logs
+          path: ${{ runner.temp }}/ihtd-installer-test-*/*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: windows-package
