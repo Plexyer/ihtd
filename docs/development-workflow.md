@@ -24,11 +24,17 @@ Historical release documents retain their original version numbers.
 
 ## CI and release process
 
-Pull requests targeting either integration branch and pushes to those branches
-run `Release validation`. Reusable Android, Windows and Fedora workflows build
-the checked-out commit with read-only permissions, then upload three Actions
-artifacts. Branch builds never create stable releases. Manual dispatch supports
-testing an implementation branch before merge.
+Pull requests targeting `development` run `Development validation`: version
+checks, Rust core/storage tests, Flutter analysis, and Dart adapter tests on one
+Linux runner. This creates no installation packages. New commits to an open PR
+rerun its checks and cancel a superseded run.
+
+Pull requests targeting `master` run `Release validation`: the reusable Android,
+Windows and Fedora workflows build the checked-out commit with read-only
+permissions, then verify all three Actions artifacts together. Artifacts expire
+after 14 days. Manual dispatch can also build any selected branch. Neither kind
+of pull request creates a GitHub Release. Ordinary pushes/merges into master or
+development trigger no automatic workflow, avoiding duplicate native builds.
 
 After merging a reviewed release into `master`, create an immutable `vX.Y.Z`
 tag on the chosen master commit and push it. The tag must match pubspec and its
@@ -49,8 +55,11 @@ downloads require repository access until public distribution is configured.
 ## GitHub administrator settings
 
 Protect master and development with pull requests, blocked force pushes and
-deletions, and the required check `All platforms validated`. Require branches to
-be up to date before merging. For a solo maintainer, approval count can remain
+deletions. Require `All platforms validated` on master and `Development checks`
+on development. Remove `All platforms validated` from development's required
+checks when adopting this policy: it no longer runs for development PRs and
+would otherwise leave them waiting indefinitely. Require branches to be up to
+date before merging. For a solo maintainer, approval count can remain
 zero; enable reviewer approval when another maintainer can review. Set branch
 protection after these checks have run so the names are available to select.
 Prefer a tag ruleset preventing updates/deletion of `v*` tags.

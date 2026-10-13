@@ -1,0 +1,37 @@
+name: Development validation
+on:
+  pull_request:
+    branches: [development]
+permissions:
+  contents: read
+concurrency:
+  group: development-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    name: Development checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release metadata
+        run: |
+          python3 scripts/release-version.py
+          python3 -m unittest discover -s scripts/tests -v
+      - name: Install pinned Rust
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
+      - name: Test core and storage
+        run: cargo test --workspace --locked
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Analyze and test Dart adapters
+        working-directory: app
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze lib test integration_test
+          flutter test test/android_documents_test.dart

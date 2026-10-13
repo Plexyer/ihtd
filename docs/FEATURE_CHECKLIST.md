@@ -81,11 +81,13 @@ and verification.
   validation and a real tagged-release exercise must pass before checking off
   the operational release tasks below. Administrator branch protection remains
   pending because the integration credential cannot access that API.
-  - [ ] On pull requests, run tests and relevant platform builds and retain only
-    temporary workflow artifacts; do not publish a stable release.
-  - [ ] After a successful merge to `master`, test/build all platforms and
-    optionally replace one clearly labelled "Latest development build"
-    prerelease for testers.
+  - [x] On development PRs, run Rust tests, Flutter analysis and Dart adapter
+    tests; on master PRs, build/verify all platforms and retain testing artifacts
+    for 14 days. Neither PR workflow publishes a release.
+  - [x] Avoid duplicate builds on ordinary pushes/merges into development and
+    master. Full builds run for master PRs, version tags, or manual requests.
+  - [ ] Update development's required check to `Development checks`; master
+    continues requiring `All platforms validated`. Requires an administrator.
   - [ ] On a `vX.Y.Z` tag, test and build Android, Windows, and Fedora from the
     tagged commit, then attach all verified outputs to one GitHub Release.
   - [ ] Publish a stable release only after every required platform succeeds;

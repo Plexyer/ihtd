@@ -66,4 +66,4 @@ jobs:
             dist/windows/SHA256SUMS
             dist/windows/INSTALL.md
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 14
