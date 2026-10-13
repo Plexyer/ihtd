@@ -21,16 +21,23 @@ From the repository root run:
 
 ```powershell
 ./scripts/build-windows.ps1
+./scripts/install-inno-setup.ps1
+$env:IHTD_ISCC = Join-Path $env:LOCALAPPDATA 'IHTD-BuildTools\InnoSetup-6.4.3\ISCC.exe'
 ./scripts/package-windows.ps1
 ```
 
 The result is `app/build/windows/x64/runner/Release/ihtd.exe`. Distribute the
-whole Release directory, including its data directory and DLLs. On a machine
-without the C++ runtime, install Microsoft's x64 Visual C++ Redistributable.
-Packaging creates `dist/windows/IHTD-0.2.1-windows-x64.zip`, installation
-instructions and `SHA256SUMS`. The Windows release workflow runs the build,
-storage tests, both UI integration tests and a release-launch check on a native
-Windows 2022 runner, then uploads artifacts and a draft prerelease.
+whole Release directory, including its data directory and DLLs. Packaging adds
+Visual Studio's licensed x64 redistributable runtime DLLs to both packages.
+It creates `dist/windows/IHTD-X.Y.Z-windows-x64-setup.exe`, the portable ZIP,
+installation instructions and `SHA256SUMS`. The per-user Inno Setup installer
+supports upgrades, uninstall, shortcuts and optional `.ihtd` registration while
+retaining user data. Both packages are currently unsigned.
+The Windows workflow runs the build, storage/UI tests and release launch checks,
+then tests installation, upgrade, uninstall and preservation on a native Windows
+Server 2022 runner before uploading artifacts. It can be dispatched manually
+for Windows alone. The release coordinator attaches both packages to the draft
+on a version tag. See [Windows packaging](../packaging/windows/README.md).
 See [Flutter's Windows packaging guidance](https://docs.flutter.dev/platform-integration/windows/building).
 
 ## Fedora x64

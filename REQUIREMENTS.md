@@ -75,6 +75,9 @@ One independent .ihtd file is open at a time. Native filesystem open/save
 dialogs support local, removable, and mounted paths. Accepted mutations save
 automatically; text typing is coalesced briefly. Newer valid external revisions
 reload. One editing device at a time, no history or merge in this prototype.
+On desktop, a document path supplied at startup opens through the same
+validated storage command; errors remain visible in the app. Windows setup
+offers `.ihtd` Open-with registration while respecting the user's default app.
 
 JSON exports IDs, relationships, all fields, tags, views, and preferences.
 Markdown and CSV are readable/tabular convenience formats. The .ihtd document

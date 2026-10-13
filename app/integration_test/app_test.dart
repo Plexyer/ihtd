@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:app/main.dart' as app;
 import 'package:app/services/app_controller.dart';
 import 'package:app/ui/app_shell.dart';
+import 'package:app/src/rust/frb_generated.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -138,5 +139,28 @@ void main() {
     expect(await File(path).length(), greaterThan(0));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+
+    // Explorer passes the full document path as a single argument. Exercise a
+    // fresh controller with a different path, spaces and non-ASCII characters.
+    final launchPath = '${directory.path}/日本 travel collection.ihtd';
+    await File(path).copy(launchPath);
+    await tester.pumpWidget(const SizedBox.shrink());
+    RustLib.dispose();
+    await app.main([launchPath]);
+    await tester.pumpAndSettle();
+    final launched = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    ).read(appProvider);
+    await launched.ready;
+    expect(launched.error, isNull);
+    expect(launched.path, launchPath);
+    expect(launched.document, snapshot);
+    expect(find.text('Create collection'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    // Windows installer checks use this real collection as preservation data.
+    final installerFixture =
+        Platform.environment['IHTD_INSTALLER_TEST_COLLECTION'];
+    if (installerFixture != null) await File(launchPath).copy(installerFixture);
   });
 }

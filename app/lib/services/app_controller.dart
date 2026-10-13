@@ -18,11 +18,12 @@ final appProvider = ChangeNotifierProvider<AppController>(
 );
 
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
-  AppController() {
+  AppController({this.initialDocumentPath}) {
     WidgetsBinding.instance.addObserver(this);
     ready = _initialize();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => poll());
   }
+  final String? initialDocumentPath;
   late final Future<void> ready;
   Timer? _timer;
   bool busy = false;
@@ -68,6 +69,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final dir = await getApplicationSupportDirectory();
       await _send({'op': 'initialize', 'recovery_dir': '${dir.path}/recovery'});
       final previous = await _android?.initialize();
+      if (_android == null && initialDocumentPath != null) {
+        await _send({'op': 'open', 'path': initialDocumentPath});
+        await refreshRows();
+        notifyListeners();
+      }
       if (previous != null) {
         await _send({'op': 'open', 'path': previous['path']});
         await refreshRows();

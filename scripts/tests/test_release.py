@@ -31,7 +31,8 @@ class ReleaseTests(unittest.TestCase):
             root = Path(temporary)
             packages = {
                 'android': ['IHTD-0.2.1-android-arm64-test.apk'],
-                'windows': ['IHTD-0.2.1-windows-x64.zip'],
+                'windows': ['IHTD-0.2.1-windows-x64.zip',
+                            'IHTD-0.2.1-windows-x64-setup.exe'],
                 'fedora': ['ihtd-0.2.1-1.fc44.x86_64.rpm',
                            'IHTD-0.2.1-fedora44-x86_64.tar.gz'],
             }
@@ -46,7 +47,8 @@ class ReleaseTests(unittest.TestCase):
                 (directory / 'SHA256SUMS').write_text('\n'.join(lines))
                 (directory / 'INSTALL.md').write_text(platform)
             module('assemble-release').assemble(root, root / 'out', '0.2.1')
-            self.assertEqual(len(list((root / 'out').iterdir())), 8)
+            self.assertEqual(len(list((root / 'out').iterdir())), 9)
+            self.assertTrue((root / 'out/IHTD-0.2.1-windows-x64-setup.exe').is_file())
             self.assertEqual((root / 'out/INSTALL-android.md').read_text(), 'android')
 
     def test_tag_must_match(self):
@@ -55,6 +57,23 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(version.read_version(tag=f'v{current["version"]}'), current)
         with self.assertRaises(ValueError):
             version.read_version(tag='v999.0.0')
+
+    def test_portable_zip_without_installer_cannot_be_released(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for platform, name in [
+                ('android', 'IHTD-0.2.1-android-arm64-test.apk'),
+                ('windows', 'IHTD-0.2.1-windows-x64.zip'),
+            ]:
+                directory = root / f'{platform}-package'
+                directory.mkdir()
+                (directory / name).write_bytes(b'package')
+                digest = hashlib.sha256(b'package').hexdigest()
+                (directory / 'SHA256SUMS').write_text(f'{digest}  {name}\n')
+                (directory / 'INSTALL.md').write_text(platform)
+            with self.assertRaisesRegex(ValueError, 'windows: unexpected or missing packages'):
+                module('assemble-release').assemble(root, root / 'out', '0.2.1')
+            self.assertFalse((root / 'out').exists())
 
     def test_missing_platform_prevents_assembly(self):
         with tempfile.TemporaryDirectory() as temporary:

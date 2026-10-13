@@ -9,7 +9,8 @@ import sys
 def assemble(source, destination, version, production=False, certificate=None):
     expected = {
         'android': [f'IHTD-{version}-android-arm64-test.apk'],
-        'windows': [f'IHTD-{version}-windows-x64.zip'],
+        'windows': [f'IHTD-{version}-windows-x64.zip',
+                    f'IHTD-{version}-windows-x64-setup.exe'],
         'fedora': [f'ihtd-{version}-1.fc44.x86_64.rpm',
                    f'IHTD-{version}-fedora44-x86_64.tar.gz'],
     }

@@ -22,6 +22,11 @@ before changing behavior. Ask the user when product semantics are unclear.
   Follow `docs/android-signing.md`; never regenerate/replace the key casually or
   commit private signing files. The owner-approved key is stored privately outside
   Git pending owner home backups and protected GitHub environment activation.
+- Windows setup lives in `packaging/windows/ihtd.iss`: preserve its permanent
+  AppId and the existing `dev.ihtd` / `IHTD` support-directory identity. Packages
+  include the installer and portable ZIP with app-local licensed runtime DLLs.
+  Never add cleanup that deletes user collections or recovery data. Installer
+  verification installs/uninstalls on disposable native CI runners only.
 
 ## Verification
 
