@@ -66,17 +66,21 @@ and verification.
 - [ ] Establish the shared development and release foundation.
   - [ ] Use `master` only for reviewed, releasable code and protect it from
     direct everyday changes.
-  - [ ] Create `development` for integration of the next version; merge
+  - [x] Create `development` for integration of the next version; merge
     short-lived `feature/*` and `fix/*` branches into it through pull requests.
-  - [ ] Document when to use temporary `release/x.y.z` stabilization branches
+  - [x] Document when to use temporary `release/x.y.z` stabilization branches
     and require their fixes to be merged back into `development`.
-  - [ ] Document `hotfix/*`: branch from `master`, merge into `master`, then
+  - [x] Document `hotfix/*`: branch from `master`, merge into `master`, then
     merge the same fix back into `development`.
-  - [ ] Define one authoritative application version shared by Android,
+  - [x] Define one authoritative application version shared by Android,
     Windows, Fedora, package metadata, filenames, and release notes.
-  - [ ] Build every platform for an official release from the same immutable
+  - [x] Build every platform for an official release from the same immutable
     `vX.Y.Z` Git tag; do not maintain permanent platform source branches.
 - [ ] Rework GitHub Actions around pull requests, `master`, and version tags.
+  Implementation is in the coordinated `release.yml` workflow. Full native CI
+  validation and a real tagged-release exercise must pass before checking off
+  the operational release tasks below. Administrator branch protection remains
+  pending because the integration credential cannot access that API.
   - [ ] On pull requests, run tests and relevant platform builds and retain only
     temporary workflow artifacts; do not publish a stable release.
   - [ ] After a successful merge to `master`, test/build all platforms and

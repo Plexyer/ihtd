@@ -1,0 +1,85 @@
+name: Release validation
+on:
+  push:
+    branches: [master, development]
+    tags: ['v*']
+  pull_request:
+    branches: [master, development]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-validation-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version and release ancestry
+        id: version
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            python3 scripts/release-version.py --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+            git merge-base --is-ancestor HEAD origin/master
+          else
+            python3 scripts/release-version.py --github-output "$GITHUB_OUTPUT"
+          fi
+      - name: Test release validation
+        run: python3 -m unittest discover -s scripts/tests -v
+  android:
+    needs: version
+    uses: ./.github/workflows/android-release.yml
+  windows:
+    needs: version
+    uses: ./.github/workflows/windows-release.yml
+  fedora:
+    needs: version
+    uses: ./.github/workflows/fedora-release.yml
+  validation:
+    name: All platforms validated
+    if: always()
+    needs: [version, android, windows, fedora]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every platform
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          assert all(job['result'] == 'success' for job in results.values()), results
+          PY
+  release:
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request'
+    needs: [version, validation]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: incoming
+          pattern: '*-package'
+      - name: Verify and assemble release files
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: python3 scripts/assemble-release.py incoming release-files "$RELEASE_VERSION"
+      - name: Create complete draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to mix or replace assets.' >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release-files/* --verify-tag --draft --prerelease --title "IHTD $RELEASE_TAG" --generate-notes --notes 'Review before publication. Android uses a development signing key; permanent signing and physical-device validation remain pending. SHA256SUMS verifies download integrity, not publisher authenticity.' --repo "$GITHUB_REPOSITORY"
