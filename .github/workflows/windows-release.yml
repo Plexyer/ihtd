@@ -1,10 +1,6 @@
-name: Windows release
+name: Windows build
 on:
-  push:
-    branches: [codex/windows-release-0.2.1]
-  pull_request:
-    branches: [master]
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -14,10 +10,10 @@ jobs:
   build:
     runs-on: windows-2022
     timeout-minutes: 60
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Validate version
+        run: python scripts/release-version.py
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
@@ -64,24 +60,10 @@ jobs:
           ./scripts/package-windows.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: IHTD-0.2.1-windows-x64
+          name: windows-package
           path: |
             dist/windows/*.zip
             dist/windows/SHA256SUMS
             dist/windows/INSTALL.md
           if-no-files-found: error
           retention-days: 90
-      - name: Upload draft prerelease
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = 'v0.2.1-windows'
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --draft --prerelease --target $env:GITHUB_SHA --title 'IHTD 0.2.1 Windows test release' --notes 'Windows x64 portable package. Includes shared descendant moves. Review the attached checksums and installation guide before publication.' --repo $env:GITHUB_REPOSITORY
-            if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
-          }
-          gh release upload $tag dist/windows/IHTD-0.2.1-windows-x64.zip dist/windows/SHA256SUMS dist/windows/INSTALL.md --clobber --repo $env:GITHUB_REPOSITORY
-          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }

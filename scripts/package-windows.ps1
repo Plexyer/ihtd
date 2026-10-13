@@ -9,7 +9,8 @@ $stage = Join-Path $output "IHTD-$version"
 if (Test-Path $stage) { throw "Package staging already exists: $stage" }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Copy-Item (Join-Path $bundle '*') $stage -Recurse
-Copy-Item (Join-Path $projectRoot 'packaging/windows/INSTALL.md') (Join-Path $output 'INSTALL.md')
+$guide = Get-Content (Join-Path $projectRoot 'packaging/windows/INSTALL.md') -Raw
+Set-Content (Join-Path $output 'INSTALL.md') -Value $guide.Replace('@VERSION@', $version) -Encoding utf8
 $archive = Join-Path $output "IHTD-$version-windows-x64.zip"
 Compress-Archive -Path $stage -DestinationPath $archive
 $digest = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()

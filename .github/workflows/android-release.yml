@@ -1,10 +1,6 @@
-name: Android test release
+name: Android build
 on:
-  push:
-    branches: [codex/pixel-grapheneos-android]
-  pull_request:
-    branches: [master]
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -14,10 +10,11 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Validate version
+        id: version
+        run: python3 scripts/release-version.py --github-output "$GITHUB_OUTPUT"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
@@ -49,24 +46,14 @@ jobs:
       - name: Verify and package
         run: |
           mkdir -p dist/android
-          cp app/build/app/outputs/flutter-apk/app-release.apk dist/android/IHTD-0.2.1-pixel-grapheneos-test.apk
+          cp app/build/app/outputs/flutter-apk/app-release.apk dist/android/IHTD-${{ steps.version.outputs.version }}-android-arm64-test.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose dist/android/*.apk
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 dist/android/*.apk
-          cp packaging/android/INSTALL.md dist/android/INSTALL.md
+          sed 's/@VERSION@/${{ steps.version.outputs.version }}/g' packaging/android/INSTALL.md > dist/android/INSTALL.md
           (cd dist/android && sha256sum *.apk > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: IHTD-0.2.1-pixel-grapheneos-test
+          name: android-package
           path: dist/android/
           if-no-files-found: error
           retention-days: 90
-      - name: Upload draft prerelease
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag=v0.2.1-android-test
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" --title 'IHTD 0.2.1 Pixel GrapheneOS test APK' --notes 'ARM64/API 35+ development-signed APK. This build may use a different development key from the installed app: export collections before uninstalling. Durable release signing and actual phone validation remain outstanding.' --repo "$GITHUB_REPOSITORY"
-          fi
-          gh release upload "$tag" dist/android/*.apk dist/android/SHA256SUMS dist/android/INSTALL.md --clobber --repo "$GITHUB_REPOSITORY"

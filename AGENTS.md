@@ -35,6 +35,10 @@ before changing behavior. Ask the user when product semantics are unclear.
 
 ## Working across computers
 
+Follow [development and release policy](docs/development-workflow.md): normal
+task branches target `development`; releases reach `master` through reviewed
+pull requests. Version-tag releases build all platforms from one commit.
+
 The user has explicitly authorized this default GitHub synchronization workflow
 for future coding tasks in this repository:
 

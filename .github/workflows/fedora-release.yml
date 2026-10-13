@@ -1,10 +1,6 @@
-name: Fedora release
+name: Fedora build
 on:
-  push:
-    branches: [codex/fedora-release-0.2.1]
-  pull_request:
-    branches: [master]
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -14,10 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Validate version
+        run: python3 scripts/release-version.py
       - name: Build Fedora 44 image
         run: |
           if ! docker build -f packaging/fedora/Dockerfile -t ihtd-fedora-builder . > /tmp/fedora-image.log 2>&1; then
@@ -49,17 +45,7 @@ jobs:
           (cd dist/fedora && sha256sum -c SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: IHTD-0.2.1-fedora44-x86_64
+          name: fedora-package
           path: dist/fedora/
           if-no-files-found: error
           retention-days: 90
-      - name: Upload draft prerelease
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag=v0.2.1-fedora
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" --title 'IHTD 0.2.1 Fedora test release' --notes 'Fedora 44 x86-64 RPM and portable bundle. Includes shared descendant moves. Review checksums and installation instructions before publication.' --repo "$GITHUB_REPOSITORY"
-          fi
-          gh release upload "$tag" dist/fedora/*.rpm dist/fedora/*.tar.gz dist/fedora/SHA256SUMS dist/fedora/INSTALL.md --clobber --repo "$GITHUB_REPOSITORY"

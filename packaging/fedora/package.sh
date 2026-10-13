@@ -12,6 +12,6 @@ cp packaging/fedora/dev.ihtd.app.desktop packaging/fedora/ihtd.svg "$rpm_root/SO
 rpmbuild -bb --define "_topdir $rpm_root" packaging/fedora/ihtd.spec
 cp "$rpm_root"/RPMS/x86_64/*.rpm dist/fedora/
 tar -czf "dist/fedora/IHTD-$version-fedora44-x86_64.tar.gz" -C "$rpm_root/SOURCES" IHTD
-cp packaging/fedora/INSTALL.md dist/fedora/INSTALL.md
+sed "s/@VERSION@/$version/g" packaging/fedora/INSTALL.md > dist/fedora/INSTALL.md
 cd dist/fedora
 sha256sum "ihtd-$version-1.fc44.x86_64.rpm" "IHTD-$version-fedora44-x86_64.tar.gz" > SHA256SUMS
