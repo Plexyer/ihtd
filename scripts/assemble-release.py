@@ -1,17 +1,28 @@
 """Verify each platform manifest and stage unique assets for one draft release."""
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import sys
 
 
-def assemble(source, destination, version):
+def assemble(source, destination, version, production=False, certificate=None):
     expected = {
         'android': [f'IHTD-{version}-android-arm64-test.apk'],
         'windows': [f'IHTD-{version}-windows-x64.zip'],
         'fedora': [f'ihtd-{version}-1.fc44.x86_64.rpm',
                    f'IHTD-{version}-fedora44-x86_64.tar.gz'],
     }
+    if production:
+        if certificate is None:
+            certificate = (Path(__file__).resolve().parents[1] /
+                           'packaging/android/release-certificate.sha256').read_text().strip().lower()
+        if len(certificate) != 64 or any(c not in '0123456789abcdef' for c in certificate):
+            raise ValueError('Permanent signing certificate is not configured')
+        expected['android'] = [f'IHTD-{version}-android-arm64.apk', 'SIGNING-CERTIFICATE.sha256']
+        actual = (source / 'android-package/SIGNING-CERTIFICATE.sha256').read_text().strip().lower()
+        if actual != certificate:
+            raise ValueError('Android certificate does not match the pinned release identity')
     assets = []
     for platform, names in expected.items():
         directory = source / f'{platform}-package'
@@ -43,4 +54,5 @@ def assemble(source, destination, version):
 
 
 if __name__ == '__main__':
-    assemble(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3])
+    assemble(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3],
+             production=os.environ.get('PRODUCTION_ANDROID') == 'true')

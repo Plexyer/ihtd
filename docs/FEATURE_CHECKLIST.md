@@ -86,10 +86,11 @@ and verification.
     for 14 days. Neither PR workflow publishes a release.
   - [x] Avoid duplicate builds on ordinary pushes/merges into development and
     master. Full builds run for master PRs, version tags, or manual requests.
-  - [ ] Update development's required check to `Development checks`; master
+  - [x] Update development's required check to `Development checks`; master
     continues requiring `All platforms validated`. Requires an administrator.
-  - [ ] On a `vX.Y.Z` tag, test and build Android, Windows, and Fedora from the
+  - [x] On a `vX.Y.Z` tag, test and build Android, Windows, and Fedora from the
     tagged commit, then attach all verified outputs to one GitHub Release.
+    v0.2.1 completed all jobs and draft uploads; downloaded checksums verified.
   - [ ] Publish a stable release only after every required platform succeeds;
     include generated release notes, installation instructions, package sizes,
     and SHA-256 checksums.
@@ -100,6 +101,16 @@ and verification.
     it and its password as protected GitHub Actions secrets, document recovery
     ownership, and verify that a newly built APK updates an earlier public APK
     without losing app data.
+    - [x] Generate an encrypted release keystore and pin its public SHA-256
+      certificate in source; keep the password separate and private.
+    - [x] Implement separate protected tag signing, certificate verification,
+      fail-closed release assembly, and secure local generation/upload tools.
+    - [ ] Owner downloads the keystore/password at home, keeps independent
+      backups, and verifies recovery before activating public releases.
+    - [ ] Administrator configures tag-only android-release environment and
+      its three signing secrets; integration secret API returns HTTP 403.
+    - [ ] Verify two permanent-key APKs on the actual Pixel as an in-place
+      update, preserving working/recovery copies and document grants.
   - [ ] Android: publish a clearly named ARM64 APK compatible with the Pixel 9
     Pro/GrapheneOS target and verify its signature and 16 KB alignment.
   - [ ] Windows: add an Inno Setup `.exe` installer while retaining the complete

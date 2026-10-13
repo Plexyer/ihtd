@@ -26,6 +26,7 @@ jobs:
         run: |
           if [ -n "$RELEASE_TAG" ]; then
             python3 scripts/release-version.py --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+            python3 scripts/android-signing.py check-config
             git merge-base --is-ancestor HEAD origin/master
           else
             python3 scripts/release-version.py --github-output "$GITHUB_OUTPUT"
@@ -35,6 +36,8 @@ jobs:
   android:
     needs: version
     uses: ./.github/workflows/android-release.yml
+    with:
+      production: ${{ startsWith(github.ref, 'refs/tags/') }}
   windows:
     needs: version
     uses: ./.github/workflows/windows-release.yml
@@ -64,6 +67,7 @@ jobs:
       - name: Verify complete release candidate
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          PRODUCTION_ANDROID: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: python3 scripts/assemble-release.py incoming release-files "$RELEASE_VERSION"
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request'
@@ -80,6 +84,7 @@ jobs:
       - name: Verify and assemble release files
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          PRODUCTION_ANDROID: 'true'
         run: python3 scripts/assemble-release.py incoming release-files "$RELEASE_VERSION"
       - name: Create complete draft release
         env:
@@ -90,4 +95,4 @@ jobs:
             echo 'Release already exists; refusing to mix or replace assets.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" release-files/* --verify-tag --draft --prerelease --title "IHTD $RELEASE_TAG" --generate-notes --notes 'Review before publication. Android uses a development signing key; permanent signing and physical-device validation remain pending. SHA256SUMS verifies download integrity, not publisher authenticity.' --repo "$GITHUB_REPOSITORY"
+          gh release create "$RELEASE_TAG" release-files/* --verify-tag --draft --prerelease --title "IHTD $RELEASE_TAG" --generate-notes --notes 'Android APK signature was verified against the pinned permanent release certificate. Review packages and physical-device update behavior before publication. SHA256SUMS verifies download integrity, not publisher authenticity.' --repo "$GITHUB_REPOSITORY"

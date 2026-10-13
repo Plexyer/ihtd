@@ -38,8 +38,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // This produces a test/build candidate. Tagged releases are re-signed
+            // and certificate-verified in the protected CI signing job, after all
+            // compilation/tests finish. Never put the permanent key in Gradle.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
