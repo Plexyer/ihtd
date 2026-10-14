@@ -1,5 +1,5 @@
 Name: ihtd
-Version: 0.2.1
+Version: 0.2.2
 Release: 1%{?dist}
 Summary: Tasks and folders with shared identities and saved views
 License: LicenseRef-Proprietary
