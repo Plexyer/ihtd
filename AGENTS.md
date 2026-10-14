@@ -30,6 +30,11 @@ of cross-platform completion. Follow the implemented
   moves only the grabbed placement. Descendant moves first promote direct
   children to its former parent/root; children are shared across placements.
   Do not duplicate shared item state.
+- Shared removal is in `crates/ihtd_core/src/removal.rs`. Count actual parent/root
+  placements; use revision-bound previews for confirmed Delete and immediate
+  Unlink. Cascade only into nodes losing all surviving placements. Retain
+  deleted IDs (not contents) for view-rule warnings; never reuse them. See
+  `docs/unlink-delete-plan.md` and `docs/unlink-delete-acceptance.md`.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
 - App model sessions edit private working copies on all platforms. External
@@ -51,7 +56,7 @@ of cross-platform completion. Follow the implemented
 
 ## Verification
 
-- Core/storage: `cargo test --workspace --locked` (51 tests at this baseline).
+- Core/storage: `cargo test --workspace --locked` (67 tests at this baseline).
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.
 - Linux UI: `GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test integration_test/app_test.dart -d linux`.

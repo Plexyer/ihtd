@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/app_controller.dart';
 import 'item_editor.dart';
+import 'item_removal.dart';
 import 'item_drag.dart';
 import 'shared.dart';
 import 'view_editor.dart';
@@ -363,11 +364,21 @@ class _Sidebar extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(9),
                         ),
-                        selectedTileColor: const Color(0xffdbe7f7),
+                        key: ValueKey('view-${view['id']}'),
+                        tileColor:
+                            app.issuesForView(intValue(view['id'])).isNotEmpty
+                            ? const Color(0xfffff4d0)
+                            : null,
+                        selectedTileColor:
+                            app.issuesForView(intValue(view['id'])).isNotEmpty
+                            ? const Color(0xffffe7a0)
+                            : const Color(0xffdbe7f7),
                         selectedColor: const Color(0xff235b9b),
                         selected: app.selectedViewId == intValue(view['id']),
                         leading: Icon(
-                          intValue(view['id']) == 1
+                          app.issuesForView(intValue(view['id'])).isNotEmpty
+                              ? Icons.warning_amber_rounded
+                              : intValue(view['id']) == 1
                               ? Icons.layers_outlined
                               : Icons.filter_alt_outlined,
                           size: 21,
@@ -582,6 +593,41 @@ class _TaskPane extends StatelessWidget {
               ),
             ),
           ),
+          if (app.issuesForView(app.selectedViewId).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                key: const ValueKey('view-rule-warning'),
+                color: const Color(0xfffff4d0),
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () => showViewEditor(context, app, existing: view),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 20,
+                          color: Color(0xff8a5b00),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${app.issuesForView(app.selectedViewId).take(2).map((issue) => "Rule ${issue['path']}: deleted container #${issue['container_id']}").join('; ')}'
+                            '${app.issuesForView(app.selectedViewId).length > 2 ? '; and ${app.issuesForView(app.selectedViewId).length - 2} more' : ''}. Tap to review view rules.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xff795000),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: app.rows.isEmpty
                 ? EmptyState(
@@ -755,6 +801,7 @@ class _TaskPane extends StatelessWidget {
                                         ),
                                       ),
                                     PopupMenuButton<String>(
+                                      key: ValueKey('menu-${row['path']}'),
                                       tooltip: 'Item actions',
                                       icon: const Icon(
                                         Icons.more_horiz,
@@ -762,6 +809,14 @@ class _TaskPane extends StatelessWidget {
                                       ),
                                       onSelected: (action) {
                                         if (action == 'details') showDetail(id);
+                                        if (action == 'remove') {
+                                          removeItemPlacement(
+                                            context,
+                                            app,
+                                            id,
+                                            row['parent_id'] as int?,
+                                          );
+                                        }
                                         if (action == 'task') {
                                           showCreateItem(
                                             context,
@@ -781,7 +836,7 @@ class _TaskPane extends StatelessWidget {
                                           showLinkItem(context, app, id);
                                         }
                                       },
-                                      itemBuilder: (context) => const [
+                                      itemBuilder: (context) => [
                                         PopupMenuItem(
                                           value: 'details',
                                           child: Text('Open details'),
@@ -798,6 +853,23 @@ class _TaskPane extends StatelessWidget {
                                           value: 'link',
                                           child: Text(
                                             'Add existing item here…',
+                                          ),
+                                        ),
+                                        const PopupMenuDivider(),
+                                        PopupMenuItem(
+                                          value: 'remove',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                removalLabel(app, id) ==
+                                                        'Unlink'
+                                                    ? Icons.link_off
+                                                    : Icons.delete_outline,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(removalLabel(app, id)),
+                                            ],
                                           ),
                                         ),
                                       ],

@@ -6,6 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct Row {
     pub id: i64,
     pub depth: usize,
+    pub parent_id: Option<i64>,
+    pub placement_count: usize,
     pub path: String,
     pub has_children: bool,
     pub context_only: bool,
@@ -35,6 +37,7 @@ pub fn outline(
         placed.insert(link.child);
     }
     let roots = document.roots();
+    let placements = document.placements();
     let mut stack: Vec<_> = roots
         .into_iter()
         .rev()
@@ -67,6 +70,8 @@ pub fn outline(
             row: Row {
                 id,
                 depth,
+                parent_id: parent.map(|index: usize| entries[index].row.id),
+                placement_count: placements[&id].count,
                 path: path.clone(),
                 has_children: false,
                 context_only: !matches,

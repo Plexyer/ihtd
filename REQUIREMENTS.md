@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-08. This records the implemented prototype and the user's
+Updated 2026-10-14. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Model
@@ -24,6 +24,33 @@ preserving their other parent links. Existing promoted placements coalesce.
 Root and sibling order persist, and moving onto an existing placement coalesces
 the links. Moves are
 atomic, reject cycles, and recompute completion. Ordering is document-wide.
+
+## Removing tasks and folders
+
+Owner confirmed 2026-10-14. Count actual incoming parent links plus one
+existing root placement, including explicit shared roots. Multiple filtered
+views or paths through shared ancestors do not count as additional placements.
+
+With two or more placements, show **Unlink** and immediately remove only the
+selected root or parent-child relationship without confirmation. Preserve the
+item, its attributes, children and other placements. With exactly one placement,
+show **Delete** and require confirmation describing the affected items. Delete
+the item and recursively delete descendants with no surviving placement;
+preserve descendants linked outside the removed branch or at the top level,
+and their surviving children. Do not promote children or add Undo/trash.
+
+Linked tasks/folders have the same children everywhere. Removing a child from
+a shared parent affects every appearance of that relationship. Execute removal
+atomically, reject stale confirmations, preserve surviving IDs and order, and
+use the existing shared saving/recovery flow on all platforms.
+
+A saved view referring to a deleted task/folder keeps its rule and its Boolean
+scope. That container rule matches nothing. Affected views receive a yellow
+shade and a short warning above the hierarchy identifying the rule position
+and deleted container ID; tapping it opens the rule editor. The editor shows
+“Deleted container” and allows replacing/removing the rule. Repair clears the
+warning. Only deleted IDs are retained as metadata, not item names or contents;
+existing schema-1/2 files default this optional metadata to an empty set.
 
 ## Completion
 

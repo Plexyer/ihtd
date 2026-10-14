@@ -34,6 +34,14 @@ contrast. The shell paints behind safe insets and transparent system bars;
 Android resource themes only supply startup colors and native contrast flags.
 Keep new shared editor behavior here rather than creating per-OS dialogs.
 
+Shared removal: `crates/ihtd_core/src/removal.rs` owns actual placement counts,
+revision-bound previews, cascade retention and atomic removal. Rust snapshots
+supply placement metadata and deleted-container rule issues. Flutter's controller
+flushes drafts and guards collection switches; `ui/item_removal.dart` owns the
+common Delete confirmation. Row menus and details use the same action. Save
+adapters are unchanged. Optional deleted-ID metadata retains view references
+without retaining item contents; shared Flutter warns and opens rule editing.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

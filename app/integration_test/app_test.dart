@@ -172,6 +172,113 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
+    // Real domain + shared UI: Delete previews cascade but retain shared
+    // branches; Unlink removes the selected explicit root immediately.
+    controller.setCompletedOnly(false);
+    await controller.selectView(1);
+    Future<int> addRemovalItem(
+      String title, {
+      String kind = 'task',
+      int? parent,
+    }) async {
+      final result = await controller.dispatch({
+        'op': 'add_item',
+        'view_id': 1,
+        'kind': kind,
+        'title': title,
+        'parent_id': parent,
+      });
+      expect(result, isNotNull);
+      return result!['id'] as int;
+    }
+
+    final trip = await addRemovalItem('Removal trip', kind: 'folder');
+    final unique = await addRemovalItem('Only in trip', parent: trip);
+    final kept = await addRemovalItem(
+      'Shared packing folder',
+      kind: 'folder',
+      parent: trip,
+    );
+    final keptChild = await addRemovalItem(
+      'Keep through shared branch',
+      parent: kept,
+    );
+    await controller.dispatch({'op': 'link', 'parent': b['id'], 'child': kept});
+    final affectedView = await controller.dispatch({
+      'op': 'add_view',
+      'name': 'Inside removal trip',
+      'filter': {'op': 'folder', 'folder_id': trip},
+    });
+    await controller.selectItem(trip);
+    Future<void> openRemovalMenu(String rowPath, String label) async {
+      await tester.pumpAndSettle();
+      final menu = find.byKey(ValueKey('menu-$rowPath'));
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      final removal = find.byWidgetPredicate(
+        (w) => w is PopupMenuItem<String> && w.value == 'remove',
+      );
+      expect(
+        find.descendant(of: removal, matching: find.text(label)),
+        findsOneWidget,
+      );
+      await tester.tap(removal);
+      await tester.pumpAndSettle();
+    }
+
+    await openRemovalMenu('$trip', 'Delete');
+    expect(find.text('Delete “Removal trip”?'), findsOneWidget);
+    expect(find.textContaining('These shared branches remain'), findsOneWidget);
+    final beforeCancel = controller.document!;
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.document, beforeCancel);
+    await openRemovalMenu('$trip', 'Delete');
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(controller.error, isNull);
+    expect(controller.selectedItemId, isNull);
+    expect(controller.document!['items']['$trip'], isNull);
+    expect(controller.document!['items']['$unique'], isNull);
+    expect(controller.document!['items']['$kept'], isNotNull);
+    expect(controller.document!['items']['$keptChild'], isNotNull);
+    await controller.selectView(affectedView!['id'] as int);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('view-rule-warning')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('view-rule-warning')));
+    await tester.pumpAndSettle();
+    expect(find.text('Deleted container (#$trip)'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await controller.dispatch({
+      'op': 'edit_view',
+      'id': affectedView['id'],
+      'name': 'Inside removal trip',
+      'filter': {'op': 'all'},
+    });
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('view-rule-warning')), findsNothing);
+    await controller.selectView(1);
+    await controller.dispatch({'op': 'link', 'parent': a['id'], 'child': kept});
+    await controller.dispatch({
+      'op': 'move_item',
+      'id': kept,
+      'source_parent': a['id'],
+      'destination_parent': null,
+    });
+    await controller.selectItem(kept);
+    await openRemovalMenu('$kept', 'Unlink');
+    expect(controller.selectedItemId, kept);
+    expect(controller.document!['root_order'], isNot(contains(kept)));
+    expect(controller.placements['$kept']['parents'], [b['id']]);
+    expect(find.text('Delete “Shared packing folder”?'), findsNothing);
+    snapshot = controller.document!;
+    expect(await controller.dispatch({'op': 'open', 'path': path}), isNotNull);
+    expect(controller.document, snapshot);
+    expect(controller.document!['items']['$trip'], isNull);
+    expect(controller.document!['items']['$keptChild'], isNotNull);
+
     // Exercise the actual filesystem adapter: renaming cannot recreate the old
     // path or publish edits merely because the task/editor is opened again.
     final renamedPath = '${directory.path}/renamed collection.ihtd';
@@ -186,6 +293,15 @@ void main() {
       }),
       isNotNull,
     );
+    expect(
+      await controller.removePlacement(
+        keptChild,
+        kept,
+        confirmDelete: (_) async => true,
+      ),
+      true,
+    );
+    expect(controller.document!['items']['$keptChild'], isNull);
     await controller.selectItem(task);
     await controller.poll();
     expect(controller.documentServices.pending, true);
@@ -218,6 +334,9 @@ void main() {
       tester.element(find.byType(AppShell)),
     ).read(appProvider);
     await launched.ready;
+    // Initialization can finish after the first settle while native file IO
+    // is pending. Render its final notification before checking the UI.
+    await tester.pumpAndSettle();
     expect(launched.error, isNull);
     expect(launched.path, launchPath);
     expect(launched.document, snapshot);
