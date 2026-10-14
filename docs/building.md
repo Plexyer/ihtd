@@ -108,7 +108,10 @@ stale/cancelled confirmation, deleted-container view rules and pending external
 publication. `test/item_removal_test.dart` checks shared interaction and warning
 presentation; the desktop integration test exercises real Rust removal, reopen
 and disconnected-file recovery. Follow [physical removal acceptance](unlink-delete-acceptance.md)
-for the Pixel, Windows and Fedora checks.
+for the Pixel, Windows and Fedora checks. Run native integration tests and
+release APK builds sequentially in a shared checkout; Flutter regenerates plugin
+registration for other targets as well. Use the normal dependency refresh for
+the final APK after integration tests so test-only plugins are excluded.
 
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match

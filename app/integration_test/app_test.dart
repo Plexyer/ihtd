@@ -334,6 +334,9 @@ void main() {
       tester.element(find.byType(AppShell)),
     ).read(appProvider);
     await launched.ready;
+    // Initialization can finish after the first settle while native file IO
+    // is pending. Render its final notification before checking the UI.
+    await tester.pumpAndSettle();
     expect(launched.error, isNull);
     expect(launched.path, launchPath);
     expect(launched.document, snapshot);

@@ -228,6 +228,11 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     the rule to review; the editor shows Deleted container. Repair clears warnings.
   - [x] Reject stale approval and switches to another working copy, including
     copies with the same document ID. Flush drafts; invalid drafts block removal.
+  - [x] Automated verification: 67 Rust tests, 75 Flutter tests, clean analysis
+    and real Linux UI/reopen/disconnected-file integration passed. Development
+    check run `38568092620` passed for runtime commit `6e06079`. Native phone-layout
+    integration and signed ARM64 build 10 passed; permanent certificate and
+    ZIP/ELF 16 KB alignment verified.
   - [ ] Follow [physical removal acceptance](unlink-delete-acceptance.md) on Pixel,
     Windows and Fedora, including disconnected-file retention and reconnect.
 

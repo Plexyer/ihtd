@@ -2,7 +2,9 @@
 
 Use a disposable test collection on Pixel 9 Pro / GrapheneOS, Windows 11 and
 Fedora. Implementation is shared; physical checks remain pending. Build 10
-contains these changes. Do not use important collections for destructive tests.
+contains these changes. Install the signed build 10 over the existing permanently
+signed app without uninstalling; collection/recovery/grant preservation still
+needs the physical checks. Do not use important collections for destructive tests.
 
 1. Create a root task and a root folder. Their row menus and details placement
    actions say **Delete**. Cancel confirmation: nothing changes or saves. Confirm:

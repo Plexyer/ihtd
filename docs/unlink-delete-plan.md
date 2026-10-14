@@ -1,6 +1,6 @@
 # Placement-aware Unlink/Delete implementation plan
 
-Created 2026-10-14. Implementation and verification in progress. Based on merged
+Created 2026-10-14. Shared implementation and automated/native verification are complete; physical acceptance remains pending. Based on merged
 `development`. Read `AGENTS.md`, `REQUIREMENTS.md`, shared architecture and the
 feature checklist before implementing. Implement once for Android, Windows
 and Linux. Owner decisions below were confirmed on 2026-10-14 and are
@@ -107,9 +107,9 @@ recorded in requirements. Physical acceptance remains a separate owner check.
 - [x] Flutter: row/details labels count actual placements independently of
   views, correct selected relationship, confirmation/cancel, stale-state refresh,
   selection cleanup, small/large-text layout and coordinator pending recovery.
-- [ ] Integration: real Rust-backed remove/shared preservation and reopen;
+- [x] Integration: real Rust-backed remove/shared preservation and reopen;
   regression coverage for drag descendant moves and existing link creation.
-- [ ] Run workspace Rust tests, relevant Flutter tests/analyze and shared
+- [x] Run workspace Rust tests, relevant Flutter tests/analyze and shared
   integration checks. Native checks follow repository triggers; do not treat
   build success as physical acceptance.
 
@@ -121,9 +121,39 @@ recorded in requirements. Physical acceptance remains a separate owner check.
   filter views, cancel and child policy. Test disconnected external file:
   removal remains safely pending locally and reconnect publishes the correct
   result without deleting other collections or recovery copies.
-- [ ] Commit, push and open PR into development with semantic examples and
+- [x] Commit, push and open PR into development with semantic examples and
   validation evidence. Leave merge and stable release to the owner.
 
 Completion requires owner-approved semantics, shared implementation, passing
 tests and accurate physical acceptance status. General Undo, trash, Delete
 everywhere and per-path children are outside scope unless explicitly approved.
+
+## Verification evidence
+
+- Source/runtime commit: `6e06079`; PR #16 targets development.
+- 67 workspace Rust tests and 75 Flutter tests passed, including 11 removal tests.
+- Shared library, tests and integration sources analyze cleanly; 13 Python
+  release/architecture tests passed. GitHub Development checks passed in run
+  `38568092620`.
+- Real Linux integration passed: UI consent/cancel/cascade, retained shared roots,
+  view-rule warning/repair, save/reopen and deletion while an external file was
+  renamed. Reconnect publishes the retained result; a fresh startup opens it.
+- The startup assertion now waits for initialization and renders its final frame,
+  avoiding a race between native file IO and the first UI settle.
+- Physical acceptance and stable publication remain pending. Follow
+  [the acceptance guide](unlink-delete-acceptance.md). Windows/Fedora package
+  rebuilds remain part of the master/release workflow; adapters did not change.
+
+- The existing narrow-screen integration also passed, including touch scrolling,
+  keyboard/editor flushing and descendant drag-and-drop regression.
+- Signed ARM64 Android candidate: `IHTD-0.2.2-build10-android-arm64-test.apk`,
+  built from the runtime source above. App ID `dev.ihtd.app`, API 35 minimum / 36
+  target, code 10, version 0.2.2. Permanent certificate matches the pin; ZIP and
+  all ELF LOAD alignments meet 16 KB. No internet/broad-storage permission.
+  SHA-256: `036630e739afa6cc2fa9746991b257d67182804892f36b50760cb97548864cb2`.
+  Binary and SHA256SUMS are local ignored outputs under `dist/unlink-delete/`,
+  not committed or published as a stable GitHub release.
+- Run desktop integration and APK builds sequentially: Flutter regenerates
+  plugin registration across targets, and concurrent runs can leave test-only
+  registration in the release build. The final APK was rebuilt sequentially
+  using the supported dependency refresh and then independently verified.
