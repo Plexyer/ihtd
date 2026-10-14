@@ -1,7 +1,7 @@
 # Dialog clipping and system-bar surface plan
 
-Created 2026-10-14 for the next implementation session. Planning only: no UI
-changes have been made. Start from the latest `development`, read `AGENTS.md`,
+Created 2026-10-14. Implementation is in progress; shared dialog/surface fixes
+and Android window integration are implemented. Start from the latest `development`, read `AGENTS.md`,
 requirements and shared architecture, then work through these steps in order.
 Record evidence and remaining physical checks here and in `FEATURE_CHECKLIST.md`.
 
@@ -31,87 +31,87 @@ Acceptance:
 
 ## 1. Establish reproductions and inspect constraints
 
-- [ ] Confirm the branch is based on merged development, with a clean checkout.
-- [ ] Reproduce with a disposable collection and nested view conditions in
+- [x] Confirm the branch is based on merged development, with a clean checkout.
+- [x] Reproduce with a disposable collection and nested view conditions in
   `app/lib/ui/view_editor.dart`, then new-task autofocus in
   `app/lib/ui/item_editor.dart`. Record screenshots and actual layout bounds at
   both scroll limits, with and without keyboard insets.
-- [ ] Inspect AlertDialog content padding, viewport clipping, outline/floating
+- [x] Inspect AlertDialog content padding, viewport clipping, outline/floating
   label paint bounds, fixed heights, action wrapping and focus auto-scrolling.
   The view currently requests 680 x 560 content; constraints may reduce it.
   Treat these as suspects, not confirmed root causes.
-- [ ] Inspect `main.dart`, `_FileBar`, `_Sidebar` and Drawer in `app_shell.dart`.
+- [x] Inspect `main.dart`, `_FileBar`, `_Sidebar` and Drawer in `app_shell.dart`.
   Current surfaces include scaffold #f5f7fa, white header, sidebar #eef2f7 and
   default Material 3 Drawer background/tint outside the child SafeArea.
-- [ ] Inspect Android MainActivity, manifest and values/values-night styles,
+- [x] Inspect Android MainActivity, manifest and values/values-night styles,
   actual edge-to-edge settings and Flutter overlay behavior with dialogs/drawer.
   Distinguish Flutter paint/tint from native contrast scrims before changing it.
 
 ## 2. Fix shared dialog bounds and scrolling
 
-- [ ] Use available constraints, safe insets and keyboard viewInsets to bound
+- [x] Use available constraints, safe insets and keyboard viewInsets to bound
   the dialogs; retain comfortable desktop width without imposing a phone height.
   Account for insets once: do not double-subtract AlertDialog's keyboard padding.
-- [ ] Give scroll content enough inner top/bottom padding for floating labels,
+- [x] Give scroll content enough inner top/bottom padding for floating labels,
   outlines and card paint. Keep normal viewport clipping rather than disabling
   it globally, hiding labels or shrinking fonts to conceal the problem.
-- [ ] Ensure the view name/help section cannot consume all remaining height
+- [x] Ensure the view name/help section cannot consume all remaining height
   with large text or a landscape keyboard. Choose a unified scroll region or
   bounded sections from the measured constraints, keeping actions reachable.
-- [ ] Fix the create-task Title field at autofocus and during typing, errors and
+- [x] Fix the create-task Title field at autofocus and during typing, errors and
   keyboard transitions. Audit the same issue in folder creation and other fields
   that reuse this dialog; avoid copying a second implementation.
-- [ ] Keep Save/Create/Cancel and secondary actions usable when they wrap. Verify
+- [x] Keep Save/Create/Cancel and secondary actions usable when they wrap. Verify
   focus traversal, scrolling to focused fields and preservation of unsaved input.
-- [ ] Extract a small shared helper only if both dialogs need the same behavior;
+- [x] Extract a small shared helper only if both dialogs need the same behavior;
   preserve existing rule editing and creation semantics.
 
 ## 3. Centralize shared surface colors
 
-- [ ] Define explicit canvas, header and sidebar theme roles in a shared theme
+- [x] Define explicit canvas, header and sidebar theme roles in a shared theme
   location (ThemeExtension or existing theme configuration as appropriate).
   Replace relevant independent shell literals without changing task-card accents.
-- [ ] Paint the entire Drawer, including SafeArea margins, with the sidebar
+- [x] Paint the entire Drawer, including SafeArea margins, with the sidebar
   surface. Set its background and surface tint explicitly where defaults alter
   the intended color. Keep sidebar content clear of status/gesture areas.
-- [ ] Paint the closed-shell top inset as the header surface and the bottom
+- [x] Paint the closed-shell top inset as the header surface and the bottom
   inset as its adjacent content surface. Preserve responsive permanent-sidebar
   layout on desktop and narrow-window drawer layout.
-- [ ] Verify top/bottom paint during drawer open/close and its scrim animation:
+- [x] Verify top/bottom paint during drawer open/close and its scrim animation:
   the uncovered main area should dim consistently, with no extra inset strips.
   Do not remove the intended modal scrim just to match screenshots.
 
 ## 4. Integrate Android system overlays
 
-- [ ] Prefer painting Flutter surfaces behind transparent edge-to-edge system
+- [x] Prefer painting Flutter surfaces behind transparent edge-to-edge system
   bars; modern target SDKs may ignore legacy bar-color setters.
-- [ ] Set consistent system icon brightness through shared overlay annotations
+- [x] Set consistent system icon brightness through shared overlay annotations
   where supported. Keep OS selection out of shared widgets; native Android
   window flags, if required, stay in Android code/bootstrap integration.
-- [ ] Check gesture and three-button navigation contrast enforcement before
+- [x] Check gesture and three-button navigation contrast enforcement before
   changing native flags. Retain readable system controls in every modal state.
 - [ ] Verify startup/first frame and OS dark-mode settings do not introduce a
   flash or switch bar icon contrast against the app's current light theme.
   Keep values and values-night native settings consistent with that behavior.
-- [ ] Preserve dialog/keyboard overlay restoration when closing routes; avoid
+- [x] Preserve dialog/keyboard overlay restoration when closing routes; avoid
   competing global overlay setters. Explain any necessary platform exception.
 
 ## 5. Add focused regression coverage
 
-- [ ] Add meaningful widget/layout tests for first/last rule visibility and
+- [x] Add meaningful widget/layout tests for first/last rule visibility and
   reachable Add condition, Title autofocus/floating-label paint clearance and
   keyboard appearance/dismissal. Check bounds as well as Flutter exceptions;
   absence of overflow alone does not prove that a label is not clipped.
-- [ ] Cover representative 390 x 844 logical phone size, a smaller phone,
+- [x] Cover representative 390 x 844 logical phone size, a smaller phone,
   short landscape viewport, large text (including 2x), and narrow/wide desktop.
   Simulate safe padding and keyboard viewInsets independently, with teardown.
-- [ ] Check surface values and full inset coverage with drawer closed/open.
+- [x] Check surface values and full inset coverage with drawer closed/open.
   Use focused screenshot/golden evidence if needed for actual paint clipping;
   widget properties alone cannot prove Android system-bar appearance.
-- [ ] Extend `integration_test/phone_layout_test.dart` for affected flows while
+- [x] Extend `integration_test/phone_layout_test.dart` for affected flows while
   retaining existing touch scrolling, drag/drop and editor-flush checks. Keep
   integration data isolated in temporary directories.
-- [ ] Run Flutter analysis, relevant widget tests and existing desktop/narrow
+- [x] Run Flutter analysis, relevant widget tests and existing desktop/narrow
   integration tests. Run the architecture checker to keep the shared boundary.
   Run broader domain/storage tests only if those layers change.
 
@@ -132,10 +132,10 @@ Acceptance:
 
 ## 7. Document and hand off
 
-- [ ] Update requirements with the implemented surface/inset rules, shared
+- [x] Update requirements with the implemented surface/inset rules, shared
   architecture if helpers or platform hooks were added, and build/test guidance
   for new checks. Link a concise physical acceptance sequence if necessary.
-- [ ] Check off only verified clipping/color checklist items. Keep the separate
+- [x] Check off only verified clipping/color checklist items. Keep the separate
   view-rule redesign unchecked and explain any remaining acceptance gaps.
 - [ ] Commit and push a task branch; open a PR into `development` with root
   causes, final changes, platform exceptions, verification and visual evidence.
@@ -149,3 +149,30 @@ Acceptance:
 
 Complete and verify each checkpoint before moving on; update this plan when
 observed behavior warrants a different implementation.
+
+## Implementation and evidence
+
+- `EditorDialog` replaces the fixed 680 x 560 view content and unpadded creation
+  viewport. Name/help/rules share a scroll; forms have 12 px top paint space.
+  Available Dialog constraints already exclude keyboard/safe insets. At short
+  heights or large text, title/actions join the scroll; normal layouts retain
+  accessible wrapped actions outside it. Rule structure and handlers are intact.
+- `AppSurfaces` owns the existing palette. The header paints its top inset;
+  content removes the consumed top padding, avoiding a second automatic list
+  inset. Drawer Material paints the whole sidebar surface with transparent tint.
+  Overlay annotations specify transparent bars and contrast from each surface.
+- Android uses one light base window theme under both OS appearance settings,
+  explicit startup colors, dark icons and disabled native contrast scrims.
+  Flutter still owns runtime paint; target 36 edge-to-edge behavior is retained.
+- The old view dialog overflowed by 65 px with a 320 px keyboard in the 390 x 844
+  host reproduction. The former creation viewport has no label paint clearance;
+  regression evidence is saved in the local candidate output directory.
+- Shared layout tests pass for seven phone/desktop size, keyboard and text-scale
+  combinations, including 2x text. Rendered pixel checks confirm header/canvas
+  and both drawer inset colors. Readable host screenshots were reviewed,
+  including the complete last rule and Add condition at the lower scroll limit.
+- The expanded Linux phone integration test passes actual Rust-backed view edits,
+  new-task creation with keyboard insets, and the existing flush/scroll/drag flows.
+- Physical Pixel startup/IME/navigation-mode appearance and desktop scaling remain
+  pending: follow [layout acceptance](layout-polish-acceptance.md). Build/CI
+  results and candidate provenance will be added after verification.

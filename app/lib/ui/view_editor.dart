@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_controller.dart';
 import 'shared.dart';
+import 'editor_dialog.dart';
 import 'item_editor.dart' show showNewTag;
 
 Future<void> showViewEditor(
@@ -72,43 +73,36 @@ class _ViewDialogState extends State<_ViewDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => EditorDialog(
     title: Text(widget.existing == null ? 'Create a view' : 'Edit view'),
-    content: SizedBox(
-      width: 680,
-      height: 560,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: name,
-            decoration: const InputDecoration(labelText: 'View name'),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Rules select shared items; their ancestors remain visible for context.',
-            style: TextStyle(fontSize: 13, color: Color(0xff748398)),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              child: _RuleEditor(
-                app: widget.app,
-                rule: rule,
-                onChanged: (r) => setState(() => rule = r),
-              ),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: name,
+          decoration: const InputDecoration(labelText: 'View name'),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Rules select shared items; their ancestors remain visible for context.',
+          style: TextStyle(fontSize: 13, color: Color(0xff748398)),
+        ),
+        const SizedBox(height: 12),
+        _RuleEditor(
+          app: widget.app,
+          rule: rule,
+          onChanged: (r) => setState(() => rule = r),
+        ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
-          if (error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-        ],
-      ),
+      ],
     ),
     actions: [
       TextButton(

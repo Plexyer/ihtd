@@ -147,7 +147,9 @@ for the build 8 migration on Pixel, Windows and Fedora. Python release tests als
 enforce shared UI/policy import boundaries.
 The narrow-screen interaction check is `integration_test/phone_layout_test.dart`;
 it can run on the Linux host with `-d linux`, but does not exercise Android's
-document providers. In the restricted cloud workspace, after an APK build,
+document providers. Responsive editor and rendered-surface checks are in
+`test/layout_polish_test.dart`. Follow [layout acceptance](layout-polish-acceptance.md)
+for Pixel system-bar/keyboard and native desktop scaling checks. In the restricted cloud workspace, after an APK build,
 the JVM checks can skip `:app:compileFlutterBuildDebug` with Gradle's `-x` option
 to avoid launching Flutter outside its writable-home wrapper.
 

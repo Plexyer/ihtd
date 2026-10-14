@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/app_controller.dart';
@@ -7,6 +8,7 @@ import 'item_drag.dart';
 import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
+import 'app_theme.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -21,138 +23,170 @@ class AppShell extends ConsumerWidget {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 1100;
         final drawer = constraints.maxWidth < 780;
-        return Scaffold(
-          drawer: drawer
-              ? Drawer(
-                  child: SafeArea(child: _Sidebar(app: app)),
-                )
-              : null,
-          body: SafeArea(
-            child: Column(
-              children: [
-                _FileBar(app: app, drawer: drawer),
-                if ((app.document != null ||
-                        app.documentServices.binding != null) &&
-                    (constraints.maxWidth <= 540 || app.documentIssue))
-                  DocumentStatus(app: app),
-                if (app.busy) const LinearProgressIndicator(minHeight: 2),
-                if (app.error != null)
-                  Material(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, size: 19),
-                          const SizedBox(width: 12),
-                          Expanded(child: SelectableText(app.error!)),
-                          IconButton(
-                            tooltip: 'Dismiss error',
-                            onPressed: app.clearError,
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
-                      ),
+        final surfaces = AppSurfaces.of(context);
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: surfaceOverlays(top: surfaces.header, bottom: surfaces.canvas),
+          child: Scaffold(
+            drawer: drawer
+                ? AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: surfaceOverlays(
+                      top: surfaces.sidebar,
+                      bottom: surfaces.sidebar,
+                    ),
+                    child: Drawer(
+                      backgroundColor: surfaces.sidebar,
+                      surfaceTintColor: Colors.transparent,
+                      child: SafeArea(child: _Sidebar(app: app)),
+                    ),
+                  )
+                : null,
+            body: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  ColoredBox(
+                    key: const ValueKey('header-surface'),
+                    color: surfaces.header,
+                    child: SafeArea(
+                      bottom: false,
+                      child: _FileBar(app: app, drawer: drawer),
                     ),
                   ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (!drawer)
-                        SizedBox(width: 242, child: _Sidebar(app: app)),
-                      Expanded(
-                        child: app.document == null
-                            ? _Welcome(app: app)
-                            : _TaskPane(
-                                app: app,
-                                showDetail: (id) async {
-                                  await app.selectItem(id);
-                                  if (!context.mounted ||
-                                      app.selectedItemId != id) {
-                                    return;
-                                  }
-                                  if (!wide) {
-                                    showModalBottomSheet<void>(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      useSafeArea: true,
-                                      isDismissible: false,
-                                      enableDrag: false,
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 620,
-                                      ),
-                                      builder: (context) => Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom: MediaQuery.viewInsetsOf(
-                                            context,
-                                          ).bottom,
-                                        ),
-                                        child: PopScope(
-                                          canPop: false,
-                                          onPopInvokedWithResult:
-                                              (didPop, result) async {
-                                                if (!didPop &&
-                                                    await app.finishDraft() &&
-                                                    context.mounted) {
-                                                  Navigator.of(context).pop();
-                                                }
-                                              },
-                                          child: SizedBox(
-                                            height:
-                                                MediaQuery.sizeOf(context)
-                                                    .height *
-                                                .88,
-                                            child: Column(
-                                              children: [
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerRight,
-                                                  child: TextButton.icon(
-                                                    onPressed: () async {
-                                                      if (await app
-                                                              .finishDraft() &&
-                                                          context.mounted) {
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      }
-                                                    },
-                                                    icon: const Icon(
-                                                      Icons.close,
+                  if ((app.document != null ||
+                          app.documentServices.binding != null) &&
+                      (constraints.maxWidth <= 540 || app.documentIssue))
+                    DocumentStatus(app: app),
+                  if (app.busy) const LinearProgressIndicator(minHeight: 2),
+                  if (app.error != null)
+                    Material(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, size: 19),
+                            const SizedBox(width: 12),
+                            Expanded(child: SelectableText(app.error!)),
+                            IconButton(
+                              tooltip: 'Dismiss error',
+                              onPressed: app.clearError,
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: Row(
+                        children: [
+                          if (!drawer)
+                            SizedBox(width: 242, child: _Sidebar(app: app)),
+                          Expanded(
+                            child: app.document == null
+                                ? _Welcome(app: app)
+                                : _TaskPane(
+                                    app: app,
+                                    showDetail: (id) async {
+                                      await app.selectItem(id);
+                                      if (!context.mounted ||
+                                          app.selectedItemId != id) {
+                                        return;
+                                      }
+                                      if (!wide) {
+                                        showModalBottomSheet<void>(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          useSafeArea: true,
+                                          isDismissible: false,
+                                          enableDrag: false,
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 620,
+                                          ),
+                                          builder: (context) => Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: MediaQuery.viewInsetsOf(
+                                                context,
+                                              ).bottom,
+                                            ),
+                                            child: PopScope(
+                                              canPop: false,
+                                              onPopInvokedWithResult:
+                                                  (didPop, result) async {
+                                                    if (!didPop &&
+                                                        await app
+                                                            .finishDraft() &&
+                                                        context.mounted) {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    }
+                                                  },
+                                              child: SizedBox(
+                                                height:
+                                                    MediaQuery.sizeOf(context)
+                                                        .height *
+                                                    .88,
+                                                child: Column(
+                                                  children: [
+                                                    Align(
+                                                      alignment:
+                                                          Alignment.centerRight,
+                                                      child: TextButton.icon(
+                                                        onPressed: () async {
+                                                          if (await app
+                                                                  .finishDraft() &&
+                                                              context.mounted) {
+                                                            Navigator.of(
+                                                              context,
+                                                            ).pop();
+                                                          }
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons.close,
+                                                        ),
+                                                        label: const Text(
+                                                          'Done',
+                                                        ),
+                                                      ),
                                                     ),
-                                                    label: const Text('Done'),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Consumer(
-                                                    builder:
-                                                        (context, ref, child) =>
-                                                            ItemEditor(
+                                                    Expanded(
+                                                      child: Consumer(
+                                                        builder:
+                                                            (
+                                                              context,
+                                                              ref,
+                                                              child,
+                                                            ) => ItemEditor(
                                                               app: ref.watch(
                                                                 appProvider,
                                                               ),
                                                             ),
-                                                  ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                          ),
+                          if (wide &&
+                              app.document != null &&
+                              app.selectedItemId != null) ...[
+                            const VerticalDivider(width: 1),
+                            SizedBox(width: 360, child: ItemEditor(app: app)),
+                          ],
+                        ],
                       ),
-                      if (wide &&
-                          app.document != null &&
-                          app.selectedItemId != null) ...[
-                        const VerticalDivider(width: 1),
-                        SizedBox(width: 360, child: ItemEditor(app: app)),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -172,9 +206,9 @@ class _FileBar extends StatelessWidget {
     return Container(
       height: 58,
       padding: EdgeInsets.only(left: drawer ? 4 : 20, right: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xffe1e7ef))),
+      decoration: BoxDecoration(
+        color: AppSurfaces.of(context).header,
+        border: const Border(bottom: BorderSide(color: Color(0xffe1e7ef))),
       ),
       child: Row(
         children: [
@@ -300,7 +334,7 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final views = documentValues(app, 'views');
     return Material(
-      color: const Color(0xffeef2f7),
+      color: AppSurfaces.of(context).sidebar,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 28, 14, 16),
         child: Column(
