@@ -25,6 +25,25 @@ Root and sibling order persist, and moving onto an existing placement coalesces
 the links. Moves are
 atomic, reject cycles, and recompute completion. Ordering is document-wide.
 
+## Removing tasks and folders (agreed, implementation pending)
+
+Owner confirmed 2026-10-14. Count actual incoming parent links plus one
+existing root placement, including explicit shared roots. Multiple filtered
+views or paths through shared ancestors do not count as additional placements.
+
+With two or more placements, show **Unlink** and immediately remove only the
+selected root or parent-child relationship without confirmation. Preserve the
+item, its attributes, children and other placements. With exactly one placement,
+show **Delete** and require confirmation describing the affected items. Delete
+the item and recursively delete descendants with no surviving placement;
+preserve descendants linked outside the removed branch or at the top level,
+and their surviving children. Do not promote children or add Undo/trash.
+
+Linked tasks/folders have the same children everywhere. Removing a child from
+a shared parent affects every appearance of that relationship. Execute removal
+atomically, reject stale confirmations, preserve surviving IDs and order, and
+use the existing shared saving/recovery flow on all platforms.
+
 ## Completion
 
 Folders are containers, with view-specific hide/reappear switches.

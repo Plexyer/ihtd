@@ -207,8 +207,7 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     scrolling on the physical Pixel, plus usability on desktop.
 - [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
   Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
-  Child deletion, confirmation/Undo and shared-ancestor path semantics await
-  owner answers; resolve these before implementing destructive operations.
+  Owner semantics confirmed 2026-10-14; implementation remains pending.
   - [ ] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
     its data, and its remaining placements.
@@ -216,9 +215,10 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     delete the item when that last placement is removed.
   - [ ] Count actual hierarchy/root placements, not appearances in filtered
     views; update the label as links are added or removed.
-  - [ ] Before implementation, agree how deleting the last placement handles
-    children, including shared descendants, and whether confirmation or undo
-    is needed. Never silently delete descendants still linked elsewhere.
+  - [x] Agree child handling and action protection: confirm Delete; Unlink
+    immediately. Recursively delete children without surviving placements;
+    preserve shared branches linked elsewhere. Linked folders share children
+    across all appearances. Undo/trash are outside this task.
   - [ ] Verify task/folder actions with one and multiple placements, including
     nested and top-level placements, saved views, and persistence after reopen.
 

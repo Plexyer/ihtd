@@ -3,20 +3,20 @@
 Created 2026-10-14. Planning only: no runtime changes. Based on merged
 `development`. Read `AGENTS.md`, `REQUIREMENTS.md`, shared architecture and the
 feature checklist before implementing. Implement once for Android, Windows
-and Linux. Do not start destructive behavior until the decisions below are
-answered and recorded in requirements.
+and Linux. Owner decisions below were confirmed on 2026-10-14 and are
+recorded in requirements. This plan is ready for implementation.
 
-## Product decisions awaiting the owner
+## Confirmed product decisions
 
-1. Last-placement deletion with children: recursively delete children with no
-   remaining placement, preserving shared branches, or promote all direct
-   children to the deleted item's parent/root? Neither is approved yet.
-2. Protection: confirm Delete only, confirm both actions, or immediate action
-   with Undo? Undo requires a separate durable design; do not imply it exists.
-3. Shared-parent paths: a child of a folder linked under two parents has one
-   direct parent link but appears twice. Current shared semantics mean removing
-   that child affects both paths. Confirm this behavior; path-only removal
-   would require a broader model decision rather than a UI workaround.
+1. Delete recursively removes children that have no remaining placement after
+   removal. Preserve children linked elsewhere, including explicit root
+   placements, and preserve their surviving branches. Do not promote children.
+2. Confirm Delete, explaining which items will be deleted and which shared
+   children will survive. Unlink applies immediately without confirmation.
+   Undo and trash are outside this task.
+3. Linked folders share the same children everywhere. Removing a child from
+   that folder affects every appearance of that relationship. Multiple paths
+   through a shared folder are not separate placements of its child.
 
 ## Agreed behavior
 
@@ -28,14 +28,14 @@ answered and recorded in requirements.
 - Unlink removes only the selected root or parent-child relationship. Keep
   item identity, attributes, children, remaining links and their ordering.
 - Delete removes the item itself at its last placement. Never silently delete
-  descendants still retained elsewhere. Child handling awaits decision 1.
+  descendants still retained elsewhere. Apply the confirmed recursive policy.
 - Keep existing save barriers, pending recovery and publication verification.
   Removing an item must never delete a collection or recovery file.
 
 ## 1. Establish baseline and finalize semantics
 
 - [ ] Pull latest development; preserve existing work; create a task branch.
-- [ ] Record the three owner answers here and in requirements/checklist.
+- [x] Record the three owner answers here and in requirements/checklist.
 - [ ] Build fixtures: sole root, sole nested item, two parents, explicit root
   plus parent, shared ancestor paths, filtered context rows and shared descendants.
 - [ ] Inspect `Document::roots`, `root_order`, `links`, `transact`, completion,
@@ -58,7 +58,6 @@ answered and recorded in requirements.
   which nodes lose every surviving incoming/root placement; retain a shared
   branch and its children, including descendants with parents inside another
   retained branch. Use iterative graph traversal, not recursion/depth limits.
-  For promotion, preserve order, merge duplicate links and retain other parents.
 - [ ] Remove links, root entries and per-view preferences for deleted IDs;
   keep unrelated tags/views and stable surviving IDs, never reuse deleted IDs.
   Recompute completion/inheritance and validate graph/document invariants.
@@ -84,7 +83,7 @@ answered and recorded in requirements.
   `item_editor.dart`. Show explicit shared root placements as well as parents.
   Where no placement context is known, offer a placement choice rather than
   guessing or introducing an unapproved Delete everywhere command.
-- [ ] Implement the approved confirmation/Undo policy. Delete messaging must
+- [ ] Implement Delete confirmation and immediate Unlink. Delete messaging must
   explain child effects and preserved shared items using preview results;
   make destructive actions distinguishable and cancel leave everything intact.
 - [ ] Refresh labels after mutations. Clear selection only for a deleted item;
