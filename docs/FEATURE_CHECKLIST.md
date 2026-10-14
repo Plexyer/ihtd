@@ -62,6 +62,25 @@ implementing them.
 Recorded on 2026-10-14 on the Pixel 9 Pro running GrapheneOS. These are
 approved follow-up tasks; this entry records the reports, not completed fixes.
 
+- [ ] Unify saving/recovery policy, warning UI and diagnostics across platforms.
+  Follow the [cross-platform save plan](cross-platform-save-plan.md) and
+  [shared-first architecture workflow](shared-app-architecture.md).
+  - [x] Document layer ownership and mandatory shared-first guidance in AGENTS.md.
+  - [x] Define a typed shared document-adapter contract and one save coordinator.
+  - [x] Route desktop external writes through that coordinator, preserving atomic
+    publication and private recovery rather than merely wrapping existing saves.
+  - [x] Extract Android policy into the coordinator and safely migrate bindings.
+  - [x] Connect Windows/Linux filesystem access with conservative identity checks.
+  - [x] Share warning dialogs, confirmation actions and private diagnostic export.
+  - [x] Verify shared scenarios, migration and native Windows/Linux/Android checks.
+  - [ ] Record physical acceptance on Pixel, Windows and Fedora before stable release.
+  Shared policy/adapter and migration tests pass locally (45 Dart tests, 56 Rust
+  tests); real Linux UI checks include rename → pending edits → explicit
+  reconnection without recreating the old path. All native jobs and complete
+  package validation passed in run 38534530095 on 2026-10-14, including Windows
+  installer upgrade/removal and installed Fedora RPM checks. See
+  [all-platform acceptance](shared-saving-acceptance.md).
+
 - [ ] High priority: trustworthy document connection, save status, and recovery.
   Implementation plan: [document saving and recovery](document-save-recovery-plan.md).
   Implemented in the task branch; automated checks cover 53 Rust tests, 23 Dart

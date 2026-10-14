@@ -32,7 +32,7 @@ class AppShell extends ConsumerWidget {
               children: [
                 _FileBar(app: app, drawer: drawer),
                 if ((app.document != null ||
-                        app.androidDocuments?.binding != null) &&
+                        app.documentServices.binding != null) &&
                     (constraints.maxWidth <= 540 || app.documentIssue))
                   DocumentStatus(app: app),
                 if (app.busy) const LinearProgressIndicator(minHeight: 2),
@@ -248,7 +248,7 @@ class _FileBar extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              if (app.androidDocuments?.binding != null)
+              if (app.documentServices.binding != null)
                 const PopupMenuItem(
                   value: 'connection',
                   child: Text('File connection and saving…'),

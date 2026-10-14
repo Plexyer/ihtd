@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/services/android_documents.dart';
+import 'package:app/services/document_save_coordinator.dart';
 import 'package:app/services/app_controller.dart';
 import 'package:app/ui/document_status.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
-  late AndroidDocuments storage;
+  late DocumentSaveCoordinator storage;
   late AppController app;
   late String workingPath;
   String remote = 'original', filename = 'Tasks.ihtd';
@@ -67,7 +68,9 @@ void main() {
     revision = 0;
     picker = null;
     localFailure = false;
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, (call) async {
+    messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, (
+      call,
+    ) async {
       final args = Map<String, dynamic>.from(call.arguments as Map? ?? {});
       switch (call.method) {
         case 'environment':
@@ -93,7 +96,10 @@ void main() {
           throw StateError('Unexpected ${call.method}');
       }
     });
-    storage = AndroidDocuments(supportDirectory: () async => directory);
+    storage = DocumentSaveCoordinator(
+      adapter: AndroidDocumentAdapter(),
+      supportDirectory: () async => directory,
+    );
     await storage.initialize();
     workingPath = storage.freshPath();
     await File(workingPath).writeAsString(remote);
@@ -104,7 +110,7 @@ void main() {
       'hash': remote,
     });
     app = AppController(
-      androidDocuments: storage,
+      documentServices: storage,
       command: command,
       supportDirectory: () async => directory,
       polling: false,
@@ -114,7 +120,7 @@ void main() {
   tearDown(() async {
     app.dispose();
     await storage.diagnostics.flush();
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, null);
+    messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, null);
     await directory.delete(recursive: true);
   });
 
@@ -165,7 +171,7 @@ void main() {
     expect(writes, 0);
     expect(remote, 'externally-changed');
     final retained = await storage.retainedCollections();
-    expect(retained.single['uri'], 'content://test/1');
+    expect(retained.single['reference']['locator'], 'content://test/1');
     expect(
       await File(retained.single['path'] as String).readAsString(),
       'edited-1',

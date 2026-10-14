@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/android_documents.dart';
+import '../services/document_save_coordinator.dart';
 import '../services/app_controller.dart';
 
 Future<bool> confirmDocumentAction(
@@ -33,21 +33,19 @@ class DocumentStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storage = app.androidDocuments;
+    final storage = app.documentServices;
     final issue = app.documentIssue;
-    final red = storage?.severe == true;
+    final red = storage.severe;
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: issue
           ? (red ? scheme.errorContainer : const Color(0xffffefbd))
           : Colors.transparent,
       child: InkWell(
-        onTap: storage == null
-            ? null
-            : () => showDialog<void>(
-                context: context,
-                builder: (_) => DocumentIssueDialog(app: app),
-              ),
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (_) => DocumentIssueDialog(app: app),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -66,7 +64,7 @@ class DocumentStatus extends StatelessWidget {
                   style: TextStyle(color: red ? scheme.onErrorContainer : null),
                 ),
               ),
-              if (storage != null) const Icon(Icons.info_outline, size: 18),
+              const Icon(Icons.info_outline, size: 18),
             ],
           ),
         ),
@@ -115,7 +113,7 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
   }
 
   Future<void> retained() async {
-    final saved = await widget.app.androidDocuments!.retainedCollections();
+    final saved = await widget.app.documentServices.retainedCollections();
     if (!mounted) return;
     final choice = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -160,7 +158,7 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
     listenable: widget.app,
     builder: (context, _) {
       final app = widget.app;
-      final storage = app.androidDocuments!;
+      final storage = app.documentServices;
       return AlertDialog(
         title: const Text('File connection and saving'),
         content: SizedBox(

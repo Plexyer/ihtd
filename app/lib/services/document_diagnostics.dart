@@ -7,6 +7,7 @@ class DocumentDiagnostics {
     'checking',
     'connected',
     'renamed',
+    'replaced',
     'unavailable',
     'external_changed',
     'save_failed',
@@ -100,7 +101,14 @@ class DocumentDiagnostics {
     Map<String, dynamic>? extended,
   }) {
     final safeEnvironment = <String, dynamic>{};
-    for (final key in ['appVersion', 'build', 'androidApi', 'androidVersion']) {
+    for (final key in [
+      'appVersion',
+      'build',
+      'androidApi',
+      'androidVersion',
+      'os',
+      'osVersion',
+    ]) {
       final value = environment[key];
       if (value != null &&
           RegExp(r'^[0-9.A-Za-z+_-]{1,40}$').hasMatch('$value')) {

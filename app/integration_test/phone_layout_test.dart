@@ -2,6 +2,10 @@ import 'dart:io';
 
 import 'package:app/main.dart' as app;
 import 'package:app/services/app_controller.dart';
+import 'package:app/services/document_save_coordinator.dart';
+import 'package:app/services/filesystem_documents.dart';
+import 'package:app/src/rust/api/simple.dart' as api;
+import 'package:app/src/rust/frb_generated.dart';
 import 'package:app/ui/app_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,15 +28,35 @@ void main() {
         tester.view.resetDevicePixelRatio();
         tester.view.resetPadding();
       });
-      await app.main();
+      final directory = await Directory.systemTemp.createTemp(
+        'ihtd-phone-test-',
+      );
+      await RustLib.init();
+      runApp(
+        ProviderScope(
+          overrides: [
+            appProvider.overrideWith(
+              (ref) => AppController(
+                supportDirectory: () async =>
+                    Directory('${directory.path}/support'),
+                documentServices: DocumentSaveCoordinator(
+                  adapter: FilesystemDocumentAdapter(
+                    (request) => api.command(request: request),
+                  ),
+                  supportDirectory: () async =>
+                      Directory('${directory.path}/support'),
+                ),
+              ),
+            ),
+          ],
+          child: const app.IhtdApp(),
+        ),
+      );
       await tester.pumpAndSettle();
       final controller = ProviderScope.containerOf(
         tester.element(find.byType(AppShell)),
       ).read(appProvider);
       await controller.ready;
-      final directory = await Directory.systemTemp.createTemp(
-        'ihtd-phone-test-',
-      );
       addTearDown(() => directory.delete(recursive: true));
       expect(
         await controller.dispatch({
