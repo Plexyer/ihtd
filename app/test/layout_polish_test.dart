@@ -281,6 +281,40 @@ void main() {
     },
   );
 
+  testWidgets(
+    'view focus and input survive switching to the short keyboard layout',
+    (tester) async {
+      await host(tester, size: const Size(390, 700));
+      await open(tester, 'Edit view');
+      final name = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'View name',
+      );
+      await tester.tap(name);
+      await tester.enterText(name, 'Input survives reflow');
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pumpAndSettle();
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: name, matching: find.byType(EditableText)),
+      );
+      expect(editable.focusNode.hasFocus, true);
+      expect(editable.controller.text, 'Input survives reflow');
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(of: name, matching: find.byType(EditableText)),
+            )
+            .focusNode
+            .hasFocus,
+        true,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final scenario in [
     (name: 'pixel', size: const Size(390, 844), scale: 1.0, keyboard: 320.0),
     (name: 'small', size: const Size(320, 640), scale: 1.0, keyboard: 260.0),

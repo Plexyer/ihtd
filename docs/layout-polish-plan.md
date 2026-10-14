@@ -156,7 +156,10 @@ observed behavior warrants a different implementation.
   viewport. Name/help/rules share a scroll; forms have 12 px top paint space.
   Available Dialog constraints already exclude keyboard/safe insets. At short
   heights or large text, title/actions join the scroll; normal layouts retain
-  accessible wrapped actions outside it. Rule structure and handlers are intact.
+  accessible wrapped actions outside it. Stable keyed editor subtrees retain
+  field focus/selection when switching those layouts; a keyboard-transition
+  regression reproduces the former focus loss and now passes. Rule structure
+  and handlers are intact.
 - `AppSurfaces` owns the existing palette. The header paints its top inset;
   content removes the consumed top padding, avoiding a second automatic list
   inset. Drawer Material paints the whole sidebar surface with transparent tint.
@@ -171,7 +174,7 @@ observed behavior warrants a different implementation.
   combinations, including 2x text. Rendered pixel checks confirm header/canvas
   and both drawer inset colors. Readable host screenshots were reviewed,
   including the complete last rule and Add condition at the lower scroll limit.
-- All 63 Dart tests and Flutter analysis of lib/test/integration_test pass.
+- All 64 Dart tests and Flutter analysis of lib/test/integration_test pass.
   All 10 Python release/architecture checks pass.
 - The expanded Linux phone integration test passes actual Rust-backed view edits,
   new-task creation with keyboard insets, and the existing flush/scroll/drag flows.
@@ -181,4 +184,6 @@ observed behavior warrants a different implementation.
   manual check and raced the assertion. Production polling is unchanged.
 - Physical Pixel startup/IME/navigation-mode appearance and desktop scaling remain
   pending: follow [layout acceptance](layout-polish-acceptance.md). Build/CI
-  results and candidate provenance will be added after verification.
+  results and candidate provenance will be added after final verification.
+- The first native matrix passed all three platform jobs at `31b451e`; the final
+  shared focus fix is being rebuilt for matching candidate provenance.
