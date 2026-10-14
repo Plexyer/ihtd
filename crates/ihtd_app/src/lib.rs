@@ -54,7 +54,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default()})
+                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default()})
             }
         }
     }
@@ -68,15 +68,32 @@ impl Backend {
             }
             "snapshot" => return Ok(json!({})),
             "open" | "new" => {
-                if self.session.as_ref().map(|s| s.dirty).unwrap_or(false) {
+                if self.session.as_ref().map(|s| s.dirty).unwrap_or(false)
+                    && !request
+                        .get("preserve_pending")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                {
                     return Err("Save your pending edits with Retry or Save a copy as before switching files.".into());
                 }
                 let path = PathBuf::from(string(&request, "path")?);
-                let next = if op == "new" {
+                let mut next = if op == "new" {
                     Session::new(path, &self.recovery_dir)?
                 } else {
                     Session::open(path, &self.recovery_dir)?
                 };
+                if op == "open" {
+                    if let Some(recovery) = request.get("recovery_path").and_then(Value::as_str) {
+                        next.restore_recovery(std::path::Path::new(recovery))?;
+                    }
+                    if request
+                        .get("recover_local")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        next.restore_available()?;
+                    }
+                }
                 self.session = Some(next);
                 return Ok(json!({}));
             }
@@ -87,6 +104,11 @@ impl Backend {
             .as_mut()
             .ok_or("Open or create a collection first")?;
         match op.as_str() {
+            "copy" => {
+                let path = PathBuf::from(string(&request, "path")?);
+                storage::publish(&path, &storage::encode(&session.document)?, false)?;
+                return Ok(json!({}));
+            }
             "poll" => return Ok(json!({"reloaded":session.check_external()?})),
             "retry" => {
                 session.commit(session.document.clone())?;

@@ -49,4 +49,35 @@ class DocumentWriterTest {
         }
         assertEquals(0, writes)
     }
+
+    @Test fun renameBarrierIsPreservedBeforeWriting() {
+        var writes = 0
+        val failure = assertThrows(DocumentWriter.Failure::class.java) {
+            DocumentWriter.publish(edited, DocumentWriter.hash(old), { old }) {
+                throw DocumentWriter.Failure("renamed")
+                @Suppress("UNREACHABLE_CODE")
+                writes++
+            }
+        }
+        assertEquals("renamed", failure.code)
+        assertEquals(0, writes)
+    }
+
+    @Test fun writeAndVerificationErrorsHaveDistinctSafeCodes() {
+        val failedWrite = assertThrows(DocumentWriter.Failure::class.java) {
+            DocumentWriter.publish(edited, DocumentWriter.hash(old), { old }) {
+                error("private filename and content must not escape")
+            }
+        }
+        assertEquals("write_failed", failedWrite.code)
+        var reads = 0
+        val failedVerification = assertThrows(DocumentWriter.Failure::class.java) {
+            DocumentWriter.publish(edited, DocumentWriter.hash(old), {
+                reads++
+                if (reads == 1) old else throw SecurityException("private provider")
+            }) {}
+        }
+        assertEquals("verification_failed", failedVerification.code)
+        assertFalse(failedWrite.message!!.contains("private"))
+    }
 }

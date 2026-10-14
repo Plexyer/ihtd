@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -19,6 +21,13 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dev.ihtd.app/documents")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "environment" -> {
+                        @Suppress("DEPRECATION")
+                        val info = packageManager.getPackageInfo(packageName, 0)
+                        result.success(mapOf("appVersion" to info.versionName,
+                            "build" to info.longVersionCode, "androidApi" to Build.VERSION.SDK_INT,
+                            "androidVersion" to Build.VERSION.RELEASE))
+                    }
                     "open", "create" -> {
                         if (pickerResult != null) {
                             result.error("busy", "A document picker is already open", null)
@@ -38,19 +47,22 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
-                    "pending" -> documents.execute {
+                    "pending", "localHash" -> documents.execute {
                         try {
-                            val pending = hash(File(requireNotNull(call.argument<String>("path"))).readBytes()) != call.argument<String>("hash")
-                            runOnUiThread { result.success(pending) }
+                            val digest = hash(File(requireNotNull(call.argument<String>("path"))).readBytes())
+                            val value: Any = if (call.method == "localHash") digest else digest != call.argument<String>("hash")
+                            runOnUiThread { result.success(value) }
                         } catch (e: Exception) {
-                            runOnUiThread { result.error("document", e.message, null) }
+                            runOnUiThread { result.error("local_failed", "Private file could not be read", null) }
                         }
                     }
-                    "read", "write" -> documents.execute {
+                    "read", "write", "inspect" -> documents.execute {
                         try {
                             val uri = Uri.parse(requireNotNull(call.argument<String>("uri")))
                             require(uri.scheme == "content") { "Expected a document-provider URI" }
-                            val value: Any = if (call.method == "read") {
+                            val value: Any = if (call.method == "inspect") {
+                                metadata(uri) + mapOf("hash" to hash(readDocument(uri)))
+                            } else if (call.method == "read") {
                                 val remote = readDocument(uri)
                                 mapOf("bytes" to remote, "hash" to hash(remote))
                             } else {
@@ -58,8 +70,17 @@ class MainActivity : FlutterActivity() {
                                 require(local.path.startsWith(filesDir.parentFile!!.canonicalPath + "/")) {
                                     "Only private working files can be published"
                                 }
-                                val bytes = local.readBytes()
+                                val bytes = try { local.readBytes() } catch (_: Exception) {
+                                    throw DocumentWriter.Failure("local_failed")
+                                }
+                                val expectedName = call.argument<String>("name")
+                                if (expectedName != null && metadata(uri)["name"] != expectedName) {
+                                    throw DocumentWriter.Failure("renamed")
+                                }
                                 DocumentWriter.publish(bytes, requireNotNull(call.argument<String>("hash")), { readDocument(uri) }) { output ->
+                                    if (expectedName != null && metadata(uri)["name"] != expectedName) {
+                                        throw DocumentWriter.Failure("renamed")
+                                    }
                                     contentResolver.openOutputStream(uri, "wt")?.use { stream ->
                                         stream.write(output)
                                         stream.flush()
@@ -68,7 +89,8 @@ class MainActivity : FlutterActivity() {
                             }
                             runOnUiThread { result.success(value) }
                         } catch (e: Exception) {
-                            runOnUiThread { result.error("document", e.message, null) }
+                            val code = (e as? DocumentWriter.Failure)?.code ?: "unavailable"
+                            runOnUiThread { result.error(code, "Document operation failed: $code", null) }
                         }
                     }
                     else -> result.notImplemented()
@@ -81,6 +103,26 @@ class MainActivity : FlutterActivity() {
             ?: error("The document provider refused read access")
 
     private fun hash(bytes: ByteArray) = DocumentWriter.hash(bytes)
+
+    private fun metadata(uri: Uri): Map<String, Any?> {
+        val fields = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED, DocumentsContract.Document.COLUMN_FLAGS)
+        // Not all providers support optional document columns.
+        val cursor = try { contentResolver.query(uri, fields, null, null, null) }
+            catch (_: Exception) { contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null) }
+        cursor?.use {
+            if (!it.moveToFirst()) error("Document unavailable")
+            fun value(column: String): Any? {
+                val index = it.getColumnIndex(column)
+                if (index < 0 || it.isNull(index)) return null
+                return if (column == OpenableColumns.DISPLAY_NAME) it.getString(index) else it.getLong(index)
+            }
+            return mapOf("name" to value(OpenableColumns.DISPLAY_NAME), "size" to value(OpenableColumns.SIZE),
+                "modified" to value(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                "flags" to value(DocumentsContract.Document.COLUMN_FLAGS))
+        }
+        error("Document metadata unavailable")
+    }
 
     @Deprecated("Android activity result callback used by FlutterActivity")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -96,13 +138,9 @@ class MainActivity : FlutterActivity() {
         try {
             val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             contentResolver.takePersistableUriPermission(uri, flags)
-            var name = "Collection.ihtd"
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
-                if (it.moveToFirst()) name = it.getString(0)
-            }
-            result.success(mapOf("uri" to uri.toString(), "name" to name))
+            result.success(metadata(uri) + mapOf("uri" to uri.toString()))
         } catch (e: Exception) {
-            result.error("permission", "Persistent document access is required: ${e.message}", null)
+            result.error("permission", "Persistent document access is required", null)
         }
     }
 }

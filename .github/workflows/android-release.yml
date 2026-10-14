@@ -46,7 +46,7 @@ jobs:
       - name: Test document saving
         working-directory: app
         run: |
-          flutter test test/android_documents_test.dart
+          flutter test test
           cd android
           ./gradlew :app:testDebugUnitTest -Ptarget-platform=android-arm64
       - name: Verify and package
