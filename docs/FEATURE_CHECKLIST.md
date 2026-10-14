@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-13 for the Android first milestone and agreed release/update
+Updated 2026-10-14 for physical Android feedback and agreed release/update
 workflow. Unchecked suggestions are not approved requirements unless they are
 listed under "Agreed release and update work"; clarify their behavior before
 implementing them.
@@ -56,6 +56,33 @@ implementing them.
     later, phones.
 - [ ] Version/change history (later idea): decide how to inspect and restore
   earlier changes before implementing it.
+
+## Agreed app fixes from physical testing
+
+Recorded on 2026-10-14 on the Pixel 9 Pro running GrapheneOS. These are
+approved follow-up tasks; this entry records the reports, not completed fixes.
+
+- [ ] Minor Android layout and clipping fixes.
+  - [ ] Edit view: fix clipping at the top and bottom of the scrollable rules
+    area when scrolling in either direction. Ensure field labels, rule cards,
+    and Add condition remain fully readable and reachable at the scroll limits.
+  - [ ] New task: prevent the floating Title label from being cut off when the
+    keyboard opens and the title field receives focus.
+  - [ ] Verify both dialogs on the physical Pixel with the keyboard open/closed,
+    including scroll limits, large text, and portrait/landscape layouts.
+- [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
+  - [ ] When an item has two or more actual placements, label the action
+    Unlink and remove only the selected placement. Preserve the shared item,
+    its data, and its remaining placements.
+  - [ ] When an item has exactly one placement, label the action Delete and
+    delete the item when that last placement is removed.
+  - [ ] Count actual hierarchy/root placements, not appearances in filtered
+    views; update the label as links are added or removed.
+  - [ ] Before implementation, agree how deleting the last placement handles
+    children, including shared descendants, and whether confirmation or undo
+    is needed. Never silently delete descendants still linked elsewhere.
+  - [ ] Verify task/folder actions with one and multiple placements, including
+    nested and top-level placements, saved views, and persistence after reopen.
 
 ## Agreed release and update work
 
