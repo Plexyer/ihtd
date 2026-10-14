@@ -192,25 +192,32 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
 - [ ] Rework the new/edit view rule editor for clarity and ease of use.
   Implementation handoff: [infix expression-editor plan](view-expression-editor-plan.md).
   Owner approved the infix design and Option-A narrow layout on 2026-10-14;
-  implementation and physical acceptance remain pending.
-  - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
+  shared implementation and automated verification are complete; physical
+  acceptance remains pending. See [acceptance guide](view-expression-editor-acceptance.md).
+  - [x] Address owner feedback: the current nested cards, repeated Rule labels,
     large dropdown fields, and action layout feel cluttered and unintuitive,
     especially on the Pixel's narrow screen. This is an interaction/layout
     rework, separate from fixing the scroll clipping reported above.
   - [x] Review the design with the owner: conditions joined by infix operators;
     circular plus slots and scoped chain-end addition; AND/OR begins the next
     row on phones (Option A), with inline layout where wider screens allow it.
-  - [ ] Implement compact editable summaries and parentheses for mixed groups;
+  - [x] Implement compact editable summaries and parentheses for mixed groups;
     visually combine nested AND/AND and OR/OR, preserving XOR/NOT boundaries.
     Preserve saved matching, creation defaults and deleted-container warnings.
-  - [ ] Explain ALL/AND and ANY/OR in plain language and make their scope clear;
+  - [x] Explain ALL/AND and ANY/OR in plain language and make their scope clear;
     keep adding, editing, and removing conditions/groups easy to discover.
-  - [ ] Give Save/Cancel clear placement and separate secondary/destructive
+  - [x] Give Save/Cancel clear placement and separate secondary/destructive
     actions so they do not dominate the rule editor. Review tag creation's
     placement within the condition workflow.
-  - [ ] Preserve existing filter semantics and saved-view compatibility; verify
-    simple and nested rules, long labels, large text, keyboard use, and touch
-    scrolling on the physical Pixel, plus usability on desktop.
+  - [x] Preserve saved filter structure, creation hints, IDs and preferences;
+    verify simple/mixed/deep rules, scoped additions, draft cancellation, stale
+    editor guards, duplicate names and deleted-container repair. Automated
+    coverage includes 97 Flutter tests, clean analysis, 67 Rust tests and 13
+    architecture/release checks; native desktop/phone checks are recorded in
+    the implementation plan.
+  - [ ] Physically verify the new editor on Pixel/GrapheneOS, Windows and Fedora:
+    scoped pluses, every leaf type, mixed/XOR/NOT groups, large text, keyboard,
+    rotation/resize, save/cancel, repair and pending external-file publication.
 - [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
   Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
   Owner semantics confirmed 2026-10-14. Shared implementation and automated
