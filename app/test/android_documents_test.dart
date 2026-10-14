@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/services/android_documents.dart';
+import 'package:app/services/document_save_coordinator.dart';
 import 'package:app/services/document_diagnostics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
-  late AndroidDocuments documents;
+  late DocumentSaveCoordinator documents;
   late String remote, filename, localPath;
   String? failure;
   bool unavailable = false;
@@ -58,8 +59,14 @@ void main() {
     failure = null;
     unavailable = false;
     writes = 0;
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, provider);
-    documents = AndroidDocuments(supportDirectory: () async => directory);
+    messenger.setMockMethodCallHandler(
+      AndroidDocumentAdapter.channel,
+      provider,
+    );
+    documents = DocumentSaveCoordinator(
+      adapter: AndroidDocumentAdapter(),
+      supportDirectory: () async => directory,
+    );
     await documents.initialize();
     localPath = documents.freshPath();
     await File(localPath).writeAsString(remote);
@@ -72,7 +79,7 @@ void main() {
   });
   tearDown(() async {
     await documents.diagnostics.flush();
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, null);
+    messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, null);
     await directory.delete(recursive: true);
   });
 
@@ -98,7 +105,10 @@ void main() {
     expect(writes, 0);
     expect(documents.summary, 'Pending changes — not saved to file');
     expect(documents.severe, false);
-    final restored = AndroidDocuments(supportDirectory: () async => directory);
+    final restored = DocumentSaveCoordinator(
+      adapter: AndroidDocumentAdapter(),
+      supportDirectory: () async => directory,
+    );
     await restored.initialize();
     await restored.publish();
     expect(writes, 0);
@@ -176,7 +186,7 @@ void main() {
       ),
       false,
     );
-    expect(documents.binding!['uri'], 'content://test/1');
+    expect(documents.binding!['reference']['locator'], 'content://test/1');
     expect(writes, 0);
   });
   test('explicit reconnect to exact baseline is allowed, a changed approval is rejected', () async {
@@ -198,13 +208,15 @@ void main() {
       ),
       true,
     );
-    expect(documents.binding!['uri'], 'content://test/2');
+    expect(documents.binding!['reference']['locator'], 'content://test/2');
     expect(remote, 'edited');
   });
   test('new edits during an in-flight save stay pending', () async {
     await File(localPath).writeAsString('first edit');
     final started = Completer<void>(), finish = Completer<void>();
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, (call) async {
+    messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, (
+      call,
+    ) async {
       if (call.method == 'write') {
         final submitted = await File(localPath).readAsString();
         started.complete();
@@ -227,7 +239,8 @@ void main() {
     'restart with unpublished edits requires explicit confirmation',
     () async {
       await File(localPath).writeAsString('edited');
-      final restored = AndroidDocuments(
+      final restored = DocumentSaveCoordinator(
+        adapter: AndroidDocumentAdapter(),
         supportDirectory: () async => directory,
       );
       await restored.initialize();
@@ -251,7 +264,7 @@ void main() {
       'hash': remote,
     });
     final saved = await documents.retainedCollections();
-    expect(saved.single['uri'], 'content://test/1');
+    expect(saved.single['reference']['locator'], 'content://test/1');
     expect(saved.single['pending'], true);
     expect(await File(saved.single['path'] as String).readAsString(), 'edited');
     expect(writes, 0);
@@ -269,7 +282,7 @@ void main() {
         'path': next,
         'hash': remote,
       });
-      expect(documents.binding!['uri'], 'content://test/2');
+      expect(documents.binding!['reference']['locator'], 'content://test/2');
       expect(documents.severe, true);
       await documents.publish();
       expect(writes, 0);
@@ -282,7 +295,7 @@ void main() {
     'unknown provider name is not invented and prevents publication',
     () async {
       await File(localPath).writeAsString('edited');
-      messenger.setMockMethodCallHandler(AndroidDocuments.channel, (
+      messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, (
         call,
       ) async {
         if (call.method == 'inspect') return {'name': null, 'hash': remote};
@@ -331,12 +344,17 @@ void main() {
     unavailable = true;
     await documents.check();
     String? output;
-    messenger.setMockMethodCallHandler(AndroidDocuments.channel, (call) async {
+    messenger.setMockMethodCallHandler(AndroidDocumentAdapter.channel, (
+      call,
+    ) async {
       if (call.method == 'create') {
         return {'uri': 'content://logs/1', 'name': 'diagnostics.json'};
       }
       final args = Map<String, dynamic>.from(call.arguments as Map? ?? {});
       if (args['uri'] == 'content://logs/1') {
+        if (call.method == 'inspect') {
+          return {'name': 'diagnostics.json', 'hash': output};
+        }
         if (call.method == 'read') {
           return {'bytes': Uint8List(0), 'hash': 'empty'};
         }
@@ -354,7 +372,7 @@ void main() {
     expect(output, isNot(contains(filename)));
     expect(documents.pending, true);
     expect(documents.connection, DocumentConnection.unavailable);
-    expect(documents.binding!['uri'], 'content://test/1');
+    expect(documents.binding!['reference']['locator'], 'content://test/1');
     await documents.exportDiagnostics(extended: true);
     expect(output, contains(filename));
     expect(output, isNot(contains('content://')));

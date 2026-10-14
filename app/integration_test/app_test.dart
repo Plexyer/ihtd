@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:app/main.dart' as app;
 import 'package:app/services/app_controller.dart';
+import 'package:app/services/document_save_coordinator.dart';
+import 'package:app/services/filesystem_documents.dart';
+import 'package:app/src/rust/api/simple.dart' as api;
 import 'package:app/ui/app_shell.dart';
 import 'package:app/src/rust/frb_generated.dart';
 
@@ -21,7 +24,33 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    await app.main();
+    final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
+    Future<void> start([String? initialPath]) async {
+      await RustLib.init();
+      runApp(
+        ProviderScope(
+          overrides: [
+            appProvider.overrideWith(
+              (ref) => AppController(
+                initialDocumentPath: initialPath,
+                supportDirectory: () async =>
+                    Directory('${directory.path}/support'),
+                documentServices: DocumentSaveCoordinator(
+                  adapter: FilesystemDocumentAdapter(
+                    (request) => api.command(request: request),
+                  ),
+                  supportDirectory: () async =>
+                      Directory('${directory.path}/support'),
+                ),
+              ),
+            ),
+          ],
+          child: const app.IhtdApp(),
+        ),
+      );
+    }
+
+    await start();
     await tester.pumpAndSettle();
     expect(find.text('Create collection'), findsOneWidget);
     final container = ProviderScope.containerOf(
@@ -29,7 +58,6 @@ void main() {
     );
     final controller = container.read(appProvider);
     await controller.ready;
-    final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
     final path = '${directory.path}/collection.ihtd';
     expect(await controller.dispatch({'op': 'new', 'path': path}), isNotNull);
     await tester.pumpAndSettle();
@@ -133,20 +161,54 @@ void main() {
       'view_id': view!['id'],
     });
     expect(defaults!['tag_ids'], [tag['id']]);
-    final snapshot = controller.document!;
+    var snapshot = controller.document!;
     expect(await controller.dispatch({'op': 'open', 'path': path}), isNotNull);
     expect(controller.document, snapshot);
     expect(await File(path).length(), greaterThan(0));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
+    // Exercise the actual filesystem adapter: renaming cannot recreate the old
+    // path or publish edits merely because the task/editor is opened again.
+    final renamedPath = '${directory.path}/renamed collection.ihtd';
+    final externalBefore = await File(path).readAsBytes();
+    await File(path).rename(renamedPath);
+    await controller.poll();
+    expect(controller.documentServices.hasIssue, true);
+    expect(
+      await controller.dispatch({
+        'op': 'add_tag',
+        'name': 'Pending after rename',
+      }),
+      isNotNull,
+    );
+    await controller.selectItem(task);
+    await controller.poll();
+    expect(controller.documentServices.pending, true);
+    expect(await File(path).exists(), false);
+    expect(await File(renamedPath).readAsBytes(), externalBefore);
+    final selected = {
+      'reference': controller.documentServices.adapter
+          .referenceFor(renamedPath)
+          .toJson(),
+    };
+    final approved = {
+      ...selected,
+      ...(await controller.documentServices.inspect(selected)),
+      'explicitSelection': true,
+    };
+    expect(await controller.documentServices.confirm(selected: approved), true);
+    expect(controller.documentServices.pending, false);
+    expect(controller.path, renamedPath);
+    snapshot = controller.document!;
+
     // Explorer passes the full document path as a single argument. Exercise a
     // fresh controller with a different path, spaces and non-ASCII characters.
     final launchPath = '${directory.path}/日本 travel collection.ihtd';
-    await File(path).copy(launchPath);
+    await File(controller.path!).copy(launchPath);
     await tester.pumpWidget(const SizedBox.shrink());
     RustLib.dispose();
-    await app.main([launchPath]);
+    await start(launchPath);
     await tester.pumpAndSettle();
     final launched = ProviderScope.containerOf(
       tester.element(find.byType(AppShell)),

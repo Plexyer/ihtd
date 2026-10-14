@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../src/rust/api/simple.dart' as api;
-import 'android_documents.dart';
+import 'document_save_coordinator.dart';
+import 'document_composition.dart';
 
 final appProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
@@ -20,16 +20,19 @@ final appProvider = ChangeNotifierProvider<AppController>(
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController({
     this.initialDocumentPath,
-    AndroidDocuments? androidDocuments,
+    DocumentSaveCoordinator? documentServices,
     Future<String> Function(String)? command,
     Future<Directory> Function()? supportDirectory,
     bool polling = true,
-  }) : _android =
-           androidDocuments ?? (Platform.isAndroid ? AndroidDocuments() : null),
+  }) : _documents =
+           documentServices ??
+           composeDocumentServices(
+             command ?? ((request) => api.command(request: request)),
+           ),
        _command = command ?? ((request) => api.command(request: request)),
        _supportDirectory = supportDirectory ?? getApplicationSupportDirectory {
     WidgetsBinding.instance.addObserver(this);
-    _android?.onStateChanged = _syncAndroidStatus;
+    _documents.onStateChanged = _syncDocumentStatus;
     ready = _initialize();
     if (polling) {
       _timer = Timer.periodic(const Duration(seconds: 3), (_) => poll());
@@ -42,35 +45,36 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   bool _polling = false;
   bool _disposed = false;
   bool _mutating = false;
-  final AndroidDocuments? _android;
+  final DocumentSaveCoordinator _documents;
   final Future<String> Function(String) _command;
   final Future<Directory> Function() _supportDirectory;
   bool _localDirty = false;
   bool _localPersistenceFailed = false;
   String? _recoveryPath;
-  void _syncAndroidStatus() {
-    if (_android?.binding != null) {
+  void _syncDocumentStatus() {
+    if (_documents.binding != null) {
       status =
           _mutating &&
-              !_android!.hasIssue &&
-              !_android.pending &&
-              !_android.publishing
+              !_documents.hasIssue &&
+              !_documents.pending &&
+              !_documents.publishing
           ? 'Saving changes locally…'
-          : _android!.summary;
+          : _documents.summary;
       notifyListeners();
     }
   }
 
-  AndroidDocuments? get androidDocuments => _android;
+  DocumentSaveCoordinator get documentServices => _documents;
   bool get documentIssue =>
-      _android?.hasIssue == true || _android?.pending == true;
+      _documents.hasIssue == true || _documents.pending == true;
   Future<bool> Function(String title, String message)? confirmDocumentAction;
   String? get documentName =>
-      _android?.name ?? path?.replaceAll('\\', '/').split('/').last;
+      _documents.name ?? path?.replaceAll('\\', '/').split('/').last;
   String? error;
   String? documentActionNotice;
   String status = 'Open a collection to begin';
-  String? path;
+  String? _workingPath;
+  String? get path => _documents.externalLocation ?? _workingPath;
   Map<String, dynamic>? document;
   Map<String, dynamic> completion = {};
   List<Map<String, dynamic>> rows = [];
@@ -100,12 +104,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final dir = await _supportDirectory();
       await _send({'op': 'initialize', 'recovery_dir': '${dir.path}/recovery'});
-      final previous = await _android?.initialize();
-      if (_android == null && initialDocumentPath != null) {
-        await _send({'op': 'open', 'path': initialDocumentPath});
-        await refreshRows();
-        notifyListeners();
-      }
+      final previous = await _documents.initialize();
       if (previous != null) {
         await _send({
           'op': 'open',
@@ -117,13 +116,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         });
         await refreshRows();
         try {
-          await _android!.checkpoint(
+          await _documents.checkpoint(
             dirty: _localDirty,
             recoveryPath: _recoveryPath,
             revision: document?['revision'] as int?,
           );
-          await _android.check();
-          status = _android.summary;
+          await _documents.check();
+          status = _documents.summary;
         } catch (e) {
           // Rust accepted and retained the edit. Keep the editor in sync with
           // that revision while visibly reporting the provider save failure.
@@ -131,11 +130,28 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         }
         notifyListeners();
       }
+      if (initialDocumentPath != null) {
+        final selected = {
+          'reference': _documents.adapter
+              .referenceFor(initialDocumentPath!)
+              .toJson(),
+        };
+        await _documents.archive();
+        final staged = await _documents.stage(selected);
+        await _send({
+          'op': 'open',
+          'path': staged['path'],
+          'preserve_pending': true,
+        });
+        await _documents.attach(staged);
+        await refreshRows();
+        notifyListeners();
+      }
     } catch (e) {
       error = '$e';
-      if (_android?.binding != null) {
-        await _android!.markLocalFailure();
-        status = _android.summary;
+      if (_documents.binding != null) {
+        await _documents.markLocalFailure();
+        status = _documents.summary;
       }
       notifyListeners();
     }
@@ -153,7 +169,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         ..add('*');
     }
     document = next;
-    path = state['path'] as String?;
+    _workingPath = state['path'] as String?;
     completion = _map(state['completion']);
     _localDirty = state['dirty'] == true;
     _localPersistenceFailed = state['persistence_failed'] == true;
@@ -166,14 +182,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         !_map(document?['items']).containsKey('$selectedItemId')) {
       selectedItemId = null;
     }
-    status = _android?.binding != null
-        ? _android!.summary
+    status = _documents.binding != null
+        ? _documents.summary
         : state['dirty'] == true
         ? 'Pending save — local recovery retained'
         : 'Saved to file';
     if (_mutating &&
-        _android?.hasIssue == false &&
-        _android?.pending == false) {
+        _documents.hasIssue == false &&
+        _documents.pending == false) {
       status = 'Saving changes locally…';
     }
   }
@@ -186,23 +202,35 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<Map<String, dynamic>?> dispatch(Map<String, dynamic> command) async {
+    // Programmatic open/new use the same private staging and publication path
+    // as native pickers. Model commands never receive an external destination.
+    if (command['op'] == 'open' ||
+        command['op'] == 'new' ||
+        command['op'] == 'save_as') {
+      final locator = command['path'] as String;
+      final ref = _documents.adapter.referenceFor(locator);
+      await _fileAction(
+        command['op'] == 'save_as' ? 'copy' : command['op'] as String,
+        null,
+        {'reference': ref.toJson(), 'name': ref.nameHint},
+      );
+      return error == null ? {} : null;
+    }
     await ready;
     while (_polling || busy) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     busy = true;
-    _mutating =
-        _android != null &&
-        !const {
-          'query',
-          'creation_defaults',
-          'snapshot',
-          'open',
-          'new',
-          'export',
-          'copy',
-          'poll',
-        }.contains(command['op']);
+    _mutating = !const {
+      'query',
+      'creation_defaults',
+      'snapshot',
+      'open',
+      'new',
+      'export',
+      'copy',
+      'poll',
+    }.contains(command['op']);
     if (_mutating && !documentIssue) status = 'Saving changes locally…';
     error = null;
     notifyListeners();
@@ -218,7 +246,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         'copy',
       }.contains(command['op'])) {
         try {
-          await _publishAndroid();
+          await _publishDocument();
         } catch (e) {
           // The private commit succeeded; provider failure must not leave the
           // text editor holding a stale revision of its own accepted edit.
@@ -229,16 +257,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return result;
     } catch (e) {
       error = '$e';
-      if (_android?.binding != null) {
-        await _android!.checkpoint(
+      if (_documents.binding != null) {
+        await _documents.checkpoint(
           dirty: _localDirty,
           recoveryPath: _recoveryPath,
           revision: document?['revision'] as int?,
         );
-        if (_localDirty) status = _android.summary;
+        if (_localDirty) status = _documents.summary;
         if (_localPersistenceFailed && !_localDirty) {
-          await _android.markLocalFailure();
-          status = _android.summary;
+          await _documents.markLocalFailure();
+          status = _documents.summary;
         }
       }
       await refreshRows();
@@ -246,7 +274,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _mutating = false;
       busy = false;
-      if (_android?.binding != null) status = _android!.summary;
+      if (_documents.binding != null) status = _documents.summary;
       notifyListeners();
     }
   }
@@ -274,17 +302,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (_disposed || busy || _polling || document == null) return;
     _polling = true;
     try {
-      if (_android != null) {
-        await _android.check();
-        status = _android.summary;
-      }
+      await _documents.check();
+      status = _documents.summary;
       final result = await _send({'op': 'poll'});
       if (result['reloaded'] == true) {
         await refreshRows();
         status = 'Reloaded newer file';
         notifyListeners();
       }
-      if (_android != null) notifyListeners();
+      notifyListeners();
     } catch (e) {
       final next = '$e';
       if (error != next) {
@@ -305,20 +331,24 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _publishAndroid() async {
-    if (_android?.binding == null) return;
-    await _android!.checkpoint(
+  Future<void> _publishDocument() async {
+    if (_documents.binding == null) return;
+    await _documents.checkpoint(
       dirty: _localDirty,
       recoveryPath: _recoveryPath,
       revision: document?['revision'] as int?,
       markPending: true,
     );
-    await _android.publish();
-    status = _android.summary;
+    await _documents.publish();
+    status = _documents.summary;
     notifyListeners();
   }
 
-  Future<void> _androidFileAction(String action, [String? format]) async {
+  Future<void> _fileAction(
+    String action, [
+    String? format,
+    Map<String, dynamic>? supplied,
+  ]) async {
     if (!await finishDraft()) return;
     await ready;
     while (busy || _polling) {
@@ -327,7 +357,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     busy = true;
     error = null;
     notifyListeners();
-    final storage = _android!;
+    final storage = _documents;
     try {
       if (action == 'open' || action == 'new') {
         await storage.check();
@@ -343,7 +373,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         await storage.archive();
       }
       if (action == 'open') {
-        final selected = await storage.pick();
+        final selected = supplied ?? await storage.pick();
         if (selected == null) return;
         final staged = await storage.stage(selected);
         await _send({
@@ -355,11 +385,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         status = storage.summary;
       } else {
         final extension = format == 'markdown' ? 'md' : format ?? 'ihtd';
-        final selected = await storage.pick(suggested: 'Tasks.$extension');
+        final selected =
+            supplied ?? await storage.pick(suggested: 'Tasks.$extension');
         if (selected == null) return;
         if (action == 'new') {
           final local = storage.freshPath();
-          final original = await storage.read(selected['uri'] as String);
+          final original = await storage.read(selected, allowMissing: true);
           if ((original['bytes'] as List).isNotEmpty) {
             throw StateError(
               'Choose a new file; the selected document already contains data.',
@@ -370,8 +401,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
             ...selected,
             'path': local,
             'hash': original['hash'],
+            'creating': true,
           });
-          await _publishAndroid();
+          await _publishDocument();
         } else if (action == 'copy') {
           // Publishing a separate copy is also the escape route for conflicts.
           final latest = storage.freshPath();
@@ -439,10 +471,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _documentAction(
-    Future<void> Function(AndroidDocuments) action, {
+    Future<void> Function(DocumentSaveCoordinator) action, {
     bool flush = true,
   }) async {
-    if (_android == null) return;
     if (flush && !await finishDraft()) return;
     await ready;
     while (busy || _polling) {
@@ -453,11 +484,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     documentActionNotice = null;
     notifyListeners();
     try {
-      await action(_android);
+      await action(_documents);
     } catch (_) {
       documentActionNotice = 'The document action could not be completed. Your open collection has been retained.';
     } finally {
-      status = _android.summary;
+      status = _documents.summary;
       busy = false;
       notifyListeners();
     }
@@ -470,7 +501,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, dynamic>? selected = storage.binding;
     if (selectFile) selected = await storage.pick();
     if (selected == null) return;
-    final metadata = await storage.inspect(selected['uri'] as String);
+    final metadata = await storage.inspect(selected);
     final confirmed =
         await confirmDocumentAction?.call(
           'Confirm saving destination',
@@ -488,16 +519,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         revision: document?['revision'] as int?,
       );
     }
-    if (!await storage.confirm(selected: {...selected, ...metadata})) {
+    if (!await storage.confirm(
+      selected: {...selected, ...metadata, 'explicitSelection': selectFile},
+    )) {
       documentActionNotice = 'Reconnection was not confirmed. The file may have changed or remain unavailable; review the document warning.';
     }
   });
 
   Future<void> retryDocumentSave() async {
-    if (_android == null) {
-      await dispatch({'op': 'retry'});
-      return;
-    }
     await reconnectDocument();
   }
 
@@ -527,7 +556,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       if (saved['localDirty'] == true && saved['recoveryPath'] != null)
         'recovery_path': saved['recoveryPath'],
     });
-    await storage.attach({...saved, 'barrier': 'reconnectRequired'});
+    await storage.attach(saved, retained: true);
     storage.localDirty = _localDirty;
     if (storage.connection == DocumentConnection.connected) {
       storage.connection = DocumentConnection.reconnectRequired;
@@ -540,78 +569,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     await refreshRows();
   });
 
-  Future<void> openDocument() async {
-    if (_android != null) return _androidFileAction('open');
-    if (!await finishDraft()) return;
-    try {
-      final file = await openFile(
-        acceptedTypeGroups: [
-          const XTypeGroup(label: 'IHTD collection', extensions: ['ihtd']),
-        ],
-      );
-      if (file != null) await dispatch({'op': 'open', 'path': file.path});
-    } catch (e) {
-      error = '$e';
-      notifyListeners();
-    }
-  }
-
-  Future<String?> _savePath(String suggested, String extension) async {
-    final location = await getSaveLocation(
-      suggestedName: suggested,
-      acceptedTypeGroups: [
-        XTypeGroup(label: extension.toUpperCase(), extensions: [extension]),
-      ],
-    );
-    if (location == null) return null;
-    return location.path.toLowerCase().endsWith('.$extension')
-        ? location.path
-        : '${location.path}.$extension';
-  }
-
-  Future<void> newDocument() async {
-    if (_android != null) return _androidFileAction('new');
-    if (!await finishDraft()) return;
-    try {
-      final selected = await _savePath('My tasks.ihtd', 'ihtd');
-      if (selected != null) await dispatch({'op': 'new', 'path': selected});
-    } catch (e) {
-      error = '$e';
-      notifyListeners();
-    }
-  }
-
-  Future<void> saveAs() async {
-    if (_android != null) return _androidFileAction('copy');
-    if (!await finishDraft()) return;
-    try {
-      final selected = await _savePath('Tasks copy.ihtd', 'ihtd');
-      if (selected != null) await dispatch({'op': 'save_as', 'path': selected});
-    } catch (e) {
-      error = '$e';
-      notifyListeners();
-    }
-  }
-
-  Future<void> exportDocument(String format) async {
-    if (_android != null) return _androidFileAction('export', format);
-    if (!await finishDraft()) return;
-    try {
-      final extension = format == 'markdown' ? 'md' : format;
-      final selected = await _savePath('Tasks.$extension', extension);
-      if (selected != null) {
-        await dispatch({'op': 'export', 'format': format, 'path': selected});
-      }
-    } catch (e) {
-      error = '$e';
-      notifyListeners();
-    }
-  }
+  Future<void> openDocument() => _fileAction('open');
+  Future<void> newDocument() => _fileAction('new');
+  Future<void> saveAs() => _fileAction('copy');
+  Future<void> exportDocument(String format) => _fileAction('export', format);
 
   @override
   void dispose() {
     _disposed = true;
-    _android?.onStateChanged = null;
+    _documents.onStateChanged = null;
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

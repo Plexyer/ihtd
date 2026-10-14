@@ -1,4 +1,5 @@
 pub mod export;
+pub mod filesystem;
 pub mod presentation;
 pub mod storage;
 
@@ -42,6 +43,16 @@ fn decode<T: serde::de::DeserializeOwned>(v: &Value) -> Result<T, String> {
 
 impl Backend {
     pub fn execute(&mut self, request: &str) -> String {
+        if let Ok(value) = serde_json::from_str::<Value>(request) {
+            if value["op"] == "filesystem" {
+                return match filesystem::execute(&value) {
+                    Ok(data) => json!({"ok":true,"data":data}).to_string(),
+                    Err(filesystem::Failure(code)) => {
+                        json!({"ok":false,"error_code":code,"error":code}).to_string()
+                    }
+                };
+            }
+        }
         let result = serde_json::from_str::<Value>(request)
             .map_err(|e| e.to_string())
             .and_then(|v| self.command(v));
