@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-13 for the Android first milestone and agreed release/update
+Updated 2026-10-14 for physical Android feedback and agreed release/update
 workflow. Unchecked suggestions are not approved requirements unless they are
 listed under "Agreed release and update work"; clarify their behavior before
 implementing them.
@@ -56,6 +56,138 @@ implementing them.
     later, phones.
 - [ ] Version/change history (later idea): decide how to inspect and restore
   earlier changes before implementing it.
+
+## Agreed app fixes from physical testing
+
+Recorded on 2026-10-14 on the Pixel 9 Pro running GrapheneOS. These are
+approved follow-up tasks; this entry records the reports, not completed fixes.
+
+- [ ] High priority: trustworthy document connection, save status, and recovery.
+  - [ ] Reproduce the Pixel/GrapheneOS report: open Tasks_copy.ihtd, background
+    IHTD, rename it to Tasks_copy_copy.ihtd in Files, return and edit a task.
+    Reported behavior: old filename remains with Saved to file; reopening the
+    renamed document shows Pending save, then opening the edited task changes
+    it to Saved to file. Establish which bytes actually reached which document.
+  - [ ] Revalidate document identity, current name, access, and external changes
+    when resuming and before publishing. Android providers may retain a valid
+    document URI through a rename; distinguish this from lost access rather
+    than assuming a filename change necessarily disconnects the document.
+  - [ ] Compare current provider metadata with remembered metadata and compare
+    document contents with the last confirmed content hash. Distinguish a
+    rename with unchanged contents from a rename plus external content changes.
+    Size, modification time, and capability flags are supporting evidence only:
+    providers may omit/stale them, and write capability does not guarantee saves.
+  - [ ] Explain only confirmed facts. An inaccessible URI may mean deletion,
+    movement, revoked permission, or an unavailable provider; do not claim a
+    specific cause without evidence. A same-named replacement is not proof of
+    document identity and must be explicitly selected/verified before reconnecting.
+    Do not promise immediate detection while Android has suspended the app.
+  - [ ] Agreed behavior: detecting an external rename requires a visible yellow
+    warning and pauses automatic publishing pending explicit reconnection,
+    even if the provider still permits access through the original URI.
+    For a missing/moved/inaccessible document, show a yellow connection warning
+    as soon as detected, including on return from the background.
+  - [ ] Edits while disconnected or awaiting reconnection remain locally
+    recoverable; show a persistent yellow Pending changes — not saved to file
+    warning. Never describe a private working-copy save as Saved to file.
+  - [ ] Show red for a confirmed serious save failure, such as a reachable
+    destination repeatedly refusing writes or failing read-back verification.
+    Include readable text/icons so severity does not rely on colour alone.
+  - [ ] Provide three levels of issue information: a short clickable yellow
+    warning/red error for everyday users; an explanatory popup with safe next
+    steps; and an Advanced details section with Export diagnostic log.
+  - [ ] Keep the short warning/error visible until the underlying issue is
+    resolved. Opening the popup or advanced details must not trigger publishing,
+    dismiss pending edits, or imply that the problem has been resolved.
+  - [ ] In the popup, state what changed, what is known versus uncertain, whether
+    edits reached the external file or are retained locally, and the applicable
+    confirm/reconnect/retry/review/save-copy actions. For a verified rename with
+    unchanged contents, use wording such as: Filename changed from
+    "Tasks_copy.ihtd" to "Tasks_copy_copy.ihtd". Contents are unchanged.
+    Confirm this file to continue saving. For changed contents, require review
+    before applying pending edits; never silently overwrite external changes.
+  - [ ] Export privacy-preserving diagnostic logs by default: omit task titles,
+    notes, collection contents, filenames/paths, and full document identifiers.
+    Include useful technical context such as app/OS versions, event timestamps,
+    operation/error codes, connection/pending/recovery state, and redacted
+    provider errors; use anonymous references to correlate document events.
+  - [ ] Offer explicit opt-in for additional diagnostic information, explaining
+    the fields included before export. Keep credentials/secrets out of all logs;
+    exporting is user initiated and does not automatically upload diagnostics.
+  - [ ] Verify redaction of provider exception messages and exported logs, and
+    verify popup actions and severity transitions for each file-access scenario.
+  - [ ] Saved to file requires confirmation that the latest edits reached the
+    intended external document; refresh the displayed filename after verified
+    reconnection and keep connection status separate from pending-edit status.
+  - [ ] Explain and verify recovery ownership when reopening/reselecting a
+    document: no silent transfer of another document's pending edits and no
+    automatic overwrite triggered merely by opening a task/editor. Provide
+    explicit reconnect/retry/save-copy choices before applying pending edits.
+  - [ ] Preserve working/recovery copies through failed saves, document switches,
+    process restart, and APK updates. Verify rename, move, delete, permission
+    revocation, external edits, write failure, and successful reconnection on
+    the actual Pixel; treat this as a blocker for stable Android publication.
+
+- [ ] Minor Android layout and clipping fixes.
+  - [ ] Unify system-bar backgrounds with adjacent app surfaces so the Pixel
+    status/gesture-bar areas do not form differently coloured strips.
+    Current sources: main.dart sets scaffold/surface to #f5f7fa; app_shell.dart
+    paints _FileBar white and _Sidebar #eef2f7, while Drawer uses its Material 3
+    default and wraps only its child in SafeArea. The uncovered drawer inset
+    areas therefore do not explicitly share the sidebar's background.
+  - [ ] Define shared theme surface colours instead of independent literals.
+    Paint the complete Drawer, including top/bottom SafeArea inset regions,
+    with the sidebar colour; explicitly control its background and surface tint.
+    Preserve safe spacing below the status bar and above the gesture area.
+  - [ ] Make the Android status-bar backdrop match the app header when the
+    drawer is closed, and the drawer backdrop match its content when open.
+    Paint the appropriate Flutter surface behind transparent edge-to-edge
+    system bars rather than relying only on Android bar-colour setters.
+  - [ ] Configure system-overlay icon brightness for readable clock/status and
+    navigation icons; inspect navigation contrast enforcement and drawer scrim
+    behavior so opening/closing the drawer does not introduce colour seams.
+    Do not force the status and bottom bars to one colour when their adjacent
+    surfaces differ; each should visually continue its adjoining surface.
+  - [ ] Verify colour continuity on the Pixel/GrapheneOS with drawer open/closed,
+    scrolling, dialogs, keyboard transitions, and portrait/landscape. Check
+    gesture navigation and three-button navigation if enabled; retain icon
+    contrast and validate any future dark theme with the same surface rules.
+  - [ ] Edit view: fix clipping at the top and bottom of the scrollable rules
+    area when scrolling in either direction. Ensure field labels, rule cards,
+    and Add condition remain fully readable and reachable at the scroll limits.
+  - [ ] New task: prevent the floating Title label from being cut off when the
+    keyboard opens and the title field receives focus.
+  - [ ] Verify both dialogs on the physical Pixel with the keyboard open/closed,
+    including scroll limits, large text, and portrait/landscape layouts.
+- [ ] Rework the new/edit view rule editor for clarity and ease of use.
+  - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
+    large dropdown fields, and action layout feel cluttered and unintuitive,
+    especially on the Pixel's narrow screen. This is an interaction/layout
+    rework, separate from fixing the scroll clipping reported above.
+  - [ ] Propose and review a simpler layout with the owner before implementing;
+    make individual conditions, their values/comparisons, and group boundaries
+    easy to scan without excessive nesting or wasted vertical space.
+  - [ ] Explain ALL/AND and ANY/OR in plain language and make their scope clear;
+    keep adding, editing, and removing conditions/groups easy to discover.
+  - [ ] Give Save/Cancel clear placement and separate secondary/destructive
+    actions so they do not dominate the rule editor. Review tag creation's
+    placement within the condition workflow.
+  - [ ] Preserve existing filter semantics and saved-view compatibility; verify
+    simple and nested rules, long labels, large text, keyboard use, and touch
+    scrolling on the physical Pixel, plus usability on desktop.
+- [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
+  - [ ] When an item has two or more actual placements, label the action
+    Unlink and remove only the selected placement. Preserve the shared item,
+    its data, and its remaining placements.
+  - [ ] When an item has exactly one placement, label the action Delete and
+    delete the item when that last placement is removed.
+  - [ ] Count actual hierarchy/root placements, not appearances in filtered
+    views; update the label as links are added or removed.
+  - [ ] Before implementation, agree how deleting the last placement handles
+    children, including shared descendants, and whether confirmation or undo
+    is needed. Never silently delete descendants still linked elsewhere.
+  - [ ] Verify task/folder actions with one and multiple placements, including
+    nested and top-level placements, saved views, and persistence after reopen.
 
 ## Agreed release and update work
 
