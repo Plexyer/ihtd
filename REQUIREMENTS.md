@@ -73,10 +73,11 @@ Medium / High. No custom fields.
 
 One independent .ihtd file is open at a time. Native filesystem open/save
 dialogs support local, removable, and mounted paths. Accepted mutations save
-automatically; text typing is coalesced briefly. Newer valid external revisions
-reload. One editing device at a time, no history or merge in this prototype.
+automatically; text typing is coalesced briefly. External revisions are reported
+for explicit reopening, consistently across platforms; they do not silently
+replace pending work. One editing device at a time, no history or merge in this prototype.
 On desktop, a document path supplied at startup opens through the same
-validated storage command; errors remain visible in the app. Windows setup
+private-staging and guarded-publication flow; errors remain visible in the app. Windows setup
 offers `.ihtd` Open-with registration while respecting the user's default app.
 
 JSON exports IDs, relationships, all fields, tags, views, and preferences.
@@ -106,6 +107,28 @@ content, publish the complete document, and verify the bytes by reading back.
 Show failed/conflicting saves and keep local edits available for Retry or Save
 a copy. Save-copy switches to the newly saved collection, as on desktop.
 Reopen the retained working collection after process restart.
+
+## Shared saving and recovery on all platforms
+
+The same Flutter coordinator, warning UI, confirmation and diagnostic policy
+applies on Android, Windows and Linux. Native adapters only supply file access
+and structured observations/failures. All model editing uses private working
+copies; the external file remains the direct-edit destination and is published
+after coordinator checks. Desktop uses guarded atomic replacement and read-back
+verification; Android uses provider conflict/read-back checks.
+
+Desktop file identity uses Windows file IDs or Unix device/inode when available.
+A replacement at the same path is reported even with identical contents.
+Missing-path renames cannot always be located; reconnect through the picker
+without silently recreating the old path. Explicitly selecting a replacement
+can reconnect only with fresh approval and matching confirmed-baseline contents.
+File metadata/capabilities and provider identities may be uncertain on mounts.
+
+Shared registry schema 3 is stored under the unchanged application support
+directory's documents folder. Legacy Android metadata is copied atomically;
+existing working/recovery files and archives remain available and are not
+deleted during migration. Persisted barriers survive restart and retained-copy
+restoration. Physical update/mount acceptance must still be tested by the owner.
 
 External publication and private commits have separate status. Inspect the
 provider on resume, during foreground checks, and immediately before publishing.

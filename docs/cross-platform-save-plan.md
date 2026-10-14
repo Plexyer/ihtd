@@ -1,8 +1,9 @@
 # Cross-platform saving, warnings and recovery implementation plan
 
-Prepared 2026-10-14. Planning only; no runtime migration is implemented here.
-Depends on the Android save-safety work in PR #13, without requiring a stable
-release first. Continue from that code and preserve its tests and recovery data.
+Prepared 2026-10-14. Runtime migration is implemented in the task branch, building
+on Android save-safety PR #13. Source, shared scenarios and legacy migration are
+verified locally; native build and physical acceptance results are tracked in
+the feature checklist. This document retains the agreed execution/acceptance plan.
 
 ## Goal
 
@@ -150,3 +151,12 @@ Done means one authority for save decisions, no platform checks in the warning
 UI, the same safety decisions in all adapter contract tests, no recovery loss
 through migration, and recorded native/physical acceptance. Broader design work
 such as the view-rule redesign then follows the documented shared-first workflow.
+
+Implemented names match the proposed coordinator/adapter files. Registry schema
+3 lives in the existing support directory's `documents/`; migration copies old
+Android active metadata and leaves all legacy working/recovery/archive files
+intact. Desktop keeps its existing support-directory identity. Filesystem
+renames that make the old path unavailable require explicit picker reconnection;
+the app does not scan directories to guess a new location. Windows file IDs and
+Unix device/inode observations supplement hashes. Atomic replacement returns a
+new confirmed identity; unsupported identity is treated conservatively.

@@ -14,8 +14,8 @@ shared UI must not depend on Android storage or branch on operating-system names
 Use layout constraints, text scale, insets and input capabilities for responsive
 design. Explain necessary platform exceptions in the PR and update requirements,
 checklist and shared/adapter tests. Android-only implementation is not evidence
-of cross-platform completion. See the pending
-[shared save migration](docs/cross-platform-save-plan.md).
+of cross-platform completion. Follow the implemented
+[shared save boundaries and acceptance plan](docs/cross-platform-save-plan.md).
 
 ## Project
 
@@ -32,6 +32,10 @@ of cross-platform completion. See the pending
   Do not duplicate shared item state.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
+- App model sessions edit private working copies on all platforms. External
+  reads/writes go through `DocumentSaveCoordinator` and typed adapters. Shared
+  registry schema 3 migrates legacy Android metadata without deleting its
+  working/recovery files. Do not bypass barriers with direct external model paths.
 - Android release identity is pinned in `packaging/android/release-certificate.sha256`.
   Follow `docs/android-signing.md`; never regenerate/replace the key casually or
   commit private signing files. The owner-approved key is stored privately outside

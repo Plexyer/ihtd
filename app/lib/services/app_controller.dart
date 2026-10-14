@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../src/rust/api/simple.dart' as api;
 import 'document_save_coordinator.dart';
+import 'document_adapter.dart';
 import 'document_composition.dart';
 
 final appProvider = ChangeNotifierProvider<AppController>(
@@ -150,7 +151,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } catch (e) {
       error = '$e';
       if (_documents.binding != null) {
-        await _documents.markLocalFailure();
+        if (e is DocumentFailure && e.kind != DocumentFailureKind.localFailed) {
+          await _documents.check();
+        } else {
+          await _documents.markLocalFailure();
+        }
         status = _documents.summary;
       }
       notifyListeners();

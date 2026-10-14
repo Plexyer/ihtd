@@ -16,10 +16,16 @@ and observations; they do not independently define product rules or messages.
 | Android URI/grant operations, insets, packaging/signing | `app/android/`, `packaging/android/` |
 | Desktop filesystem identity/access and OS integration | Rust filesystem adapter and `app/windows/` / `app/linux/` as required |
 
-Current gap: `AndroidDocuments` still owns save policy and presentation, and
-`DocumentIssueDialog` accesses that Android service. Desktop commits still
-publish directly through Rust storage. The [cross-platform save plan](cross-platform-save-plan.md)
-migrates this; this document does not claim the migration is already complete.
+Implemented boundaries: `document_save_coordinator.dart` owns save state,
+barriers, recovery registry, confirmation and diagnostics; `document_adapter.dart`
+defines typed references, observations, capabilities and failures.
+`android_documents.dart` is a thin document-provider adapter.
+`filesystem_documents.dart` uses guarded Rust operations in
+`crates/ihtd_app/src/filesystem.rs` for Windows/Linux access. Only
+`document_composition.dart` selects an OS adapter. The controller and warning
+widgets share one flow; Rust model sessions receive private working paths.
+The [cross-platform save plan](cross-platform-save-plan.md) records implementation
+and acceptance scope. Physical platform acceptance remains separate.
 
 ## Rules for future changes
 
@@ -67,3 +73,6 @@ These rules are also linked from root `AGENTS.md`, which future coding sessions
 read, and from the feature checklist and build instructions. Requirements remain
 the authority for product semantics; this document defines code ownership and
 the implementation/review process.
+`scripts/tests/test_architecture.py` also rejects OS selection and native-adapter
+imports in shared policy/controller/UI code. It complements semantic review,
+rather than proving all architecture decisions automatically.

@@ -116,7 +116,10 @@ class DocumentSaveCoordinator {
             '${observed?['hash'] == binding?['hash'] ? 'Contents are unchanged since the last confirmed save.' : 'Contents also changed outside IHTD.'} '
             'Confirm the unchanged document to continue, or preserve your edits and reopen the external version.',
       DocumentConnection.externalChanged => 'The selected file’s contents changed outside IHTD. Save a copy of your edits or explicitly reopen the external version. IHTD will not merge or overwrite it automatically.',
-      DocumentConnection.replaced => 'A different file now occupies the selected location. The original working copy is retained locally. Select a destination explicitly or save a separate copy; a matching name is not proof of file identity.',
+      DocumentConnection.replaced =>
+        'File identity changed at the selected location. It may have been replaced or rewritten by another app. '
+            '${observed?['hash'] == binding?['hash'] ? 'Contents are unchanged since the last confirmed save.' : 'Contents also changed.'} '
+            'The original working copy is retained locally. Select a destination explicitly or save a separate copy; a matching name is not proof of file identity.',
       DocumentConnection.unavailable => 'IHTD cannot access the selected file. It may have been moved, deleted, lost permission, or become unavailable through its storage provider. Retry checking or select a file to reconnect.',
       DocumentConnection.saveFailed => 'The provider refused a write or IHTD could not verify the saved contents. Automatic saving is paused. Retry explicitly, or save a separate copy. A partial write may require reopening or saving a copy.',
       DocumentConnection.localFailed => 'The private working copy or restart metadata could not be saved. Check available storage and save a separate copy before closing the app.',

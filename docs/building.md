@@ -2,8 +2,9 @@
 
 Follow [shared app architecture and development workflow](shared-app-architecture.md)
 when changing general behavior or UI. The
-[cross-platform save migration plan](cross-platform-save-plan.md) tracks the
-current Android/desktop parity gap; do not infer parity from one platform's tests.
+[cross-platform save migration plan](cross-platform-save-plan.md) describes the
+shared coordinator and platform adapter boundaries; do not infer physical
+platform acceptance from one platform's tests.
 
 See [development and releases](development-workflow.md) for branch policy,
 version validation, reusable platform CI, and the coordinated draft release.
@@ -87,6 +88,7 @@ cargo fmt --all --check
 cd app
 flutter pub get
 flutter analyze lib integration_test/app_test.dart
+flutter test test
 flutter test integration_test/app_test.dart -d windows
 ```
 
@@ -138,6 +140,11 @@ from `app/android` with Gradle). Flutter storage-adapter tests run with
 See [document-saving phone acceptance](document-save-phone-test.md) for the
 rename, conflict, reconnection, recovery and diagnostic-export test sequence.
 Use [the implementation plan](document-save-recovery-plan.md) for design context.
+The shared save flow is covered by `test/document_contract_test.dart` on both
+adapter types and by the real rename/reconnect sequence in the desktop
+integration test. Follow [shared platform acceptance](shared-saving-acceptance.md)
+for the build 8 migration on Pixel, Windows and Fedora. Python release tests also
+enforce shared UI/policy import boundaries.
 The narrow-screen interaction check is `integration_test/phone_layout_test.dart`;
 it can run on the Linux host with `-d linux`, but does not exercise Android's
 document providers. In the restricted cloud workspace, after an APK build,
