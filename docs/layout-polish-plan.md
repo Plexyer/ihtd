@@ -185,5 +185,11 @@ observed behavior warrants a different implementation.
 - Physical Pixel startup/IME/navigation-mode appearance and desktop scaling remain
   pending: follow [layout acceptance](layout-polish-acceptance.md). Build/CI
   results and candidate provenance will be added after final verification.
-- The first native matrix passed all three platform jobs at `31b451e`; the final
-  shared focus fix is being rebuilt for matching candidate provenance.
+- Native matrices passed all three platform jobs at `31b451e` and `157e509`.
+  Final APK inspection then caught a separate packaging gap: the CI bridge had
+  4 KB ELF LOAD alignment even though its APK ZIP passed the 16 KB check.
+  `app/rust/build.rs` now explicitly links the Android cdylib for 16 KB pages;
+  `verify-android-apk.py` rejects insufficient ELF alignment and invalid
+  file/address alignment in local builds and both CI packaging/signing stages.
+  Three negative/positive packaging regressions are added. Final candidate
+  provenance will be recorded after this gate passes on the native matrix.

@@ -119,7 +119,11 @@ bash scripts/build-android.sh
 ```
 
 The output is `app/build/app/outputs/flutter-apk/app-release.apk`, a development
-test/candidate APK. Tagged releases re-sign that candidate in the protected
+test/candidate APK. `app/rust/build.rs` sets Android's native linker page size
+independently of machine-local configuration. `scripts/verify-android-apk.py`
+checks every packaged ELF LOAD segment for at least 16 KB alignment; ZIP
+alignment is checked separately. Run the ELF check before signing any APK.
+Tagged releases re-sign that candidate in the protected
 `android-release` environment and verify the pinned public certificate before
 uploading the final APK. See [permanent signing](android-signing.md) for owner
 backups, GitHub secret setup and local signing. Do not put private keys/passwords
