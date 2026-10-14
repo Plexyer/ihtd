@@ -6,6 +6,7 @@ import 'item_editor.dart';
 import 'item_drag.dart';
 import 'shared.dart';
 import 'view_editor.dart';
+import 'document_status.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -13,6 +14,9 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final app = ref.watch(appProvider);
+    app.confirmDocumentAction = (title, message) => context.mounted
+        ? confirmDocumentAction(context, title, message)
+        : Future.value(false);
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 1100;
@@ -27,17 +31,10 @@ class AppShell extends ConsumerWidget {
             child: Column(
               children: [
                 _FileBar(app: app, drawer: drawer),
-                if (constraints.maxWidth <= 540 && app.document != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      app.status,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
+                if ((app.document != null ||
+                        app.androidDocuments?.binding != null) &&
+                    (constraints.maxWidth <= 540 || app.documentIssue))
+                  DocumentStatus(app: app),
                 if (app.busy) const LinearProgressIndicator(minHeight: 2),
                 if (app.error != null)
                   Material(
@@ -207,7 +204,7 @@ class _FileBar extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: Color(0xff657589)),
             ),
           ),
-          if (MediaQuery.sizeOf(context).width > 540) ...[
+          if (MediaQuery.sizeOf(context).width > 540 && !app.documentIssue) ...[
             Icon(
               app.error == null
                   ? Icons.save_outlined
@@ -233,6 +230,11 @@ class _FileBar extends StatelessWidget {
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'connection':
+                  showDialog<void>(
+                    context: context,
+                    builder: (_) => DocumentIssueDialog(app: app),
+                  );
                 case 'new':
                   app.newDocument();
                 case 'open':
@@ -240,12 +242,17 @@ class _FileBar extends StatelessWidget {
                 case 'save':
                   app.saveAs();
                 case 'retry':
-                  app.dispatch({'op': 'retry'});
+                  app.retryDocumentSave();
                 default:
                   app.exportDocument(value);
               }
             },
             itemBuilder: (context) => [
+              if (app.androidDocuments?.binding != null)
+                const PopupMenuItem(
+                  value: 'connection',
+                  child: Text('File connection and saving…'),
+                ),
               const PopupMenuItem(value: 'new', child: Text('New collection…')),
               const PopupMenuItem(
                 value: 'open',

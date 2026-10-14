@@ -34,4 +34,4 @@ jobs:
         run: |
           flutter pub get --enforce-lockfile
           flutter analyze lib test integration_test
-          flutter test test/android_documents_test.dart
+          flutter test test

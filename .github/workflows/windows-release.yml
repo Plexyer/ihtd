@@ -49,7 +49,7 @@ jobs:
               throw "Flutter test failed: $LogName"
             }
           }
-          Invoke-IhtdTest -TestArguments @('test', 'test/android_documents_test.dart') -LogName 'adapter-test.log'
+          Invoke-IhtdTest -TestArguments @('test', 'test') -LogName 'adapter-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/app_test.dart', '-d', 'windows') -LogName 'desktop-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/phone_layout_test.dart', '-d', 'windows') -LogName 'phone-test.log'
       - name: Verify release launch and package
