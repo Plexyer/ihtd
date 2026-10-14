@@ -271,8 +271,9 @@ class DocumentSaveCoordinator {
     connection = retained
         ? _state(next['barrier'])
         : DocumentConnection.checking;
-    if (retained && connection == DocumentConnection.checking)
+    if (retained && connection == DocumentConnection.checking) {
       connection = DocumentConnection.reconnectRequired;
+    }
     localDirty = retained && next['localDirty'] == true;
     _restored = retained;
     try {
