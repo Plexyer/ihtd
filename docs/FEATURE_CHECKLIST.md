@@ -206,6 +206,9 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     simple and nested rules, long labels, large text, keyboard use, and touch
     scrolling on the physical Pixel, plus usability on desktop.
 - [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
+  Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
+  Child deletion, confirmation/Undo and shared-ancestor path semantics await
+  owner answers; resolve these before implementing destructive operations.
   - [ ] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
     its data, and its remaining placements.
