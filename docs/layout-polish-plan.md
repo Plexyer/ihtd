@@ -1,7 +1,7 @@
 # Dialog clipping and system-bar surface plan
 
-Created 2026-10-14. Implementation is in progress; shared dialog/surface fixes
-and Android window integration are implemented. Start from the latest `development`, read `AGENTS.md`,
+Created 2026-10-14. Implementation and automated/native verification are complete; physical
+acceptance remains pending. Start from the latest `development`, read `AGENTS.md`,
 requirements and shared architecture, then work through these steps in order.
 Record evidence and remaining physical checks here and in `FEATURE_CHECKLIST.md`.
 
@@ -117,7 +117,7 @@ Acceptance:
 
 ## 6. Build candidates and perform platform acceptance
 
-- [ ] Build Android with existing permanent signing identity and an appropriate
+- [x] Build Android with existing permanent signing identity and an appropriate
   new versionCode. Follow signing/build guides; preserve app data and document
   grants on upgrade. Do not replace keys or commit build outputs.
 - [ ] Test on the physical Pixel 9 Pro / GrapheneOS: drawer closed/open,
@@ -127,7 +127,7 @@ Acceptance:
 - [ ] Verify Windows and Fedora responsive dialogs at narrow/wide window sizes
   and scaling; use existing native CI when needed. Keep untested native/physical
   results explicitly pending. Shared UI changes must not break desktop layouts.
-- [ ] Recheck that creating/editing/saving views and tasks still works and that
+- [x] Recheck that creating/editing/saving views and tasks still works and that
   warning popups, file saving and document recovery behavior remain intact.
 
 ## 7. Document and hand off
@@ -175,7 +175,7 @@ observed behavior warrants a different implementation.
   and both drawer inset colors. Readable host screenshots were reviewed,
   including the complete last rule and Add condition at the lower scroll limit.
 - All 64 Dart tests and Flutter analysis of lib/test/integration_test pass.
-  All 10 Python release/architecture checks pass.
+  All 13 Python release/architecture/native-alignment checks pass.
 - The expanded Linux phone integration test passes actual Rust-backed view edits,
   new-task creation with keyboard insets, and the existing flush/scroll/drag flows.
 - Linux desktop integration also passes, including actual filesystem rename and
@@ -193,3 +193,26 @@ observed behavior warrants a different implementation.
   file/address alignment in local builds and both CI packaging/signing stages.
   Three negative/positive packaging regressions are added. Final candidate
   provenance will be recorded after this gate passes on the native matrix.
+
+## Final candidate verification
+
+- Runtime source: `e9d134631f195215c803e926427ff61cb4861d67`.
+- [Native matrix 38552777010](https://github.com/Plexyer/ihtd/actions/runs/38552777010)
+  passed Android, Windows, Fedora and All platforms validated. Windows tested
+  installer upgrade/removal/data preservation; Fedora built, installed and
+  verified the RPM. Both native desktop and phone-layout integrations passed.
+- Android: `dev.ihtd.app`, versionName 0.2.2, versionCode 9, ARM64, min API 35 /
+  target API 36. Candidate was downloaded from that run and re-signed with the
+  existing pinned permanent identity. All four ELF libraries pass the new
+  alignment check (app/flutter: 64 KB; bridge/JNI: 16 KB); APK ZIP alignment
+  and permanent certificate match also pass. No internet/broad-storage permission.
+- Signed test APK: `IHTD-0.2.2-build9-android-arm64-test.apk`. SHA256:
+  `a5b135fe6f8d9478330cc699e05245aa46a1a3024e2bbc8eb23521e666f54250`.
+  Local output is under ignored `dist/layout-polish/`; Windows/Fedora package
+  checksums from the same run were verified there too. No binaries/keys are in Git.
+- [PR #15](https://github.com/Plexyer/ihtd/pull/15) targets `development`. Final
+  documentation-only commits do not change the validated runtime. Manual CI
+  intentionally skipped stable release/signing publication; no tag was created.
+- Shared implementation/checks are complete. Pixel startup/system bars/IME,
+  actual navigation modes and physical Windows/Fedora scaling/Wayland acceptance
+  remain open in the checklist. Follow the linked physical acceptance guide.

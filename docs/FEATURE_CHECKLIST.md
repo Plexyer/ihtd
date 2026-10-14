@@ -185,6 +185,10 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     Use [layout acceptance](layout-polish-acceptance.md). Shared regression tests
     cover constrained phone/desktop layouts, keyboard transitions and 2x text;
     host paint checks are separate from native system-bar acceptance.
+    Automated/native verification completed at `e9d1346`:
+    [all-platform run 38552777010](https://github.com/Plexyer/ihtd/actions/runs/38552777010)
+    passes, with 64 Dart tests and 13 Python checks. Permanent-key candidate
+    0.2.2 build 9 also passes ELF/ZIP 16 KB checks. Physical checks stay open.
 - [ ] Rework the new/edit view rule editor for clarity and ease of use.
   - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
     large dropdown fields, and action layout feel cluttered and unintuitive,

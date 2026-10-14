@@ -3,8 +3,10 @@
 Use a disposable collection. The candidate is 0.2.2 build 9; it uses the
 existing permanent Android identity and can update permanent-key build 8 without
 uninstalling. Keep production collections and retained recovery copies intact.
-Source/candidate provenance and final verification results will be recorded in
-`layout-polish-plan.md`. These steps are physical acceptance, not completed
+Source/candidate provenance and verification results are recorded in
+`layout-polish-plan.md`: native run 38552777010, source `e9d1346`. The signed
+`IHTD-0.2.2-build9-android-arm64-test.apk` passes permanent-certificate, ELF and
+ZIP alignment verification. These steps are physical acceptance, not completed
 automatically by a successful native build or host screenshot.
 
 ## Pixel 9 Pro / GrapheneOS

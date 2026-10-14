@@ -95,7 +95,8 @@ are now being developed first for a Google Pixel 9 Pro running GrapheneOS.
 ## Android first milestone
 
 Target ARM64 and Android 15/API 35 or newer, matching the pinned Rust native
-toolchain. Confirm the installed Android version during physical phone testing.
+toolchain. Every packaged native ELF library must have at least 16 KB LOAD
+alignment, independently of APK ZIP alignment; enforce both before distribution. Confirm the installed Android version during physical phone testing.
 Core operation must not depend on Google Play services or a network connection.
 Use GrapheneOS default security settings; do not require broad storage access.
 
