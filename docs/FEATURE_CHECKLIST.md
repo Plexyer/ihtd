@@ -63,6 +63,7 @@ Recorded on 2026-10-14 on the Pixel 9 Pro running GrapheneOS. These are
 approved follow-up tasks; this entry records the reports, not completed fixes.
 
 - [ ] High priority: trustworthy document connection, save status, and recovery.
+  Implementation plan: [document saving and recovery](document-save-recovery-plan.md).
   - [ ] Reproduce the Pixel/GrapheneOS report: open Tasks_copy.ihtd, background
     IHTD, rename it to Tasks_copy_copy.ihtd in Files, return and edit a task.
     Reported behavior: old filename remains with Saved to file; reopening the
