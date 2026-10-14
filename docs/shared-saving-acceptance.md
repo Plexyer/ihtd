@@ -5,6 +5,18 @@ same save coordinator, warning popup, confirmation policy and private diagnostic
 export. Their adapters report different available facts; an undetectable rename
 is reported as lost access rather than a guessed filename.
 
+Automated validation passed in
+[run 38534530095](https://github.com/Plexyer/ihtd/actions/runs/38534530095),
+building all platforms from `ce1f46d84222b053d4a77dcd1580ee940c4d73ec`.
+Windows installer/portable and Fedora RPM/portable artifacts are retained for
+14 days. Android's permanent-key phone candidate was additionally signed locally:
+`IHTD-0.2.2-build8-android-arm64-test.apk`, SHA-256
+`3fcffef66ece6431f97acdd9b6bceda5cc3f7db03ff834a371882a33835aa6c3`.
+Its pinned certificate, package/build identity, API 35/36 limits, ARM64 packaging,
+16 KB ZIP/ELF alignment and absence of internet/broad-storage grants were verified.
+Native CI includes 56 Rust tests, 45 Dart tests, seven Kotlin writer checks,
+desktop/narrow UI tests and package checks. These are not physical acceptance.
+
 Use disposable collections and keep external backups. Install candidates through
 the existing supported update paths; do not uninstall Android or clear app data
 to test a signing-compatible update. Stable publication remains separate.
