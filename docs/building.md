@@ -129,7 +129,10 @@ Export important documents before uninstalling or clearing application data.
 
 Android provider checks live in `DocumentWriterTest` (run `:app:testDebugUnitTest`
 from `app/android` with Gradle). Flutter storage-adapter tests run with
-`flutter test test/android_documents_test.dart` from `app`.
+`flutter test test` from `app`, including controller/popup regression checks.
+See [document-saving phone acceptance](document-save-phone-test.md) for the
+rename, conflict, reconnection, recovery and diagnostic-export test sequence.
+Use [the implementation plan](document-save-recovery-plan.md) for design context.
 The narrow-screen interaction check is `integration_test/phone_layout_test.dart`;
 it can run on the Linux host with `-d linux`, but does not exercise Android's
 document providers. In the restricted cloud workspace, after an APK build,

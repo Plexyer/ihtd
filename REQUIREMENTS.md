@@ -107,6 +107,31 @@ Show failed/conflicting saves and keep local edits available for Retry or Save
 a copy. Save-copy switches to the newly saved collection, as on desktop.
 Reopen the retained working collection after process restart.
 
+External publication and private commits have separate status. Inspect the
+provider on resume, during foreground checks, and immediately before publishing.
+An external rename pauses publishing until the user confirms the named
+destination, even if its URI still works. Compare content hashes separately from
+names; missing timestamps/capability metadata do not justify invented diagnoses.
+Lost access, renames and external conflicts use a persistent yellow warning;
+confirmed write/verification or private persistence failures use red. Only the
+latest read-back-confirmed external revision may be described as Saved to file.
+
+The clickable status opens an explanation and explicit confirm/reconnect,
+retry, open-external-version and save-copy actions. Opening/dismissing the
+popup or opening a task does not release a save barrier. Reconnection never
+overwrites content that differs from the confirmed baseline; a name or shared
+collection ID alone cannot identify the destination. Switching preserves each
+private working copy and binding, accessible through Retained working copies.
+Recovery snapshots are scoped to working path and collection identity so copies
+with the same collection ID do not share a recovery destination. Restart
+revalidates the binding; unpublished/restored work requires confirmation.
+
+Advanced details supports user-initiated diagnostic JSON export with no automatic
+upload. Bounded local logs record allowlisted event/error codes, versions, state,
+timestamps and anonymous copy references; they omit task contents, names, paths,
+full URIs and raw exceptions. Additional filenames/provider metadata require
+explicit informed opt-in; full document URIs and credentials remain excluded.
+
 Provider writes are not guaranteed atomic, and the comparison cannot prevent a
 second device writing between the check and publication. Continue using one
 editing device at a time. The first Android milestone reports external changes

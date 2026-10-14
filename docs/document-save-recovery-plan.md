@@ -2,7 +2,9 @@
 
 Prepared 2026-10-14. Implements the entire "High priority: trustworthy document
 connection, save status, and recovery" checklist item. This is a reviewable plan,
-not a record of completed implementation. Android/Pixel 9 Pro/GrapheneOS is the
+not a claim of physical acceptance. Implementation is available in the task
+branch; automated checks and the phone-test handoff are recorded in the checklist.
+Android/Pixel 9 Pro/GrapheneOS is the
 first target; shared UI changes must preserve Windows/Fedora behavior.
 
 ## Outcome and boundaries
@@ -157,3 +159,12 @@ do not distribute a partially implemented save-state change as a stable release.
 Completion requires all high-priority checklist subitems covered, no success
 message for unconfirmed external edits, no silent recovery transfer/overwrite,
 verified private diagnostic exports, and recorded Pixel acceptance results.
+
+Implementation note: extended diagnostic export includes filenames and provider
+metadata after consent, but deliberately omits full document URIs even in that
+mode to avoid leaking provider tokens. Recovery files from older versions are
+retained; ambiguous legacy collection-ID-only recovery is not silently attached
+to a different working copy. Run Flutter tests and APK builds sequentially in
+one checkout: plugin registrants are shared generated files across targets.
+Also avoid `--no-pub` when switching from debug/tests to release: Flutter uses
+the normal build preparation to regenerate registrants without test-only plugins.

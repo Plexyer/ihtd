@@ -64,63 +64,67 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
 
 - [ ] High priority: trustworthy document connection, save status, and recovery.
   Implementation plan: [document saving and recovery](document-save-recovery-plan.md).
+  Implemented in the task branch; automated checks cover 53 Rust tests, 23 Dart
+  adapter/controller/popup tests, seven Kotlin writer checks, and both host UI
+  integration tests. Physical acceptance remains outstanding; follow the
+  [Pixel test guide](document-save-phone-test.md) before stable publication.
   - [ ] Reproduce the Pixel/GrapheneOS report: open Tasks_copy.ihtd, background
     IHTD, rename it to Tasks_copy_copy.ihtd in Files, return and edit a task.
     Reported behavior: old filename remains with Saved to file; reopening the
     renamed document shows Pending save, then opening the edited task changes
     it to Saved to file. Establish which bytes actually reached which document.
-  - [ ] Revalidate document identity, current name, access, and external changes
+  - [x] Revalidate document identity, current name, access, and external changes
     when resuming and before publishing. Android providers may retain a valid
     document URI through a rename; distinguish this from lost access rather
     than assuming a filename change necessarily disconnects the document.
-  - [ ] Compare current provider metadata with remembered metadata and compare
+  - [x] Compare current provider metadata with remembered metadata and compare
     document contents with the last confirmed content hash. Distinguish a
     rename with unchanged contents from a rename plus external content changes.
     Size, modification time, and capability flags are supporting evidence only:
     providers may omit/stale them, and write capability does not guarantee saves.
-  - [ ] Explain only confirmed facts. An inaccessible URI may mean deletion,
+  - [x] Explain only confirmed facts. An inaccessible URI may mean deletion,
     movement, revoked permission, or an unavailable provider; do not claim a
     specific cause without evidence. A same-named replacement is not proof of
     document identity and must be explicitly selected/verified before reconnecting.
     Do not promise immediate detection while Android has suspended the app.
-  - [ ] Agreed behavior: detecting an external rename requires a visible yellow
+  - [x] Agreed behavior: detecting an external rename requires a visible yellow
     warning and pauses automatic publishing pending explicit reconnection,
     even if the provider still permits access through the original URI.
     For a missing/moved/inaccessible document, show a yellow connection warning
     as soon as detected, including on return from the background.
-  - [ ] Edits while disconnected or awaiting reconnection remain locally
+  - [x] Edits while disconnected or awaiting reconnection remain locally
     recoverable; show a persistent yellow Pending changes — not saved to file
     warning. Never describe a private working-copy save as Saved to file.
-  - [ ] Show red for a confirmed serious save failure, such as a reachable
+  - [x] Show red for a confirmed serious save failure, such as a reachable
     destination repeatedly refusing writes or failing read-back verification.
     Include readable text/icons so severity does not rely on colour alone.
-  - [ ] Provide three levels of issue information: a short clickable yellow
+  - [x] Provide three levels of issue information: a short clickable yellow
     warning/red error for everyday users; an explanatory popup with safe next
     steps; and an Advanced details section with Export diagnostic log.
-  - [ ] Keep the short warning/error visible until the underlying issue is
+  - [x] Keep the short warning/error visible until the underlying issue is
     resolved. Opening the popup or advanced details must not trigger publishing,
     dismiss pending edits, or imply that the problem has been resolved.
-  - [ ] In the popup, state what changed, what is known versus uncertain, whether
+  - [x] In the popup, state what changed, what is known versus uncertain, whether
     edits reached the external file or are retained locally, and the applicable
     confirm/reconnect/retry/review/save-copy actions. For a verified rename with
     unchanged contents, use wording such as: Filename changed from
     "Tasks_copy.ihtd" to "Tasks_copy_copy.ihtd". Contents are unchanged.
     Confirm this file to continue saving. For changed contents, require review
     before applying pending edits; never silently overwrite external changes.
-  - [ ] Export privacy-preserving diagnostic logs by default: omit task titles,
+  - [x] Export privacy-preserving diagnostic logs by default: omit task titles,
     notes, collection contents, filenames/paths, and full document identifiers.
     Include useful technical context such as app/OS versions, event timestamps,
     operation/error codes, connection/pending/recovery state, and redacted
     provider errors; use anonymous references to correlate document events.
-  - [ ] Offer explicit opt-in for additional diagnostic information, explaining
+  - [x] Offer explicit opt-in for additional diagnostic information, explaining
     the fields included before export. Keep credentials/secrets out of all logs;
     exporting is user initiated and does not automatically upload diagnostics.
-  - [ ] Verify redaction of provider exception messages and exported logs, and
+  - [x] Verify redaction of provider exception messages and exported logs, and
     verify popup actions and severity transitions for each file-access scenario.
-  - [ ] Saved to file requires confirmation that the latest edits reached the
+  - [x] Saved to file requires confirmation that the latest edits reached the
     intended external document; refresh the displayed filename after verified
     reconnection and keep connection status separate from pending-edit status.
-  - [ ] Explain and verify recovery ownership when reopening/reselecting a
+  - [x] Explain and verify recovery ownership when reopening/reselecting a
     document: no silent transfer of another document's pending edits and no
     automatic overwrite triggered merely by opening a task/editor. Provide
     explicit reconnect/retry/save-copy choices before applying pending edits.
