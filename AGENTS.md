@@ -37,6 +37,9 @@ of cross-platform completion. Follow the implemented
   registry schema 3 migrates legacy Android metadata without deleting its
   working/recovery files. Do not bypass barriers with direct external model paths.
 - Android release identity is pinned in `packaging/android/release-certificate.sha256`.
+  The bridge's Android linker configuration in `app/rust/build.rs` and
+  `scripts/verify-android-apk.py` enforce 16 KB ELF LOAD alignment. APK ZIP
+  alignment alone is insufficient; verify both layers before handing over APKs.
   Follow `docs/android-signing.md`; never regenerate/replace the key casually or
   commit private signing files. The owner-approved key is stored privately outside
   Git pending owner home backups and protected GitHub environment activation.

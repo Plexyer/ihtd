@@ -8,4 +8,5 @@ flutter pub get --enforce-lockfile
 flutter analyze lib integration_test/app_test.dart
 # Builds a test/candidate APK. Production signing is a separate protected step.
 flutter build apk --release --target-platform android-arm64
+python3 ../scripts/verify-android-apk.py build/app/outputs/flutter-apk/app-release.apk
 printf '%s\n' 'Development-signed test APK: app/build/app/outputs/flutter-apk/app-release.apk'

@@ -95,7 +95,8 @@ are now being developed first for a Google Pixel 9 Pro running GrapheneOS.
 ## Android first milestone
 
 Target ARM64 and Android 15/API 35 or newer, matching the pinned Rust native
-toolchain. Confirm the installed Android version during physical phone testing.
+toolchain. Every packaged native ELF library must have at least 16 KB LOAD
+alignment, independently of APK ZIP alignment; enforce both before distribution. Confirm the installed Android version during physical phone testing.
 Core operation must not depend on Google Play services or a network connection.
 Use GrapheneOS default security settings; do not require broad storage access.
 
@@ -165,3 +166,20 @@ follow-up. A provider-confirmed save is not a guarantee of cloud synchronization
 On phones, swipe to scroll and long-press to move a placement. Keep save feedback
 visible at narrow widths and accommodate the on-screen keyboard in item details.
 Physical Pixel/GrapheneOS validation is required before calling Android supported.
+
+## Shared responsive editors and surfaces
+
+Task/folder creation and view editing use one responsive Flutter dialog layout
+on Android, Windows and Linux. Forms scroll with inner paint space for floating
+labels and rule outlines. Normal layouts keep actions outside the form scroll;
+short windows or large text include the title and actions in the scroll so they
+remain reachable. Keyboard insets are applied once by Dialog, and partial rows
+during scrolling can be brought fully into view at either scroll limit.
+
+Header, canvas and sidebar are shared theme surface roles. The top safe inset
+continues the header, the lower safe inset continues the canvas, and the full
+drawer (including its inset margins) uses the sidebar surface without a default
+surface tint. Transparent system bars use contrasting icons for their adjacent
+surfaces; Android window themes prevent extra system contrast strips and use
+the current light palette even when the OS uses dark mode. Keyboard-owned bars
+remain controlled by the keyboard. A full app dark theme is a separate feature.

@@ -53,6 +53,7 @@ jobs:
         run: |
           mkdir -p dist/android
           cp app/build/app/outputs/flutter-apk/app-release.apk dist/android/IHTD-${{ steps.version.outputs.version }}-android-arm64-test.apk
+          python3 scripts/verify-android-apk.py dist/android/IHTD-${{ steps.version.outputs.version }}-android-arm64-test.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose dist/android/*.apk
           "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 dist/android/*.apk
           sed 's/@VERSION@/${{ steps.version.outputs.version }}/g' packaging/android/INSTALL.md > dist/android/INSTALL.md
@@ -97,6 +98,7 @@ jobs:
             --apksigner "$ANDROID_HOME/build-tools/36.0.0/apksigner" \
             --zipalign "$ANDROID_HOME/build-tools/36.0.0/zipalign"
           cp packaging/android/release-certificate.sha256 dist/android/SIGNING-CERTIFICATE.sha256
+          python3 scripts/verify-android-apk.py "dist/android/IHTD-$APP_VERSION-android-arm64.apk"
           sed "s/@VERSION@/$APP_VERSION/g" packaging/android/INSTALL-release.md > dist/android/INSTALL.md
           (cd dist/android && sha256sum *.apk SIGNING-CERTIFICATE.sha256 > SHA256SUMS)
       - uses: actions/upload-artifact@v4

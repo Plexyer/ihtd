@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_controller.dart';
 import 'shared.dart';
+import 'editor_dialog.dart';
 
 class ItemEditor extends StatefulWidget {
   const ItemEditor({super.key, required this.app});
@@ -713,157 +714,149 @@ class _CreateDialogState extends State<_CreateDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => EditorDialog(
     title: Text(kind == 'folder' ? 'New folder' : 'New task'),
-    content: SizedBox(
-      width: 500,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    maxWidth: 500,
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if ((widget.defaults['requirements'] as List? ?? []).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              (widget.defaults['requirements'] as List).join('\n'),
+              style: const TextStyle(fontSize: 13, color: Color(0xff536f92)),
+            ),
+          ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        TextField(
+          controller: title,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Title *'),
+          onSubmitted: (_) => create(),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: kind,
+          decoration: const InputDecoration(labelText: 'Item type'),
+          items: const [
+            DropdownMenuItem(value: 'task', child: Text('Task')),
+            DropdownMenuItem(value: 'folder', child: Text('Folder')),
+          ],
+          onChanged: (v) => setState(() => kind = v ?? 'task'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: notes,
+          minLines: 2,
+          maxLines: 5,
+          decoration: const InputDecoration(labelText: 'Notes'),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            if ((widget.defaults['requirements'] as List? ?? []).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  (widget.defaults['requirements'] as List).join('\n'),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xff536f92),
-                  ),
-                ),
-              ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            TextField(
-              controller: title,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Title *'),
-              onSubmitted: (_) => create(),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: kind,
-              decoration: const InputDecoration(labelText: 'Item type'),
-              items: const [
-                DropdownMenuItem(value: 'task', child: Text('Task')),
-                DropdownMenuItem(value: 'folder', child: Text('Folder')),
-              ],
-              onChanged: (v) => setState(() => kind = v ?? 'task'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notes,
-              minLines: 2,
-              maxLines: 5,
-              decoration: const InputDecoration(labelText: 'Notes'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate:
-                            DateTime.tryParse(due ?? '') ?? DateTime.now(),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime(9999),
-                      );
-                      if (date != null) setState(() => due = dateText(date));
-                    },
-                    icon: const Icon(Icons.calendar_today, size: 17),
-                    label: Text(due ?? 'Choose due date'),
-                  ),
-                ),
-                if (due != null)
-                  IconButton(
-                    tooltip: 'Clear due date',
-                    onPressed: () => setState(() => due = null),
-                    icon: const Icon(Icons.clear),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: priority,
-              decoration: const InputDecoration(labelText: 'Priority'),
-              items: [
-                for (var p = 0; p < 4; p++)
-                  DropdownMenuItem(value: p, child: Text(priorityNames[p])),
-              ],
-              onChanged: (v) => setState(() => priority = v ?? 0),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: parent ?? 0,
-              decoration: const InputDecoration(labelText: 'Parent placement'),
-              isExpanded: true,
-              items: [
-                const DropdownMenuItem(value: 0, child: Text('Top level')),
-                for (final item in documentValues(widget.app, 'items'))
-                  DropdownMenuItem(
-                    value: intValue(item['id']),
-                    child: Text(
-                      '${item['title']} (#${item['id']})',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (v) => setState(() => parent = v == 0 ? null : v),
-            ),
-            SectionLabel(
-              'Tags',
-              trailing: IconButton(
-                tooltip: 'Create tag',
+            Expanded(
+              child: OutlinedButton.icon(
                 onPressed: () async {
-                  final id = await showNewTag(context, widget.app);
-                  if (id != null && mounted) setState(() => tags.add(id));
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.tryParse(due ?? '') ?? DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(9999),
+                  );
+                  if (date != null) setState(() => due = dateText(date));
                 },
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.calendar_today, size: 17),
+                label: Text(due ?? 'Choose due date'),
               ),
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final tag in documentValues(widget.app, 'tags'))
-                  FilterChip(
-                    label: Text('${tag['name']}'),
-                    selected: tags.contains(intValue(tag['id'])),
-                    onSelected: (v) => setState(() {
-                      if (v) {
-                        tags.add(intValue(tag['id']));
-                      } else {
-                        tags.remove(intValue(tag['id']));
-                      }
-                    }),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'The item must match this view’s complete filter before it can be created.',
-              style: TextStyle(fontSize: 12, color: Color(0xff7b8999)),
-            ),
-            if (kind == 'task')
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('Create as completed'),
-                value: completed,
-                onChanged: (v) => setState(() => completed = v ?? false),
+            if (due != null)
+              IconButton(
+                tooltip: 'Clear due date',
+                onPressed: () => setState(() => due = null),
+                icon: const Icon(Icons.clear),
               ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: priority,
+          decoration: const InputDecoration(labelText: 'Priority'),
+          items: [
+            for (var p = 0; p < 4; p++)
+              DropdownMenuItem(value: p, child: Text(priorityNames[p])),
+          ],
+          onChanged: (v) => setState(() => priority = v ?? 0),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: parent ?? 0,
+          decoration: const InputDecoration(labelText: 'Parent placement'),
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem(value: 0, child: Text('Top level')),
+            for (final item in documentValues(widget.app, 'items'))
+              DropdownMenuItem(
+                value: intValue(item['id']),
+                child: Text(
+                  '${item['title']} (#${item['id']})',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (v) => setState(() => parent = v == 0 ? null : v),
+        ),
+        SectionLabel(
+          'Tags',
+          trailing: IconButton(
+            tooltip: 'Create tag',
+            onPressed: () async {
+              final id = await showNewTag(context, widget.app);
+              if (id != null && mounted) setState(() => tags.add(id));
+            },
+            icon: const Icon(Icons.add),
+          ),
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final tag in documentValues(widget.app, 'tags'))
+              FilterChip(
+                label: Text('${tag['name']}'),
+                selected: tags.contains(intValue(tag['id'])),
+                onSelected: (v) => setState(() {
+                  if (v) {
+                    tags.add(intValue(tag['id']));
+                  } else {
+                    tags.remove(intValue(tag['id']));
+                  }
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'The item must match this view’s complete filter before it can be created.',
+          style: TextStyle(fontSize: 12, color: Color(0xff7b8999)),
+        ),
+        if (kind == 'task')
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('Create as completed'),
+            value: completed,
+            onChanged: (v) => setState(() => completed = v ?? false),
+          ),
+      ],
     ),
     actions: [
       TextButton(

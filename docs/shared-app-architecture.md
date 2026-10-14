@@ -27,6 +27,13 @@ widgets share one flow; Rust model sessions receive private working paths.
 The [cross-platform save plan](cross-platform-save-plan.md) records implementation
 and acceptance scope. Physical platform acceptance remains separate.
 
+Shared presentation: `ui/editor_dialog.dart` owns responsive form scrolling,
+floating-label paint space and action reachability for view/task/folder editors.
+`ui/app_theme.dart` owns header/canvas/sidebar surface roles and overlay icon
+contrast. The shell paints behind safe insets and transparent system bars;
+Android resource themes only supply startup colors and native contrast flags.
+Keep new shared editor behavior here rather than creating per-OS dialogs.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

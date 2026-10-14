@@ -152,22 +152,21 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     revocation, external edits, write failure, and successful reconnection on
     the actual Pixel; treat this as a blocker for stable Android publication.
 
-- [ ] Minor Android layout and clipping fixes.
-  - [ ] Unify system-bar backgrounds with adjacent app surfaces so the Pixel
+- [ ] Minor layout and clipping fixes (shared UI, Android system bars).
+  Implementation sequence: [dialog clipping and system-bar surface plan](layout-polish-plan.md).
+  - [x] Unify system-bar backgrounds with adjacent app surfaces so the Pixel
     status/gesture-bar areas do not form differently coloured strips.
-    Current sources: main.dart sets scaffold/surface to #f5f7fa; app_shell.dart
-    paints _FileBar white and _Sidebar #eef2f7, while Drawer uses its Material 3
-    default and wraps only its child in SafeArea. The uncovered drawer inset
-    areas therefore do not explicitly share the sidebar's background.
-  - [ ] Define shared theme surface colours instead of independent literals.
+    Shared surface painting and Android window flags are implemented; actual
+    phone/navigation-mode appearance remains an acceptance item below.
+  - [x] Define shared theme surface colours instead of independent literals.
     Paint the complete Drawer, including top/bottom SafeArea inset regions,
     with the sidebar colour; explicitly control its background and surface tint.
     Preserve safe spacing below the status bar and above the gesture area.
-  - [ ] Make the Android status-bar backdrop match the app header when the
+  - [x] Make the Android status-bar backdrop match the app header when the
     drawer is closed, and the drawer backdrop match its content when open.
     Paint the appropriate Flutter surface behind transparent edge-to-edge
     system bars rather than relying only on Android bar-colour setters.
-  - [ ] Configure system-overlay icon brightness for readable clock/status and
+  - [x] Configure system-overlay icon brightness for readable clock/status and
     navigation icons; inspect navigation contrast enforcement and drawer scrim
     behavior so opening/closing the drawer does not introduce colour seams.
     Do not force the status and bottom bars to one colour when their adjacent
@@ -176,13 +175,20 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     scrolling, dialogs, keyboard transitions, and portrait/landscape. Check
     gesture navigation and three-button navigation if enabled; retain icon
     contrast and validate any future dark theme with the same surface rules.
-  - [ ] Edit view: fix clipping at the top and bottom of the scrollable rules
+  - [x] Edit view: fix clipping at the top and bottom of the scrollable rules
     area when scrolling in either direction. Ensure field labels, rule cards,
     and Add condition remain fully readable and reachable at the scroll limits.
-  - [ ] New task: prevent the floating Title label from being cut off when the
+  - [x] New task: prevent the floating Title label from being cut off when the
     keyboard opens and the title field receives focus.
   - [ ] Verify both dialogs on the physical Pixel with the keyboard open/closed,
     including scroll limits, large text, and portrait/landscape layouts.
+    Use [layout acceptance](layout-polish-acceptance.md). Shared regression tests
+    cover constrained phone/desktop layouts, keyboard transitions and 2x text;
+    host paint checks are separate from native system-bar acceptance.
+    Automated/native verification completed at `e9d1346`:
+    [all-platform run 38552777010](https://github.com/Plexyer/ihtd/actions/runs/38552777010)
+    passes, with 64 Dart tests and 13 Python checks. Permanent-key candidate
+    0.2.2 build 9 also passes ELF/ZIP 16 KB checks. Physical checks stay open.
 - [ ] Rework the new/edit view rule editor for clarity and ease of use.
   - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
     large dropdown fields, and action layout feel cluttered and unintuitive,
