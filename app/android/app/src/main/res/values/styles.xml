@@ -4,6 +4,7 @@
          paints behind edge-to-edge bars; native contrast scrims would add seams. -->
     <style name="IhtdWindowTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@color/ihtd_canvas</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:navigationBarDividerColor">@android:color/transparent</item>

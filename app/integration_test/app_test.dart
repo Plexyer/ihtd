@@ -32,6 +32,10 @@ void main() {
           overrides: [
             appProvider.overrideWith(
               (ref) => AppController(
+                // This test drives poll explicitly after filesystem changes.
+                // A periodic poll already in flight can skip that call and
+                // race its immediate assertions, independently of UI layout.
+                polling: false,
                 initialDocumentPath: initialPath,
                 supportDirectory: () async =>
                     Directory('${directory.path}/support'),

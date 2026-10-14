@@ -137,7 +137,7 @@ Acceptance:
   for new checks. Link a concise physical acceptance sequence if necessary.
 - [x] Check off only verified clipping/color checklist items. Keep the separate
   view-rule redesign unchecked and explain any remaining acceptance gaps.
-- [ ] Commit and push a task branch; open a PR into `development` with root
+- [x] Commit and push a task branch; open a PR into `development` with root
   causes, final changes, platform exceptions, verification and visual evidence.
   Let the owner merge. Do not publish a stable release as part of this task.
 
@@ -162,7 +162,7 @@ observed behavior warrants a different implementation.
   inset. Drawer Material paints the whole sidebar surface with transparent tint.
   Overlay annotations specify transparent bars and contrast from each surface.
 - Android uses one light base window theme under both OS appearance settings,
-  explicit startup colors, dark icons and disabled native contrast scrims.
+  explicit startup colors, dark icons and disabled native contrast scrims and automatic force-dark recoloring.
   Flutter still owns runtime paint; target 36 edge-to-edge behavior is retained.
 - The old view dialog overflowed by 65 px with a 320 px keyboard in the 390 x 844
   host reproduction. The former creation viewport has no label paint clearance;
@@ -171,8 +171,14 @@ observed behavior warrants a different implementation.
   combinations, including 2x text. Rendered pixel checks confirm header/canvas
   and both drawer inset colors. Readable host screenshots were reviewed,
   including the complete last rule and Add condition at the lower scroll limit.
+- All 63 Dart tests and Flutter analysis of lib/test/integration_test pass.
+  All 10 Python release/architecture checks pass.
 - The expanded Linux phone integration test passes actual Rust-backed view edits,
   new-task creation with keyboard insets, and the existing flush/scroll/drag flows.
+- Linux desktop integration also passes, including actual filesystem rename and
+  explicit reconnect. Its fixture now disables the periodic timer because it
+  drives poll explicitly: an in-flight timer previously skipped an immediate
+  manual check and raced the assertion. Production polling is unchanged.
 - Physical Pixel startup/IME/navigation-mode appearance and desktop scaling remain
   pending: follow [layout acceptance](layout-polish-acceptance.md). Build/CI
   results and candidate provenance will be added after verification.
