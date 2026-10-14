@@ -113,6 +113,18 @@ release APK builds sequentially in a shared checkout; Flutter regenerates plugin
 registration for other targets as well. Use the normal dependency refresh for
 the final APK after integration tests so test-only plugins are excluded.
 
+Expression-editor coverage lives in `test/rule_draft_test.dart` and
+`test/view_expression_test.dart`: infix scope, projection compatibility,
+connector changes, empty slots, form cancellation, rapid field/option edits,
+duplicate references, stale/queued collection changes and responsive layouts.
+Native integration verifies nested-tag-OR creation hints across editor save and
+reopen, task creation and deleted-container repair. Follow
+[physical expression-editor acceptance](view-expression-editor-acceptance.md).
+Optional host screenshots can be captured by running the view-expression tests
+with `--dart-define=EXPRESSION_FONT=/absolute/path/to/a/font.ttf` and
+`--dart-define=EXPRESSION_CAPTURE=/absolute/output/directory`; these are host
+paint checks, not physical phone acceptance.
+
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match
 the Rust and Dart bridge packages.

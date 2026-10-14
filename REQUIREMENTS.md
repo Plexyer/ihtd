@@ -71,6 +71,23 @@ hierarchy everywhere those shared items occur.
 
 ## Views and creation
 
+Shared editor design, owner approved and implemented 2026-10-14:
+conditions use infix AND/OR connectors, circular plus buttons for empty slots
+and scoped chain-end addition, and parentheses for mixed logical groups.
+Narrow screens put the connector at the start of the following operand row
+(Option A); wider screens use inline space when available. Same-operator
+AND/AND and OR/OR nesting appears as one chain. Exactly-one/XOR and NOT retain
+their boundaries. Existing matching, task-creation defaults and saved views
+remain compatible. The editor uses isolated drafts and focused condition forms;
+empty slots are never stored as All items. Changing a connector retains its
+operands. Same-operator flattening is a display projection, preserving stored
+branch boundaries and creation hints on unchanged/name-only saves. Stale view
+edits and different working copies (including copies sharing a UUID) are rejected
+inside the command queue. Only outer Save view commits the expression; tag
+creation remains a separate collection operation. Physical acceptance is pending.
+See [implementation plan](docs/view-expression-editor-plan.md) and
+[acceptance guide](docs/view-expression-editor-acceptance.md).
+
 Saved filters support nested AND, OR, exactly-one XOR, and NOT; title and
 plain-text notes comparisons; tags; direct/recursive container membership;
 due-date comparisons and date presence; priorities; item kind; completion.

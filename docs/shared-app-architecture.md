@@ -34,6 +34,16 @@ contrast. The shell paints behind safe insets and transparent system bars;
 Android resource themes only supply startup colors and native contrast flags.
 Keep new shared editor behavior here rather than creating per-OS dialogs.
 
+Shared expression editing: `services/rule_draft.dart` owns draft-only slots,
+stable UI node identities and a flattened display projection retaining stored
+AND/OR boundaries. `ui/rule_expression.dart` renders Option-A rows or inline
+runs with scoped circular pluses. `ui/rule_condition_editor.dart` supplies
+focused forms and ID-bound searchable pickers. `ui/view_editor.dart` owns outer
+Save/Cancel. Rust filter matching, validation, creation defaults and schema are
+unchanged. Controller edit-identity/view guards run after command-queue waits;
+UI drafts cannot overwrite a different working copy or a stale saved view.
+See [expression plan](view-expression-editor-plan.md).
+
 Shared removal: `crates/ihtd_core/src/removal.rs` owns actual placement counts,
 revision-bound previews, cascade retention and atomic removal. Rust snapshots
 supply placement metadata and deleted-container rule issues. Flutter's controller

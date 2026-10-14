@@ -1,7 +1,7 @@
 name: app
 description: Portable tasks and folders with shared identities and saved views.
 publish_to: none
-version: 0.2.2+10
+version: 0.2.2+11
 environment:
   sdk: ^3.13.4
 dependencies:
