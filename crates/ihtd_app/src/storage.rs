@@ -28,7 +28,7 @@ mod migration_tests {
         let file = NamedTempFile::new().unwrap();
         fs::write(file.path(), encode(&doc).unwrap()).unwrap();
         let connection = Connection::open(file.path()).unwrap();
-        connection.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version'; DELETE FROM metadata WHERE key='root_order';").unwrap();
+        connection.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version'; DELETE FROM metadata WHERE key IN ('root_order','deleted_item_ids');").unwrap();
         connection.close().unwrap();
         let mut migrated = decode(&fs::read(file.path()).unwrap()).unwrap();
         assert_eq!(migrated, doc);
@@ -64,6 +64,10 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
     let transaction = connection.transaction().map_err(err)?;
     for (key, value) in [
         ("document_id", document.document_id.clone()),
+        (
+            "deleted_item_ids",
+            serde_json::to_string(&document.deleted_item_ids).map_err(err)?,
+        ),
         ("revision", document.revision.to_string()),
         ("next_id", document.next_id.to_string()),
         ("schema_version", document.schema_version.to_string()),
@@ -166,6 +170,14 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         )
         .optional()
         .map_err(err)?;
+    let deleted_item_ids: Option<String> = connection
+        .query_row(
+            "SELECT value FROM metadata WHERE key='deleted_item_ids'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?;
     let mut document = Document {
         schema_version: ihtd_core::model::SCHEMA_VERSION,
         document_id: metadata("document_id")?,
@@ -175,6 +187,10 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         tags: BTreeMap::new(),
         views: BTreeMap::new(),
         links: Vec::new(),
+        deleted_item_ids: deleted_item_ids
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         root_order: root_order
             .map(|s| serde_json::from_str(&s).map_err(err))
             .transpose()?

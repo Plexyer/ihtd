@@ -78,6 +78,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   String? get path => _documents.externalLocation ?? _workingPath;
   Map<String, dynamic>? document;
   Map<String, dynamic> completion = {};
+  Map<String, dynamic> placements = {};
+  Map<String, dynamic> viewIssues = {};
   List<Map<String, dynamic>> rows = [];
   int selectedViewId = 1;
   bool completedOnly = false;
@@ -176,6 +178,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     document = next;
     _workingPath = state['path'] as String?;
     completion = _map(state['completion']);
+    placements = _map(state['placements']);
+    viewIssues = _map(state['view_issues']);
+    _pruneExpandedPaths();
     _localDirty = state['dirty'] == true;
     _localPersistenceFailed = state['persistence_failed'] == true;
     _recoveryPath = state['recovery_path'] as String?;
@@ -229,6 +234,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _mutating = !const {
       'query',
       'creation_defaults',
+      'preview_removal',
       'snapshot',
       'open',
       'new',
@@ -244,6 +250,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       if (!const {
         'query',
         'creation_defaults',
+        'preview_removal',
         'snapshot',
         'open',
         'new',
@@ -283,6 +290,65 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
   }
+
+  /// A placement, not an item title or filtered appearance, is the target.
+  /// Flush drafts before previewing; never reuse approval across collections.
+  Future<bool> removePlacement(
+    int id,
+    int? parent, {
+    required Future<bool> Function(Map<String, dynamic>) confirmDelete,
+  }) async {
+    final working = _workingPath;
+    final identity = document?['document_id'];
+    if (!await finishDraft()) return false;
+    if (working != _workingPath || identity != document?['document_id']) {
+      error = 'The open collection changed. Select the placement again.';
+      notifyListeners();
+      return false;
+    }
+    final preview = await dispatch({
+      'op': 'preview_removal',
+      'id': id,
+      'parent': parent,
+    });
+    if (preview == null) return false;
+    final deleting = preview['action'] == 'delete';
+    if (deleting && !await confirmDelete(preview)) return false;
+    if (working != _workingPath || identity != document?['document_id']) {
+      error = 'The open collection changed. Select the placement again.';
+      notifyListeners();
+      return false;
+    }
+    // Rust checks the complete preview/revision atomically. A stale Unlink
+    // cannot become a Delete, and an old confirmation cannot delete new work.
+    return await dispatch({
+          'op': 'remove_placement',
+          'preview': preview,
+          'confirm_delete': deleting,
+        }) !=
+        null;
+  }
+
+  void _pruneExpandedPaths() {
+    final links = (document?['links'] as List? ?? []).map(_map).toList();
+    final edges = {
+      for (final link in links) '${link['parent']}/${link['child']}',
+    };
+    expandedPaths.removeWhere((entry) {
+      if (entry == '*') return false;
+      final parts = (entry.startsWith('!') ? entry.substring(1) : entry).split(
+        '/',
+      );
+      if (_map(placements[parts.first])['root'] != true) return true;
+      for (var index = 1; index < parts.length; index++) {
+        if (!edges.contains('${parts[index - 1]}/${parts[index]}')) return true;
+      }
+      return false;
+    });
+  }
+
+  List<Map<String, dynamic>> issuesForView(int id) =>
+      (viewIssues['$id'] as List? ?? []).map(_map).toList();
 
   Future<void> refreshRows() async {
     if (document == null) {

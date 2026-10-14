@@ -119,7 +119,42 @@ pub struct CreationDefaults {
     pub requirements: Vec<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct ContainerRuleReference {
+    pub path: String,
+    pub container_id: i64,
+}
+
 impl FilterExpr {
+    /// Human-readable rule positions, preserving nested group scope.
+    pub fn container_rules(&self) -> Vec<ContainerRuleReference> {
+        let mut result = vec![];
+        let mut pending = vec![(self, "1".to_string())];
+        while let Some((rule, path)) = pending.pop() {
+            match rule {
+                Self::Folder { folder_id, .. } => result.push(ContainerRuleReference {
+                    path,
+                    container_id: *folder_id,
+                }),
+                Self::And { rules } | Self::Or { rules } | Self::Xor { rules } => {
+                    for (index, child) in rules.iter().enumerate().rev() {
+                        pending.push((child, format!("{path}.{}", index + 1)));
+                    }
+                }
+                Self::Not { rule } => pending.push((rule, format!("{path}.1"))),
+                _ => (),
+            }
+        }
+        result
+    }
+
+    pub fn deleted_container_rules(&self, document: &Document) -> Vec<ContainerRuleReference> {
+        self.container_rules()
+            .into_iter()
+            .filter(|r| document.deleted_item_ids.contains(&r.container_id))
+            .collect()
+    }
+
     pub fn matches(&self, item: &Item, document: &Document) -> bool {
         match self {
             Self::All => true,
@@ -178,7 +213,10 @@ impl FilterExpr {
                 Self::Tag { tag_id } if !document.tags.contains_key(tag_id) => {
                     return Err(format!("Filter references missing tag #{tag_id}"));
                 }
-                Self::Folder { folder_id, .. } if !document.items.contains_key(folder_id) => {
+                Self::Folder { folder_id, .. }
+                    if !document.items.contains_key(folder_id)
+                        && !document.deleted_item_ids.contains(folder_id) =>
+                {
                     return Err(format!("Filter references missing container #{folder_id}"));
                 }
                 Self::Due { comparison, value } => match comparison {
@@ -215,6 +253,15 @@ impl FilterExpr {
             };
         }
         let mut defaults = self.hints().resolve();
+        defaults
+            .parent_ids
+            .retain(|id| document.items.contains_key(id));
+        for reference in self.deleted_container_rules(document) {
+            defaults.requirements.push(format!(
+                "Rule {} refers to deleted container #{}. Replace or remove this rule.",
+                reference.path, reference.container_id
+            ));
+        }
         defaults.requirements.sort();
         defaults.requirements.dedup();
         defaults

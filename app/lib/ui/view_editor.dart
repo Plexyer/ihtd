@@ -241,205 +241,224 @@ class _RuleEditor extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xffdce4ee)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          dropdown(
-            value: op,
-            label: 'Rule',
-            choices: _ops,
-            changed: (value) => onChanged(_initialRule(value, app)),
-          ),
-          const SizedBox(height: 12),
-          if (group) ...[
-            for (var i = 0; i < (rule['rules'] as List).length; i++)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _RuleEditor(
-                      app: app,
-                      rule: asMap((rule['rules'] as List)[i]),
-                      onChanged: (value) {
-                        final rules = List<dynamic>.from(rule['rules'] as List);
-                        rules[i] = value;
-                        set('rules', rules);
-                      },
+      // Give checkbox rows an ink surface inside the decorated rule card.
+      child: Material(
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            dropdown(
+              value: op,
+              label: 'Rule',
+              choices: _ops,
+              changed: (value) => onChanged(_initialRule(value, app)),
+            ),
+            const SizedBox(height: 12),
+            if (group) ...[
+              for (var i = 0; i < (rule['rules'] as List).length; i++)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _RuleEditor(
+                        app: app,
+                        rule: asMap((rule['rules'] as List)[i]),
+                        onChanged: (value) {
+                          final rules = List<dynamic>.from(
+                            rule['rules'] as List,
+                          );
+                          rules[i] = value;
+                          set('rules', rules);
+                        },
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Remove condition',
-                    onPressed: (rule['rules'] as List).length <= 1
-                        ? null
-                        : () {
-                            final rules = List<dynamic>.from(
-                              rule['rules'] as List,
-                            )..removeAt(i);
-                            set('rules', rules);
-                          },
-                    icon: const Icon(Icons.remove_circle_outline, size: 18),
-                  ),
-                ],
-              ),
-            TextButton.icon(
-              onPressed: () => set('rules', [
-                ...(rule['rules'] as List),
-                {'op': 'all'},
-              ]),
-              icon: const Icon(Icons.add, size: 17),
-              label: const Text('Add condition'),
-            ),
-          ],
-          if (op == 'not')
-            _RuleEditor(
-              app: app,
-              rule: asMap(rule['rule']),
-              onChanged: (r) => set('rule', r),
-            ),
-          if (op == 'text') ...[
-            dropdown(
-              value: '${rule['field']}',
-              label: 'Field',
-              choices: const {'title': 'Title', 'notes': 'Notes'},
-              changed: (v) => set('field', v),
-            ),
-            const SizedBox(height: 10),
-            dropdown(
-              value: '${rule['comparison']}',
-              label: 'Comparison',
-              choices: const {
-                'contains': 'Contains',
-                'equals': 'Equals',
-                'starts_with': 'Starts with',
-                'ends_with': 'Ends with',
-                'not_contains': 'Does not contain',
-                'not_equals': 'Does not equal',
-              },
-              changed: (v) => set('comparison', v),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              initialValue: '${rule['value'] ?? ''}',
-              decoration: const InputDecoration(
-                labelText: 'Text (including numbers)',
-              ),
-              onChanged: (v) => set('value', v),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Case sensitive'),
-              value: rule['case_sensitive'] == true,
-              onChanged: (v) => set('case_sensitive', v),
-            ),
-          ],
-          if (op == 'tag') ...[
-            if (documentValues(app, 'tags').isEmpty)
-              const Text('Create a tag using “New tag…” below.'),
-            dropdown(
-              value: intValue(rule['tag_id']),
-              label: 'Tag',
-              choices: {
-                for (final tag in documentValues(app, 'tags'))
-                  intValue(tag['id']): '${tag['name']} (#${tag['id']})',
-              },
-              changed: (v) => set('tag_id', v),
-            ),
-          ],
-          if (op == 'folder') ...[
-            dropdown(
-              value: intValue(rule['folder_id']),
-              label: 'Container',
-              choices: {
-                for (final item in documentValues(app, 'items'))
-                  intValue(item['id']): '${item['title']} (#${item['id']})',
-              },
-              changed: (v) => set('folder_id', v),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Include all descendant levels'),
-              value: rule['recursive'] != false,
-              onChanged: (v) => set('recursive', v),
-            ),
-          ],
-          if (op == 'due') ...[
-            dropdown(
-              value: '${rule['comparison']}',
-              label: 'Comparison',
-              choices: const {
-                'before': 'Before',
-                'on': 'On',
-                'after': 'After',
-                'on_or_before': 'On or before',
-                'on_or_after': 'On or after',
-                'is_set': 'Has a due date',
-                'is_not_set': 'No due date',
-              },
-              changed: (v) => onChanged({
-                ...rule,
-                'comparison': v,
-                'value': ['is_set', 'is_not_set'].contains(v)
-                    ? null
-                    : rule['value'] ?? dateText(DateTime.now()),
-              }),
-            ),
-            if (!['is_set', 'is_not_set'].contains(rule['comparison']))
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final selected = await showDatePicker(
-                      context: context,
-                      initialDate:
-                          DateTime.tryParse('${rule['value']}') ??
-                          DateTime.now(),
-                      firstDate: DateTime(1900),
-                      lastDate: DateTime(9999),
-                    );
-                    if (selected != null) set('value', dateText(selected));
-                  },
-                  icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text('${rule['value']}'),
+                    IconButton(
+                      tooltip: 'Remove condition',
+                      onPressed: (rule['rules'] as List).length <= 1
+                          ? null
+                          : () {
+                              final rules = List<dynamic>.from(
+                                rule['rules'] as List,
+                              )..removeAt(i);
+                              set('rules', rules);
+                            },
+                      icon: const Icon(Icons.remove_circle_outline, size: 18),
+                    ),
+                  ],
                 ),
+              TextButton.icon(
+                onPressed: () => set('rules', [
+                  ...(rule['rules'] as List),
+                  {'op': 'all'},
+                ]),
+                icon: const Icon(Icons.add, size: 17),
+                label: const Text('Add condition'),
+              ),
+            ],
+            if (op == 'not')
+              _RuleEditor(
+                app: app,
+                rule: asMap(rule['rule']),
+                onChanged: (r) => set('rule', r),
+              ),
+            if (op == 'text') ...[
+              dropdown(
+                value: '${rule['field']}',
+                label: 'Field',
+                choices: const {'title': 'Title', 'notes': 'Notes'},
+                changed: (v) => set('field', v),
+              ),
+              const SizedBox(height: 10),
+              dropdown(
+                value: '${rule['comparison']}',
+                label: 'Comparison',
+                choices: const {
+                  'contains': 'Contains',
+                  'equals': 'Equals',
+                  'starts_with': 'Starts with',
+                  'ends_with': 'Ends with',
+                  'not_contains': 'Does not contain',
+                  'not_equals': 'Does not equal',
+                },
+                changed: (v) => set('comparison', v),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                initialValue: '${rule['value'] ?? ''}',
+                decoration: const InputDecoration(
+                  labelText: 'Text (including numbers)',
+                ),
+                onChanged: (v) => set('value', v),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Case sensitive'),
+                value: rule['case_sensitive'] == true,
+                onChanged: (v) => set('case_sensitive', v),
+              ),
+            ],
+            if (op == 'tag') ...[
+              if (documentValues(app, 'tags').isEmpty)
+                const Text('Create a tag using “New tag…” below.'),
+              dropdown(
+                value: intValue(rule['tag_id']),
+                label: 'Tag',
+                choices: {
+                  for (final tag in documentValues(app, 'tags'))
+                    intValue(tag['id']): '${tag['name']} (#${tag['id']})',
+                },
+                changed: (v) => set('tag_id', v),
+              ),
+            ],
+            if (op == 'folder') ...[
+              dropdown(
+                value: intValue(rule['folder_id']),
+                label: 'Container',
+                choices: {
+                  if (itemById(app, intValue(rule['folder_id'])).isEmpty &&
+                      (app.document?['deleted_item_ids'] as List? ?? [])
+                          .contains(intValue(rule['folder_id'])))
+                    intValue(rule['folder_id']):
+                        'Deleted container (#${rule['folder_id']})',
+                  for (final item in documentValues(app, 'items'))
+                    intValue(item['id']): '${item['title']} (#${item['id']})',
+                },
+                changed: (v) => set('folder_id', v),
+              ),
+              if (itemById(app, intValue(rule['folder_id'])).isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'This container was deleted. Replace it or remove this rule.',
+                    style: TextStyle(color: Color(0xff8a5b00)),
+                  ),
+                ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Include all descendant levels'),
+                value: rule['recursive'] != false,
+                onChanged: (v) => set('recursive', v),
+              ),
+            ],
+            if (op == 'due') ...[
+              dropdown(
+                value: '${rule['comparison']}',
+                label: 'Comparison',
+                choices: const {
+                  'before': 'Before',
+                  'on': 'On',
+                  'after': 'After',
+                  'on_or_before': 'On or before',
+                  'on_or_after': 'On or after',
+                  'is_set': 'Has a due date',
+                  'is_not_set': 'No due date',
+                },
+                changed: (v) => onChanged({
+                  ...rule,
+                  'comparison': v,
+                  'value': ['is_set', 'is_not_set'].contains(v)
+                      ? null
+                      : rule['value'] ?? dateText(DateTime.now()),
+                }),
+              ),
+              if (!['is_set', 'is_not_set'].contains(rule['comparison']))
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final selected = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            DateTime.tryParse('${rule['value']}') ??
+                            DateTime.now(),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime(9999),
+                      );
+                      if (selected != null) set('value', dateText(selected));
+                    },
+                    icon: const Icon(Icons.calendar_today, size: 16),
+                    label: Text('${rule['value']}'),
+                  ),
+                ),
+            ],
+            if (op == 'priority') ...[
+              dropdown(
+                value: '${rule['comparison']}',
+                label: 'Comparison',
+                choices: const {'eq': 'Is', 'ge': 'At least', 'le': 'At most'},
+                changed: (v) => set('comparison', v),
+              ),
+              const SizedBox(height: 10),
+              dropdown(
+                value: intValue(rule['value']),
+                label: 'Priority',
+                choices: {for (var i = 0; i < 4; i++) i: priorityNames[i]},
+                changed: (v) => set('value', v),
+              ),
+            ],
+            if (op == 'kind')
+              dropdown(
+                value: '${rule['kind']}',
+                label: 'Type',
+                choices: const {'task': 'Task', 'folder': 'Folder'},
+                changed: (v) => set('kind', v),
+              ),
+            if (op == 'completed')
+              dropdown(
+                value: rule['value'] == true,
+                label: 'State',
+                choices: const {false: 'Unfinished', true: 'Completed'},
+                changed: (v) => set('value', v),
+              ),
+            if (op == 'all')
+              const Text(
+                'Every item can appear in this view.',
+                style: TextStyle(color: Color(0xff7b8999), fontSize: 12),
               ),
           ],
-          if (op == 'priority') ...[
-            dropdown(
-              value: '${rule['comparison']}',
-              label: 'Comparison',
-              choices: const {'eq': 'Is', 'ge': 'At least', 'le': 'At most'},
-              changed: (v) => set('comparison', v),
-            ),
-            const SizedBox(height: 10),
-            dropdown(
-              value: intValue(rule['value']),
-              label: 'Priority',
-              choices: {for (var i = 0; i < 4; i++) i: priorityNames[i]},
-              changed: (v) => set('value', v),
-            ),
-          ],
-          if (op == 'kind')
-            dropdown(
-              value: '${rule['kind']}',
-              label: 'Type',
-              choices: const {'task': 'Task', 'folder': 'Folder'},
-              changed: (v) => set('kind', v),
-            ),
-          if (op == 'completed')
-            dropdown(
-              value: rule['value'] == true,
-              label: 'State',
-              choices: const {false: 'Unfinished', true: 'Completed'},
-              changed: (v) => set('value', v),
-            ),
-          if (op == 'all')
-            const Text(
-              'Every item can appear in this view.',
-              style: TextStyle(color: Color(0xff7b8999), fontSize: 12),
-            ),
-        ],
+        ),
       ),
     );
   }

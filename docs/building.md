@@ -103,6 +103,13 @@ Descendant-move checks cover promotion to the former parent/top level, shared
 placements, sibling order, stale targets and completion. The phone integration
 test exercises a long-press drop into a nested descendant through the UI.
 
+Unlink/Delete tests cover actual root/parent placements, shared cascades,
+stale/cancelled confirmation, deleted-container view rules and pending external
+publication. `test/item_removal_test.dart` checks shared interaction and warning
+presentation; the desktop integration test exercises real Rust removal, reopen
+and disconnected-file recovery. Follow [physical removal acceptance](unlink-delete-acceptance.md)
+for the Pixel, Windows and Fedora checks.
+
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match
 the Rust and Dart bridge packages.

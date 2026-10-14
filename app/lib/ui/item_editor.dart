@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/app_controller.dart';
 import 'shared.dart';
 import 'editor_dialog.dart';
+import 'item_removal.dart';
 
 class ItemEditor extends StatefulWidget {
   const ItemEditor({super.key, required this.app});
@@ -446,35 +447,34 @@ class _ItemEditorState extends State<ItemEditor> {
               ),
             ],
           ),
-          SectionLabel('Appears under (${parents.length})'),
-          if (parents.isEmpty)
-            const Text(
-              'Top level',
-              style: TextStyle(fontSize: 13, color: Color(0xff7b8999)),
-            ),
-          for (final parent in parents)
+          SectionLabel(
+            'Placements (${asMap(app.placements['$id'])['count'] ?? 0})',
+          ),
+          for (final parent in [
+            if (asMap(app.placements['$id'])['root'] == true) null,
+            ...parents,
+          ])
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('${itemById(app, parent)['title']}'),
-              subtitle: Text('#$parent'),
-              onTap: () => app.selectItem(parent),
-              trailing: IconButton(
-                tooltip: 'Remove this placement; keep item',
-                icon: const Icon(Icons.link_off, size: 18),
-                onPressed: () async {
-                  if (await confirmAction(
-                    context,
-                    title: 'Remove this placement?',
-                    message: 'The item, its subtasks, and all other placements will be kept.',
-                    action: 'Remove link',
-                  )) {
-                    await app.dispatch({
-                      'op': 'unlink',
-                      'parent': parent,
-                      'child': id,
-                    });
-                  }
-                },
+              title: Text(
+                parent == null
+                    ? 'Top level'
+                    : '${itemById(app, parent)['title']}',
+              ),
+              subtitle: parent == null ? null : Text('#$parent'),
+              onTap: parent == null ? null : () => app.selectItem(parent),
+              trailing: TextButton.icon(
+                key: ValueKey('remove-$id-${parent ?? 'root'}'),
+                onPressed: app.busy
+                    ? null
+                    : () => removeItemPlacement(context, app, id!, parent),
+                icon: Icon(
+                  removalLabel(app, id!) == 'Unlink'
+                      ? Icons.link_off
+                      : Icons.delete_outline,
+                  size: 18,
+                ),
+                label: Text(removalLabel(app, id!)),
               ),
             ),
           const SizedBox(height: 16),

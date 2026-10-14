@@ -207,20 +207,29 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     scrolling on the physical Pixel, plus usability on desktop.
 - [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
   Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
-  Owner semantics confirmed 2026-10-14; implementation remains pending.
-  - [ ] When an item has two or more actual placements, label the action
+  Owner semantics confirmed 2026-10-14. Shared implementation and automated
+  domain/UI checks are complete; physical acceptance remains pending.
+  - [x] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
     its data, and its remaining placements.
-  - [ ] When an item has exactly one placement, label the action Delete and
+  - [x] When an item has exactly one placement, label the action Delete and
     delete the item when that last placement is removed.
-  - [ ] Count actual hierarchy/root placements, not appearances in filtered
+  - [x] Count actual hierarchy/root placements, not appearances in filtered
     views; update the label as links are added or removed.
   - [x] Agree child handling and action protection: confirm Delete; Unlink
     immediately. Recursively delete children without surviving placements;
     preserve shared branches linked elsewhere. Linked folders share children
     across all appearances. Undo/trash are outside this task.
-  - [ ] Verify task/folder actions with one and multiple placements, including
+  - [x] Verify task/folder actions with one and multiple placements, including
     nested and top-level placements, saved views, and persistence after reopen.
+
+  - [x] Keep views referring to deleted containers, with unchanged Boolean scope.
+    Give affected views a yellow shade and a minor hierarchy warning identifying
+    the rule to review; the editor shows Deleted container. Repair clears warnings.
+  - [x] Reject stale approval and switches to another working copy, including
+    copies with the same document ID. Flush drafts; invalid drafts block removal.
+  - [ ] Follow [physical removal acceptance](unlink-delete-acceptance.md) on Pixel,
+    Windows and Fedora, including disconnected-file retention and reconnect.
 
 ## Agreed release and update work
 
