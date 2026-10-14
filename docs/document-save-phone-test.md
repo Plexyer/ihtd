@@ -5,6 +5,14 @@ Install it as an update over permanent-key build 5/6 without uninstalling.
 Back up important .ihtd files first. This is a test candidate, not a published
 stable release. Automated provider fakes cannot verify the actual Files provider.
 
+Candidate filename: `IHTD-0.2.2-build7-android-arm64-test.apk`.
+SHA-256: `c329c07bbea28fce26c95aa5a6660981c574f44807c3cef228cc020bdeec2412`.
+The candidate was built from implementation commit `340c46e` (including the
+versioned source), with packaging metadata aligned in `c9462f9`. Its permanent
+certificate, ARM64-only packaging, API 35 minimum/API 36 target, ZIP alignment
+and all four native libraries' 16 KB-or-greater ELF load alignment were verified.
+APK permissions contain no internet or broad-storage grants.
+
 ## Rename and pending changes
 
 1. Create/open Tasks_copy.ihtd and add recognizable tasks; confirm Saved to file.
