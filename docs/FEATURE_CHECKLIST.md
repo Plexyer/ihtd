@@ -153,6 +153,7 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     the actual Pixel; treat this as a blocker for stable Android publication.
 
 - [ ] Minor Android layout and clipping fixes.
+  Implementation sequence: [dialog clipping and system-bar surface plan](layout-polish-plan.md).
   - [ ] Unify system-bar backgrounds with adjacent app surfaces so the Pixel
     status/gesture-bar areas do not form differently coloured strips.
     Current sources: main.dart sets scaffold/surface to #f5f7fa; app_shell.dart
