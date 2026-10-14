@@ -1,5 +1,10 @@
 # Build and test IHTD
 
+Follow [shared app architecture and development workflow](shared-app-architecture.md)
+when changing general behavior or UI. The
+[cross-platform save migration plan](cross-platform-save-plan.md) tracks the
+current Android/desktop parity gap; do not infer parity from one platform's tests.
+
 See [development and releases](development-workflow.md) for branch policy,
 version validation, reusable platform CI, and the coordinated draft release.
 `app/pubspec.yaml` controls package versions; installation files in packaging/

@@ -3,6 +3,20 @@
 Read `REQUIREMENTS.md`, `docs/FEATURE_CHECKLIST.md`, and `docs/building.md`
 before changing behavior. Ask the user when product semantics are unclear.
 
+## Shared-first implementation
+
+Read [shared app architecture](docs/shared-app-architecture.md) before changing
+behavior or UI. Implement general product functionality once in shared Rust/
+Flutter code for Android, Windows and Linux. Platform adapters provide file/OS
+access and typed observations; shared policy owns save/recovery decisions,
+severity, messages and confirmations. Select adapters at composition/bootstrap;
+shared UI must not depend on Android storage or branch on operating-system names.
+Use layout constraints, text scale, insets and input capabilities for responsive
+design. Explain necessary platform exceptions in the PR and update requirements,
+checklist and shared/adapter tests. Android-only implementation is not evidence
+of cross-platform completion. See the pending
+[shared save migration](docs/cross-platform-save-plan.md).
+
 ## Project
 
 - Flutter 3.47.5 / Dart 3.13.4 UI in `app/`, shared Rust model in
