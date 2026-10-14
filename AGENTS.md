@@ -30,6 +30,10 @@ of cross-platform completion. Follow the implemented
   moves only the grabbed placement. Descendant moves first promote direct
   children to its former parent/root; children are shared across placements.
   Do not duplicate shared item state.
+- The owner-approved view-rule redesign is an infix expression editor, with
+  scoped circular pluses and Option-A narrow wrapping, not group-heading cards.
+  Follow `docs/view-expression-editor-plan.md`; preserve matching AND creation
+  hints when displaying flattened AND/OR chains. Implementation is pending.
 - Shared removal is in `crates/ihtd_core/src/removal.rs`. Count actual parent/root
   placements; use revision-bound previews for confirmed Delete and immediate
   Unlink. Cascade only into nodes losing all surviving placements. Retain

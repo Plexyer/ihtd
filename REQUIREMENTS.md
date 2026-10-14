@@ -71,6 +71,15 @@ hierarchy everywhere those shared items occur.
 
 ## Views and creation
 
+Planned editor design, owner approved 2026-10-14 (implementation pending):
+conditions use infix AND/OR connectors, circular plus buttons for empty slots
+and scoped chain-end addition, and parentheses for mixed logical groups.
+Narrow screens put the connector at the start of the following operand row
+(Option A); wider screens use inline space when available. Same-operator
+AND/AND and OR/OR nesting appears as one chain. Exactly-one/XOR and NOT retain
+their boundaries. Existing matching, task-creation defaults and saved views
+must remain compatible. See [implementation plan](docs/view-expression-editor-plan.md).
+
 Saved filters support nested AND, OR, exactly-one XOR, and NOT; title and
 plain-text notes comparisons; tags; direct/recursive container membership;
 due-date comparisons and date presence; priorities; item kind; completion.

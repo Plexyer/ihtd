@@ -190,13 +190,19 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     passes, with 64 Dart tests and 13 Python checks. Permanent-key candidate
     0.2.2 build 9 also passes ELF/ZIP 16 KB checks. Physical checks stay open.
 - [ ] Rework the new/edit view rule editor for clarity and ease of use.
+  Implementation handoff: [infix expression-editor plan](view-expression-editor-plan.md).
+  Owner approved the infix design and Option-A narrow layout on 2026-10-14;
+  implementation and physical acceptance remain pending.
   - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
     large dropdown fields, and action layout feel cluttered and unintuitive,
     especially on the Pixel's narrow screen. This is an interaction/layout
     rework, separate from fixing the scroll clipping reported above.
-  - [ ] Propose and review a simpler layout with the owner before implementing;
-    make individual conditions, their values/comparisons, and group boundaries
-    easy to scan without excessive nesting or wasted vertical space.
+  - [x] Review the design with the owner: conditions joined by infix operators;
+    circular plus slots and scoped chain-end addition; AND/OR begins the next
+    row on phones (Option A), with inline layout where wider screens allow it.
+  - [ ] Implement compact editable summaries and parentheses for mixed groups;
+    visually combine nested AND/AND and OR/OR, preserving XOR/NOT boundaries.
+    Preserve saved matching, creation defaults and deleted-container warnings.
   - [ ] Explain ALL/AND and ANY/OR in plain language and make their scope clear;
     keep adding, editing, and removing conditions/groups easy to discover.
   - [ ] Give Save/Cancel clear placement and separate secondary/destructive
