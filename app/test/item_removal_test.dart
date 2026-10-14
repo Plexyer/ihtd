@@ -461,6 +461,15 @@ void main() {
       await tester.runAsync(() => app.dispatch({'op': 'snapshot'}));
       await settle(tester);
       expect(find.byKey(const ValueKey('view-rule-warning')), findsNothing);
+      // An empty/new container choice is not evidence of deletion.
+      document['views']['7']['filter'] = {'op': 'folder', 'folder_id': 0};
+      await tester.runAsync(() => app.dispatch({'op': 'snapshot'}));
+      await settle(tester);
+      await tester.runAsync(() => tester.tap(find.byTooltip('Edit this view')));
+      await settle(tester);
+      expect(find.textContaining('This container was deleted'), findsNothing);
+      await tester.runAsync(() => tester.tap(find.text('Cancel')));
+      await settle(tester);
     },
   );
 

@@ -366,7 +366,9 @@ class _RuleEditor extends StatelessWidget {
                 },
                 changed: (v) => set('folder_id', v),
               ),
-              if (itemById(app, intValue(rule['folder_id'])).isEmpty)
+              if ((app.document?['deleted_item_ids'] as List? ?? []).contains(
+                intValue(rule['folder_id']),
+              ))
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
