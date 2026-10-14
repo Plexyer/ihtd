@@ -159,6 +159,22 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
     keyboard opens and the title field receives focus.
   - [ ] Verify both dialogs on the physical Pixel with the keyboard open/closed,
     including scroll limits, large text, and portrait/landscape layouts.
+- [ ] Rework the new/edit view rule editor for clarity and ease of use.
+  - [ ] Address owner feedback: the current nested cards, repeated Rule labels,
+    large dropdown fields, and action layout feel cluttered and unintuitive,
+    especially on the Pixel's narrow screen. This is an interaction/layout
+    rework, separate from fixing the scroll clipping reported above.
+  - [ ] Propose and review a simpler layout with the owner before implementing;
+    make individual conditions, their values/comparisons, and group boundaries
+    easy to scan without excessive nesting or wasted vertical space.
+  - [ ] Explain ALL/AND and ANY/OR in plain language and make their scope clear;
+    keep adding, editing, and removing conditions/groups easy to discover.
+  - [ ] Give Save/Cancel clear placement and separate secondary/destructive
+    actions so they do not dominate the rule editor. Review tag creation's
+    placement within the condition workflow.
+  - [ ] Preserve existing filter semantics and saved-view compatibility; verify
+    simple and nested rules, long labels, large text, keyboard use, and touch
+    scrolling on the physical Pixel, plus usability on desktop.
 - [ ] Add placement-aware Unlink/Delete actions for both tasks and folders.
   - [ ] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
