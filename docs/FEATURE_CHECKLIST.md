@@ -62,6 +62,39 @@ implementing them.
 Recorded on 2026-10-14 on the Pixel 9 Pro running GrapheneOS. These are
 approved follow-up tasks; this entry records the reports, not completed fixes.
 
+- [ ] High priority: trustworthy document connection, save status, and recovery.
+  - [ ] Reproduce the Pixel/GrapheneOS report: open Tasks_copy.ihtd, background
+    IHTD, rename it to Tasks_copy_copy.ihtd in Files, return and edit a task.
+    Reported behavior: old filename remains with Saved to file; reopening the
+    renamed document shows Pending save, then opening the edited task changes
+    it to Saved to file. Establish which bytes actually reached which document.
+  - [ ] Revalidate document identity, current name, access, and external changes
+    when resuming and before publishing. Android providers may retain a valid
+    document URI through a rename; distinguish this from lost access rather
+    than assuming a filename change necessarily disconnects the document.
+  - [ ] Agreed behavior: detecting an external rename requires a visible yellow
+    warning and pauses automatic publishing pending explicit reconnection,
+    even if the provider still permits access through the original URI.
+    For a missing/moved/inaccessible document, show a yellow connection warning
+    as soon as detected, including on return from the background.
+  - [ ] Edits while disconnected or awaiting reconnection remain locally
+    recoverable; show a persistent yellow Pending changes — not saved to file
+    warning. Never describe a private working-copy save as Saved to file.
+  - [ ] Show red for a confirmed serious save failure, such as a reachable
+    destination repeatedly refusing writes or failing read-back verification.
+    Include readable text/icons so severity does not rely on colour alone.
+  - [ ] Saved to file requires confirmation that the latest edits reached the
+    intended external document; refresh the displayed filename after verified
+    reconnection and keep connection status separate from pending-edit status.
+  - [ ] Explain and verify recovery ownership when reopening/reselecting a
+    document: no silent transfer of another document's pending edits and no
+    automatic overwrite triggered merely by opening a task/editor. Provide
+    explicit reconnect/retry/save-copy choices before applying pending edits.
+  - [ ] Preserve working/recovery copies through failed saves, document switches,
+    process restart, and APK updates. Verify rename, move, delete, permission
+    revocation, external edits, write failure, and successful reconnection on
+    the actual Pixel; treat this as a blocker for stable Android publication.
+
 - [ ] Minor Android layout and clipping fixes.
   - [ ] Edit view: fix clipping at the top and bottom of the scrollable rules
     area when scrolling in either direction. Ensure field labels, rule cards,
