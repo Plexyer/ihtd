@@ -168,7 +168,7 @@ void main() {
           .first;
       await tester.drag(scroll, const Offset(0, -600));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Add condition'));
+      await tester.ensureVisible(find.byTooltip('Add OR condition'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Save view'));

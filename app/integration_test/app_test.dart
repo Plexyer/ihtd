@@ -10,6 +10,7 @@ import 'package:app/services/document_save_coordinator.dart';
 import 'package:app/services/filesystem_documents.dart';
 import 'package:app/src/rust/api/simple.dart' as api;
 import 'package:app/ui/app_shell.dart';
+import 'package:app/ui/view_editor.dart';
 import 'package:app/src/rust/frb_generated.dart';
 
 void main() {
@@ -165,6 +166,78 @@ void main() {
       'view_id': view!['id'],
     });
     expect(defaults!['tag_ids'], [tag['id']]);
+    // The expression projection must not normalize a saved nested tag OR:
+    // task-creation hints depend on these existing branch boundaries.
+    final otherTag = await controller.dispatch({
+      'op': 'add_tag',
+      'name': 'Travel',
+    });
+    final expressionView = await controller.dispatch({
+      'op': 'add_view',
+      'name': 'Nested expression',
+      'filter': {
+        'op': 'or',
+        'rules': [
+          {'op': 'tag', 'tag_id': tag['id']},
+          {
+            'op': 'or',
+            'rules': [
+              {'op': 'tag', 'tag_id': otherTag!['id']},
+            ],
+          },
+        ],
+      },
+    });
+    final expressionId = expressionView!['id'] as int;
+    final hintsBefore = await controller.dispatch({
+      'op': 'creation_defaults',
+      'view_id': expressionId,
+    });
+    final savedView = Map<String, dynamic>.from(
+      controller.document!['views']['$expressionId'] as Map,
+    );
+    final originalFilter = savedView['filter'];
+    final dialog = showViewEditor(
+      tester.element(find.byType(AppShell)),
+      controller,
+      existing: savedView,
+    );
+    await tester.pumpAndSettle();
+    final nameField = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == 'View name',
+    );
+    await tester.enterText(nameField, 'Renamed expression');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save view'));
+    await tester.pumpAndSettle();
+    await dialog;
+    expect(controller.error, isNull);
+    expect(
+      controller.document!['views']['$expressionId']['filter'],
+      originalFilter,
+    );
+    expect(
+      await controller.dispatch({
+        'op': 'creation_defaults',
+        'view_id': expressionId,
+      }),
+      hintsBefore,
+    );
+    final createdInView = await controller.dispatch({
+      'op': 'add_item',
+      'view_id': expressionId,
+      'kind': 'task',
+      'title': 'Expression-created task',
+      'tag_ids': [tag['id']],
+    });
+    expect(createdInView, isNotNull);
+    await controller.selectView(expressionId);
+    controller.setCompletedOnly(false);
+    await tester.pumpAndSettle();
+    expect(
+      controller.rows.any((row) => row['id'] == createdInView!['id']),
+      true,
+    );
+    await controller.selectView(1);
     var snapshot = controller.document!;
     expect(await controller.dispatch({'op': 'open', 'path': path}), isNotNull);
     expect(controller.document, snapshot);
@@ -248,15 +321,16 @@ void main() {
     expect(find.byKey(const ValueKey('view-rule-warning')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('view-rule-warning')));
     await tester.pumpAndSettle();
-    expect(find.text('Deleted container (#$trip)'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    expect(find.textContaining('Deleted container (#$trip)'), findsOneWidget);
+    await tester.tap(find.textContaining('Deleted container (#$trip)'));
     await tester.pumpAndSettle();
-    await controller.dispatch({
-      'op': 'edit_view',
-      'id': affectedView['id'],
-      'name': 'Inside removal trip',
-      'filter': {'op': 'all'},
-    });
+    await tester.tap(find.byKey(const ValueKey('choose-rule-reference')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('reference-${b['id']}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save view'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('view-rule-warning')), findsNothing);
     await controller.selectView(1);

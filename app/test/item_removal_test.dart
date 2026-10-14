@@ -449,7 +449,7 @@ void main() {
         () => tester.tap(find.byKey(const ValueKey('view-rule-warning'))),
       );
       await settle(tester);
-      expect(find.text('Deleted container (#9)'), findsOneWidget);
+      expect(find.textContaining('Deleted container (#9)'), findsOneWidget);
       expect(
         find.textContaining('Replace it or remove this rule'),
         findsOneWidget,

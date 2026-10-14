@@ -367,7 +367,7 @@ void main() {
           greaterThanOrEqualTo(tester.getRect(scroll).top),
         );
         await capture(tester, 'view-${scenario.name}-top');
-        await reveal(tester, find.text('Add condition'));
+        await reveal(tester, find.byTooltip('Add OR condition'));
         await capture(tester, 'view-${scenario.name}-bottom');
         final save = find.widgetWithText(FilledButton, 'Save view');
         if (find

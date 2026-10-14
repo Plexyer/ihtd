@@ -18,6 +18,8 @@ final appProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
 );
 
+typedef DocumentEditIdentity = ({String? workingPath, String? documentId});
+
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController({
     this.initialDocumentPath,
@@ -75,6 +77,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   String? documentActionNotice;
   String status = 'Open a collection to begin';
   String? _workingPath;
+  DocumentEditIdentity get editIdentity => (
+    workingPath: _workingPath,
+    documentId: document?['document_id'] as String?,
+  );
   String? get path => _documents.externalLocation ?? _workingPath;
   Map<String, dynamic>? document;
   Map<String, dynamic> completion = {};
@@ -211,7 +217,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     return _map(response['data']);
   }
 
-  Future<Map<String, dynamic>?> dispatch(Map<String, dynamic> command) async {
+  Future<Map<String, dynamic>?> dispatch(
+    Map<String, dynamic> command, {
+    DocumentEditIdentity? expectedDocument,
+    Map<String, dynamic>? expectedView,
+  }) async {
     // Programmatic open/new use the same private staging and publication path
     // as native pickers. Model commands never receive an external destination.
     if (command['op'] == 'open' ||
@@ -229,6 +239,19 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     await ready;
     while (_polling || busy) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    // Check inside the command queue, after waiting. Copies may share a UUID.
+    if (expectedDocument != null && expectedDocument != editIdentity) {
+      error = 'The open collection changed. Reopen the view editor for this collection.';
+      notifyListeners();
+      return null;
+    }
+    if (expectedView != null &&
+        jsonEncode(_map(document?['views'])['${expectedView['id']}']) !=
+            jsonEncode(expectedView)) {
+      error = 'This view changed while you were editing it. Reopen the editor to review its current rules.';
+      notifyListeners();
+      return null;
     }
     busy = true;
     _mutating = !const {

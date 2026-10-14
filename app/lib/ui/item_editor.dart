@@ -505,7 +505,11 @@ class _ItemEditorState extends State<ItemEditor> {
   }
 }
 
-Future<int?> showNewTag(BuildContext context, AppController app) async {
+Future<int?> showNewTag(
+  BuildContext context,
+  AppController app, {
+  DocumentEditIdentity? expectedDocument,
+}) async {
   final controller = TextEditingController();
   final name = await showDialog<String>(
     context: context,
@@ -537,7 +541,10 @@ Future<int?> showNewTag(BuildContext context, AppController app) async {
   );
   controller.dispose();
   if (name == null) return null;
-  final result = await app.dispatch({'op': 'add_tag', 'name': name});
+  final result = await app.dispatch({
+    'op': 'add_tag',
+    'name': name,
+  }, expectedDocument: expectedDocument);
   return result?['id'] as int?;
 }
 
