@@ -130,7 +130,7 @@ everywhere and per-path children are outside scope unless explicitly approved.
 
 ## Verification evidence
 
-- Source/runtime commit: `6e06079`; PR #16 targets development.
+- Final runtime commit: `89d6e0e` (base feature commit `6e06079`); PR #16 targets development.
 - 67 workspace Rust tests and 75 Flutter tests passed, including 11 removal tests.
 - Shared library, tests and integration sources analyze cleanly; 13 Python
   release/architecture tests passed. GitHub Development checks passed in run
@@ -146,14 +146,18 @@ everywhere and per-path children are outside scope unless explicitly approved.
 
 - The existing narrow-screen integration also passed, including touch scrolling,
   keyboard/editor flushing and descendant drag-and-drop regression.
-- Signed ARM64 Android candidate: `IHTD-0.2.2-build10-android-arm64-test.apk`,
+- Signed ARM64 Android candidate: `IHTD-0.2.2-build10-android-arm64-final-test.apk`,
   built from the runtime source above. App ID `dev.ihtd.app`, API 35 minimum / 36
   target, code 10, version 0.2.2. Permanent certificate matches the pin; ZIP and
   all ELF LOAD alignments meet 16 KB. No internet/broad-storage permission.
-  SHA-256: `036630e739afa6cc2fa9746991b257d67182804892f36b50760cb97548864cb2`.
+  SHA-256: `4ac47b14b689c2226ccd4487aebf7079371b5a3c7f9dcde8e4c2df1ee4d12fcf`.
   Binary and SHA256SUMS are local ignored outputs under `dist/unlink-delete/`,
   not committed or published as a stable GitHub release.
 - Run desktop integration and APK builds sequentially: Flutter regenerates
   plugin registration across targets, and concurrent runs can leave test-only
   registration in the release build. The final APK was rebuilt sequentially
   using the supported dependency refresh and then independently verified.
+
+- The deleted-container message is restricted to recorded deleted IDs; an
+  empty/new container choice is not mislabelled as deleted. The extended view
+  warning regression passed, and the final signed APK includes this guard.
