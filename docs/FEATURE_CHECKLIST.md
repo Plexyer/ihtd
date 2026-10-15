@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-14 for physical Android feedback and agreed release/update
+Updated 2026-10-15 for physical Android feedback and agreed release/update
 workflow. Unchecked suggestions are not approved requirements unless they are
 listed under "Agreed release and update work"; clarify their behavior before
 implementing them.
@@ -327,7 +327,24 @@ and verification.
     association.
   - [ ] Fedora: sign the RPM and document verification; later decide whether
     public usage justifies hosting a signed DNF repository.
+- [ ] Define the open-source license with the owner: elicit their desired terms,
+  compare suitable licenses, and add the chosen license/notices before public
+  announcement. Owner has an idea of the terms; no license has been selected.
+- [ ] Prepare safe public distribution of the source and release assets.
+  Follow [public repository guide](public-repository-guide.md): audit full Git
+  history/all refs and public-facing assets/metadata for confidential material,
+  remediate/rotate any exposed secrets, choose a license, and obtain owner action
+  before changing visibility. GitHub Secrets remain private; Git history does not.
 - [ ] Add a shared, privacy-conscious update experience.
+  Implementation handoff: [update workflow plan](update-workflow-plan.md).
+  Owner approved 2026-10-15: move drawer menu beside current view name; header
+  blue arrow opens release-information/Download popup; confirmation closes popup,
+  animated circle/downward arrow shows download; verified package becomes green
+  tick. Downloads continue while minimized/locked using Android background
+  facilities and its normal notification. Tap tick invokes Android's native permission/installer UI without an
+  extra IHTD installation confirmation. Reconcile actual version on next launch;
+  Android automatic reopening is not guaranteed. Public stable Releases, not
+  master merges/drafts/test branches, advertise updates. Implementation pending.
   - [ ] Check the latest compatible GitHub release infrequently, compare its
     semantic version with the installed version, and show a small update icon
     only when a newer release is available.
