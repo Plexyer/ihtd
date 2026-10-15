@@ -138,7 +138,7 @@ Future<void> showUpdateDetails(
   BuildContext context,
   UpdateCoordinator updates,
 ) async {
-  final action = await showDialog<String>(
+  final route = DialogRoute<String>(
     context: context,
     builder: (context) => ListenableBuilder(
       listenable: updates,
@@ -247,7 +247,10 @@ Future<void> showUpdateDetails(
       },
     ),
   );
-  // User confirmation closes the popup before native work and animation start.
+  final action = await Navigator.of(context, rootNavigator: true).push(route);
+  // Wait for the exit transition as well as the pop result: the popup is fully
+  // gone before progress animation/native work starts behind it.
+  await route.completed;
   if (action == 'download') await updates.download();
   if (action == 'page') await updates.openRelease();
 }

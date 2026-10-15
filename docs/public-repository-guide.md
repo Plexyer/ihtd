@@ -62,6 +62,27 @@ Choose remediation after reviewing findings:
 The model must prepare a concrete remediation proposal for your approval before
 rewriting history, force-pushing, deleting refs or relocating the project.
 
+## Required correction found during the audit
+
+The 2026-10-15 audit found literal double quotes in the existing GitHub ref
+patterns. Correct these before public conversion/release; removing quotes in a
+document does not change GitHub settings.
+
+1. In **Settings → Rules → Rulesets**, edit the master ruleset (currently named
+   `mater branch`). Change its target branch pattern from `"master"` to `master`
+   **without quotation marks**, retain required PR/check/force-push/deletion rules,
+   and save. The API representation should be `refs/heads/master`.
+2. Edit the development ruleset: `"development"` → `development`, without quotes;
+   API include `refs/heads/development`. Keep Development checks required.
+3. Edit the version release tag ruleset: `"v*"` → `v*`, without quotes; API include
+   `refs/tags/v*`. Retain update/deletion protection for immutable release tags.
+4. In **Settings → Environments → android-release**, edit the deployment tag
+   pattern `"v*"` to `v*`, without quotes. Keep its type **Tag**, rather than Branch;
+   do not broaden deployment access to arbitrary branches/PRs.
+5. Verify the rules actually apply to master/development and version tags, and
+   that protected tag signing can run for an approved reviewed release. If needed,
+   ask the model to recheck the APIs after saving. Keep keys/secrets unchanged.
+
 ## 3. Choose how others may use the code
 
 Choose and add an open-source LICENSE before announcing the project as open

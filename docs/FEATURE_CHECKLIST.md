@@ -337,6 +337,9 @@ and verification.
   before changing visibility. GitHub Secrets remain private; Git history does not.
   - [x] Record automated audit scope/results in [publication audit](publication-audit.md):
     no detected credential matches in history/available scanned surfaces.
+  - [ ] Correct literal quotes in GitHub master/development/version-tag rulesets
+    and android-release tag policy; current patterns do not match the real refs.
+    Follow [exact correction steps](public-repository-guide.md#required-correction-found-during-the-audit).
   - [ ] Owner reviews privacy/license/protection settings, then changes visibility;
     verify anonymous release downloads afterward.
 - [ ] Add a shared, privacy-conscious update experience.

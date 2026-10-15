@@ -20,9 +20,26 @@ scanner reports remain in private temporary workspace storage, outside Git.
   the scanned surfaces. No private-key/keystore filenames were found in the
   artifact inventories. Counts describe this point-in-time inspection.
 - Inspected workflow trust boundaries: ordinary PR builds have read-only tokens;
-  protected production signing remains separated from builds. No
-  pull_request_target execution of fork code was found. Three active rulesets
-  are visible; android-release reports custom deployment-branch restrictions.
+  production signing remains separated from builds. No pull_request_target
+  execution of fork code was found. Three active rulesets and the signing
+  environment are readable, but their patterns are misconfigured (see below).
+
+## Blocking configuration finding: quoted patterns
+
+The GitHub API reports these actual includes:
+
+- master ruleset: `refs/heads/"master"`
+- development ruleset: `refs/heads/"development"`
+- version-tag ruleset: `refs/tags/"v*"`
+- android-release environment tag name: `"v*"`
+
+The quotation marks are literal pattern characters, not display delimiters.
+These do not match master, development or v0.2.3. Consequently the intended
+rulesets do not protect those actual refs, and normal release tags will not
+match the signing environment's tag restriction. This is a configuration finding,
+not an exposed-credential finding. Do not weaken signing to work around it.
+Use the exact correction steps in [the public guide](public-repository-guide.md).
+No administrator settings were changed by this task.
 
 ## Limits and owner actions before visibility change
 

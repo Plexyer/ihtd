@@ -109,3 +109,22 @@ Use disposable collections and independent backups of important data.
   Signed package automatic handoff remains a separate checklist dependency.
 
 Host unit/native tests do not replace these two-phone and desktop acceptance checks.
+
+## Host verification evidence (2026-10-15)
+
+- 128 Flutter unit/widget tests pass, including catalog/network/coordinator/UI
+  and blocked-install/local-recovery preparation scenarios; Flutter analysis is clean.
+- 67 Rust tests and 15 Python architecture/release/signing checks pass.
+- Android Kotlin compilation/JVM checks pass; cryptographic verification accepts
+  a freshly signed fixture and rejects wrong signers, wrong sizes and tampering
+  even with a recomputed hash. Actual Linux UI create/edit/reopen integration passes.
+- ARM64 release candidate built, signed with the existing permanent key, and
+  verified for both native ELF LOAD and APK ZIP 16 KB alignment. Private signing
+  files were not changed or committed.
+- Local candidate: `dist/in-app-updates/IHTD-0.2.3-build12-android-arm64.apk`.
+  SHA-256: `2f24103bd0c946be621fb14e3a006dca752b9d01563190e338774c624128f16f`.
+  This file is a local test candidate, not an advertised public update.
+
+Native GitHub validation is tracked in the PR. Physical acceptance above remains
+unrun. The owner must also fix the quoted GitHub rule/tag patterns documented
+in [the audit](publication-audit.md) before release/public conversion.
