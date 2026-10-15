@@ -96,6 +96,20 @@ Temporary decoded key material is removed even when signing fails. Missing
 configuration or a wrong certificate fails the release; debug-key fallback is
 not permitted. Review tag code before granting the protected environment access.
 
+The caller in `release.yml` must explicitly pass the three named secrets and
+`android-release.yml` must declare them under `on.workflow_call.secrets`. GitHub
+resolves the protected environment's values for the `sign` job; merely naming
+the environment does not forward secrets through a reusable workflow call.
+The declarations are optional because unsigned PR/branch builds must work without
+signing credentials. The tag-only `sign` job still fails closed if values are
+empty. Keep these secrets in the environment, rather than copying them into
+repository secrets. See [GitHub's reusable-workflow secret rules](https://docs.github.com/en/actions/sharing-automations/reusing-workflows#using-inputs-and-secrets-in-a-reusable-workflow).
+
+The first production attempt on `v0.2.3` exposed a missing caller handoff despite
+the owner confirming all three secret names exist. Its native builds passed;
+signing failed and no release was published. The correction and next immutable
+version are tracked in [0.2.4 release preparation](release-0.2.4.md).
+
 For a trusted local build, set the same three variables temporarily in your
 process and run `android-signing.py sign --apk <test-apk> --output <new-apk>`
 with `--apksigner <SDK>/build-tools/36.0.0/apksigner` and the analogous
