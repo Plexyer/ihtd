@@ -4,3 +4,4 @@ pub mod completion;
 pub mod filter;
 pub mod graph;
 pub mod model;
+pub mod removal;

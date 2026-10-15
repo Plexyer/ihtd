@@ -3,6 +3,20 @@
 Read `REQUIREMENTS.md`, `docs/FEATURE_CHECKLIST.md`, and `docs/building.md`
 before changing behavior. Ask the user when product semantics are unclear.
 
+## Shared-first implementation
+
+Read [shared app architecture](docs/shared-app-architecture.md) before changing
+behavior or UI. Implement general product functionality once in shared Rust/
+Flutter code for Android, Windows and Linux. Platform adapters provide file/OS
+access and typed observations; shared policy owns save/recovery decisions,
+severity, messages and confirmations. Select adapters at composition/bootstrap;
+shared UI must not depend on Android storage or branch on operating-system names.
+Use layout constraints, text scale, insets and input capabilities for responsive
+design. Explain necessary platform exceptions in the PR and update requirements,
+checklist and shared/adapter tests. Android-only implementation is not evidence
+of cross-platform completion. Follow the implemented
+[shared save boundaries and acceptance plan](docs/cross-platform-save-plan.md).
+
 ## Project
 
 - Flutter 3.47.5 / Dart 3.13.4 UI in `app/`, shared Rust model in
@@ -16,16 +30,47 @@ before changing behavior. Ask the user when product semantics are unclear.
   moves only the grabbed placement. Descendant moves first promote direct
   children to its former parent/root; children are shared across placements.
   Do not duplicate shared item state.
+- The owner-approved view-rule redesign is an infix expression editor, with
+  scoped circular pluses and Option-A narrow wrapping, not group-heading cards.
+  Follow `docs/view-expression-editor-plan.md`; preserve matching AND creation
+  hints when displaying flattened AND/OR chains. Shared implementation is complete;
+  physical acceptance remains pending. Use `docs/view-expression-editor-acceptance.md`.
+- Shared removal is in `crates/ihtd_core/src/removal.rs`. Count actual parent/root
+  placements; use revision-bound previews for confirmed Delete and immediate
+  Unlink. Cascade only into nodes losing all surviving placements. Retain
+  deleted IDs (not contents) for view-rule warnings; never reuse them. See
+  `docs/unlink-delete-plan.md` and `docs/unlink-delete-acceptance.md`.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
+- App model sessions edit private working copies on all platforms. External
+  reads/writes go through `DocumentSaveCoordinator` and typed adapters. Shared
+  registry schema 3 migrates legacy Android metadata without deleting its
+  working/recovery files. Do not bypass barriers with direct external model paths.
 - Android release identity is pinned in `packaging/android/release-certificate.sha256`.
+  The bridge's Android linker configuration in `app/rust/build.rs` and
+  `scripts/verify-android-apk.py` enforce 16 KB ELF LOAD alignment. APK ZIP
+  alignment alone is insufficient; verify both layers before handing over APKs.
   Follow `docs/android-signing.md`; never regenerate/replace the key casually or
   commit private signing files. The owner-approved key is stored privately outside
   Git pending owner home backups and protected GitHub environment activation.
+- Windows setup lives in `packaging/windows/ihtd.iss`: preserve its permanent
+  AppId and the existing `dev.ihtd` / `IHTD` support-directory identity. Packages
+  include the installer and portable ZIP with app-local licensed runtime DLLs.
+  Never add cleanup that deletes user collections or recovery data. Installer
+  verification installs/uninstalls on disposable native CI runners only.
+
+- Shared updates live in update_contract/catalog/coordinator and ui/app_updates.
+  Native selection belongs only in update_composition; verify downloads before
+  ready and before OS handoff. Never embed GitHub credentials or execute unsigned
+  desktop installers. Preserve local-save barriers; follow docs/update-acceptance.md.
+
+- Original IHTD source uses AGPL-3.0-only; preserve LICENSE/COPYRIGHT and third-party
+  notices. Keep app/LICENSE identical to root LICENSE, retain source pointers in
+  packages, and follow docs/licensing.md before distributing binaries.
 
 ## Verification
 
-- Core/storage: `cargo test --workspace --locked` (51 tests at this baseline).
+- Core/storage: `cargo test --workspace --locked` (67 tests at this baseline).
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.
 - Linux UI: `GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test integration_test/app_test.dart -d linux`.
@@ -60,7 +105,7 @@ for future coding tasks in this repository:
    the exact outstanding sync step. Never claim a failed push was successful.
 
 These routine pulls, commits, and pushes do not need fresh user confirmation.
-The source repository is private `https://github.com/Plexyer/ihtd.git`; its
+The source repository is public `https://github.com/Plexyer/ihtd.git`; its
 initial default branch is `master`. This workflow synchronizes local work with
 GitHub; it does not move a local Codex session to cloud execution.
 

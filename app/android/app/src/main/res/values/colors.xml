@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- First-frame fallback values match AppSurfaces.light in app_theme.dart.
+         Runtime surface ownership stays in shared Flutter code. -->
+    <color name="ihtd_canvas">#f5f7fa</color>
+    <color name="ihtd_header">#ffffff</color>
+</resources>

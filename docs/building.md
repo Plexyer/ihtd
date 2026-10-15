@@ -1,5 +1,11 @@
 # Build and test IHTD
 
+Follow [shared app architecture and development workflow](shared-app-architecture.md)
+when changing general behavior or UI. The
+[cross-platform save migration plan](cross-platform-save-plan.md) describes the
+shared coordinator and platform adapter boundaries; do not infer physical
+platform acceptance from one platform's tests.
+
 See [development and releases](development-workflow.md) for branch policy,
 version validation, reusable platform CI, and the coordinated draft release.
 `app/pubspec.yaml` controls package versions; installation files in packaging/
@@ -21,16 +27,23 @@ From the repository root run:
 
 ```powershell
 ./scripts/build-windows.ps1
+./scripts/install-inno-setup.ps1
+$env:IHTD_ISCC = Join-Path $env:LOCALAPPDATA 'IHTD-BuildTools\InnoSetup-6.4.3\ISCC.exe'
 ./scripts/package-windows.ps1
 ```
 
 The result is `app/build/windows/x64/runner/Release/ihtd.exe`. Distribute the
-whole Release directory, including its data directory and DLLs. On a machine
-without the C++ runtime, install Microsoft's x64 Visual C++ Redistributable.
-Packaging creates `dist/windows/IHTD-0.2.1-windows-x64.zip`, installation
-instructions and `SHA256SUMS`. The Windows release workflow runs the build,
-storage tests, both UI integration tests and a release-launch check on a native
-Windows 2022 runner, then uploads artifacts and a draft prerelease.
+whole Release directory, including its data directory and DLLs. Packaging adds
+Visual Studio's licensed x64 redistributable runtime DLLs to both packages.
+It creates `dist/windows/IHTD-X.Y.Z-windows-x64-setup.exe`, the portable ZIP,
+installation instructions and `SHA256SUMS`. The per-user Inno Setup installer
+supports upgrades, uninstall, shortcuts and optional `.ihtd` registration while
+retaining user data. Both packages are currently unsigned.
+The Windows workflow runs the build, storage/UI tests and release launch checks,
+then tests installation, upgrade, uninstall and preservation on a native Windows
+Server 2022 runner before uploading artifacts. It can be dispatched manually
+for Windows alone. The release coordinator attaches both packages to the draft
+on a version tag. See [Windows packaging](../packaging/windows/README.md).
 See [Flutter's Windows packaging guidance](https://docs.flutter.dev/platform-integration/windows/building).
 
 ## Fedora x64
@@ -75,6 +88,7 @@ cargo fmt --all --check
 cd app
 flutter pub get
 flutter analyze lib integration_test/app_test.dart
+flutter test test
 flutter test integration_test/app_test.dart -d windows
 ```
 
@@ -88,6 +102,28 @@ from the original .ihtd format.
 Descendant-move checks cover promotion to the former parent/top level, shared
 placements, sibling order, stale targets and completion. The phone integration
 test exercises a long-press drop into a nested descendant through the UI.
+
+Unlink/Delete tests cover actual root/parent placements, shared cascades,
+stale/cancelled confirmation, deleted-container view rules and pending external
+publication. `test/item_removal_test.dart` checks shared interaction and warning
+presentation; the desktop integration test exercises real Rust removal, reopen
+and disconnected-file recovery. Follow [physical removal acceptance](unlink-delete-acceptance.md)
+for the Pixel, Windows and Fedora checks. Run native integration tests and
+release APK builds sequentially in a shared checkout; Flutter regenerates plugin
+registration for other targets as well. Use the normal dependency refresh for
+the final APK after integration tests so test-only plugins are excluded.
+
+Expression-editor coverage lives in `test/rule_draft_test.dart` and
+`test/view_expression_test.dart`: infix scope, projection compatibility,
+connector changes, empty slots, form cancellation, rapid field/option edits,
+duplicate references, stale/queued collection changes and responsive layouts.
+Native integration verifies nested-tag-OR creation hints across editor save and
+reopen, task creation and deleted-container repair. Follow
+[physical expression-editor acceptance](view-expression-editor-acceptance.md).
+Optional host screenshots can be captured by running the view-expression tests
+with `--dart-define=EXPRESSION_FONT=/absolute/path/to/a/font.ttf` and
+`--dart-define=EXPRESSION_CAPTURE=/absolute/output/directory`; these are host
+paint checks, not physical phone acceptance.
 
 If you change the public Rust bridge API, install codegen version 2.13.0 and
 run `flutter_rust_bridge_codegen generate` inside app. Its version must match
@@ -105,7 +141,11 @@ bash scripts/build-android.sh
 ```
 
 The output is `app/build/app/outputs/flutter-apk/app-release.apk`, a development
-test/candidate APK. Tagged releases re-sign that candidate in the protected
+test/candidate APK. `app/rust/build.rs` sets Android's native linker page size
+independently of machine-local configuration. `scripts/verify-android-apk.py`
+checks every packaged ELF LOAD segment for at least 16 KB alignment; ZIP
+alignment is checked separately. Run the ELF check before signing any APK.
+Tagged releases re-sign that candidate in the protected
 `android-release` environment and verify the pinned public certificate before
 uploading the final APK. See [permanent signing](android-signing.md) for owner
 backups, GitHub secret setup and local signing. Do not put private keys/passwords
@@ -122,10 +162,20 @@ Export important documents before uninstalling or clearing application data.
 
 Android provider checks live in `DocumentWriterTest` (run `:app:testDebugUnitTest`
 from `app/android` with Gradle). Flutter storage-adapter tests run with
-`flutter test test/android_documents_test.dart` from `app`.
+`flutter test test` from `app`, including controller/popup regression checks.
+See [document-saving phone acceptance](document-save-phone-test.md) for the
+rename, conflict, reconnection, recovery and diagnostic-export test sequence.
+Use [the implementation plan](document-save-recovery-plan.md) for design context.
+The shared save flow is covered by `test/document_contract_test.dart` on both
+adapter types and by the real rename/reconnect sequence in the desktop
+integration test. Follow [shared platform acceptance](shared-saving-acceptance.md)
+for the build 8 migration on Pixel, Windows and Fedora. Python release tests also
+enforce shared UI/policy import boundaries.
 The narrow-screen interaction check is `integration_test/phone_layout_test.dart`;
 it can run on the Linux host with `-d linux`, but does not exercise Android's
-document providers. In the restricted cloud workspace, after an APK build,
+document providers. Responsive editor and rendered-surface checks are in
+`test/layout_polish_test.dart`. Follow [layout acceptance](layout-polish-acceptance.md)
+for Pixel system-bar/keyboard and native desktop scaling checks. In the restricted cloud workspace, after an APK build,
 the JVM checks can skip `:app:compileFlutterBuildDebug` with Gradle's `-x` option
 to avoid launching Flutter outside its writable-home wrapper.
 
@@ -160,3 +210,31 @@ The verified build was produced in a temporary mirror at
 `C:/Users/k1ker/AppData/Local/Temp/ihtd-toolchain/flutter`. The source and
 portable release were copied back to this repository. These temporary paths
 are not required at runtime. No system security settings were changed.
+
+## In-app updater candidate
+
+See [updater architecture/acceptance](update-acceptance.md). Version 0.2.3+12 adds
+shared update discovery and Android native background downloading/installation.
+Run `flutter test test/update_test.dart test/update_catalog_test.dart test/update_network_test.dart`
+and Android `:app:testDebugUnitTest` (includes cryptographic signed/tampered APK
+checks). The small binary test manifest is a non-secret fixture; test signing
+keys are generated temporarily at runtime and deleted. No release key is used by tests.
+
+Release Android now requests INTERNET and REQUEST_INSTALL_PACKAGES, without broad
+storage access. Earlier "no internet permission" verification above describes the
+historical prototype. Normal document editing still works without network access.
+Production all-platform release assembly adds update.json; never manually include
+secrets/tokens or advertise unsigned test packages as trusted updates. Initial
+updater installation is manual; later versions require public stable complete
+releases and strictly increasing semantic versions/Android build codes. Physical
+upgrade acceptance is still required; neither a host build nor unit tests certify it.
+
+## Project license and source pointers
+
+IHTD original source is AGPL-3.0-only; see [licensing](licensing.md). app/LICENSE
+mirrors root LICENSE for Flutter's bundled notices/browser. Desktop packaging
+copies LICENSE/COPYRIGHT and records the exact source commit in SOURCE.txt.
+If packaging from an archive or Docker context without .git, provide the original
+40-character commit through IHTD_SOURCE_REVISION; Fedora CI and the documented
+Docker command do so. Preserve native dependency notices as well as Flutter's
+notices before stable distribution; project licensing does not replace them.

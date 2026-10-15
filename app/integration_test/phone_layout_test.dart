@@ -2,6 +2,10 @@ import 'dart:io';
 
 import 'package:app/main.dart' as app;
 import 'package:app/services/app_controller.dart';
+import 'package:app/services/document_save_coordinator.dart';
+import 'package:app/services/filesystem_documents.dart';
+import 'package:app/src/rust/api/simple.dart' as api;
+import 'package:app/src/rust/frb_generated.dart';
 import 'package:app/ui/app_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,16 +27,37 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
         tester.view.resetPadding();
+        tester.view.resetViewInsets();
       });
-      await app.main();
+      final directory = await Directory.systemTemp.createTemp(
+        'ihtd-phone-test-',
+      );
+      await RustLib.init();
+      runApp(
+        ProviderScope(
+          overrides: [
+            appProvider.overrideWith(
+              (ref) => AppController(
+                supportDirectory: () async =>
+                    Directory('${directory.path}/support'),
+                documentServices: DocumentSaveCoordinator(
+                  adapter: FilesystemDocumentAdapter(
+                    (request) => api.command(request: request),
+                  ),
+                  supportDirectory: () async =>
+                      Directory('${directory.path}/support'),
+                ),
+              ),
+            ),
+          ],
+          child: const app.IhtdApp(),
+        ),
+      );
       await tester.pumpAndSettle();
       final controller = ProviderScope.containerOf(
         tester.element(find.byType(AppShell)),
       ).read(appProvider);
       await controller.ready;
-      final directory = await Directory.systemTemp.createTemp(
-        'ihtd-phone-test-',
-      );
       addTearDown(() => directory.delete(recursive: true));
       expect(
         await controller.dispatch({
@@ -113,6 +138,67 @@ void main() {
         tester.getTopLeft(find.text('MY COLLECTION')).dy,
         greaterThanOrEqualTo(32),
       );
+      // Exercise the shared dialog through the real controller/bridge, with
+      // enough rules to scroll and an actual saved-view edit.
+      tester.state<ScaffoldState>(find.byType(Scaffold).first).closeDrawer();
+      await tester.pumpAndSettle();
+      final addedView = await controller.dispatch({
+        'op': 'add_view',
+        'name': 'Layout check',
+        'filter': {
+          'op': 'or',
+          'rules': [
+            {'op': 'priority', 'comparison': 'ge', 'value': 2},
+            {'op': 'kind', 'kind': 'task'},
+            {'op': 'kind', 'kind': 'folder'},
+          ],
+        },
+      });
+      await controller.selectView(addedView!['id'] as int);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Edit this view'));
+      await tester.pumpAndSettle();
+      final viewName = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'View name',
+      );
+      await tester.enterText(viewName, 'Layout verified');
+      final scroll = find
+          .ancestor(of: viewName, matching: find.byType(SingleChildScrollView))
+          .first;
+      await tester.drag(scroll, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('Add OR condition'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Save view'));
+      await tester.pumpAndSettle();
+      expect(find.text('Layout verified'), findsOneWidget);
+      await controller.selectView(1);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pumpAndSettle();
+      final newTitle = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Title *',
+      );
+      final titleScroll = find
+          .ancestor(of: newTitle, matching: find.byType(SingleChildScrollView))
+          .first;
+      expect(
+        tester.getTopLeft(find.text('Title *')).dy,
+        greaterThanOrEqualTo(tester.getRect(titleScroll).top),
+      );
+      await tester.enterText(newTitle, 'Created with keyboard');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      expect(find.text('Created with keyboard'), findsOneWidget);
+      expect(controller.error, isNull);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       debugDefaultTargetPlatformOverride = null;
     },

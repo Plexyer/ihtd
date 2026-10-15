@@ -28,7 +28,7 @@ mod migration_tests {
         let file = NamedTempFile::new().unwrap();
         fs::write(file.path(), encode(&doc).unwrap()).unwrap();
         let connection = Connection::open(file.path()).unwrap();
-        connection.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version'; DELETE FROM metadata WHERE key='root_order';").unwrap();
+        connection.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version'; DELETE FROM metadata WHERE key IN ('root_order','deleted_item_ids');").unwrap();
         connection.close().unwrap();
         let mut migrated = decode(&fs::read(file.path()).unwrap()).unwrap();
         assert_eq!(migrated, doc);
@@ -64,6 +64,10 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
     let transaction = connection.transaction().map_err(err)?;
     for (key, value) in [
         ("document_id", document.document_id.clone()),
+        (
+            "deleted_item_ids",
+            serde_json::to_string(&document.deleted_item_ids).map_err(err)?,
+        ),
         ("revision", document.revision.to_string()),
         ("next_id", document.next_id.to_string()),
         ("schema_version", document.schema_version.to_string()),
@@ -166,6 +170,14 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         )
         .optional()
         .map_err(err)?;
+    let deleted_item_ids: Option<String> = connection
+        .query_row(
+            "SELECT value FROM metadata WHERE key='deleted_item_ids'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?;
     let mut document = Document {
         schema_version: ihtd_core::model::SCHEMA_VERSION,
         document_id: metadata("document_id")?,
@@ -175,6 +187,10 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         tags: BTreeMap::new(),
         views: BTreeMap::new(),
         links: Vec::new(),
+        deleted_item_ids: deleted_item_ids
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         root_order: root_order
             .map(|s| serde_json::from_str(&s).map_err(err))
             .transpose()?
@@ -241,6 +257,7 @@ pub struct Session {
     pub path: PathBuf,
     pub baseline: String,
     pub dirty: bool,
+    pub persistence_failed: bool,
     pub recovery_path: PathBuf,
 }
 impl Session {
@@ -248,14 +265,16 @@ impl Session {
         let bytes = fs::read(&path).map_err(err)?;
         let document = decode(&bytes)?;
         let recovery_path = recovery_dir.join(format!(
-            "{}.ihtd",
-            fingerprint(document.document_id.as_bytes())
+            "{}-{}.ihtd",
+            fingerprint(document.document_id.as_bytes()),
+            fingerprint(path.to_string_lossy().as_bytes())
         ));
         Ok(Self {
             document,
             path,
             baseline: fingerprint(&bytes),
             dirty: false,
+            persistence_failed: false,
             recovery_path,
         })
     }
@@ -264,6 +283,29 @@ impl Session {
         let bytes = encode(&document)?;
         publish(&path, &bytes, false)?;
         Self::open(path, recovery_dir)
+    }
+    pub fn restore_recovery(&mut self, recovery: &Path) -> Result<(), String> {
+        let document = decode(&fs::read(recovery).map_err(err)?)?;
+        if document.document_id != self.document.document_id
+            || document.revision < self.document.revision
+        {
+            return Err("Recovery does not belong to this working collection revision.".into());
+        }
+        self.document = document;
+        self.dirty = true;
+        Ok(())
+    }
+    pub fn restore_available(&mut self) -> Result<(), String> {
+        if self.recovery_path.exists() {
+            let recovered = decode(&fs::read(&self.recovery_path).map_err(err)?)?;
+            if recovered.document_id == self.document.document_id
+                && recovered.revision > self.document.revision
+            {
+                self.document = recovered;
+                self.dirty = true;
+            }
+        }
+        Ok(())
     }
     pub fn check_external(&mut self) -> Result<bool, String> {
         let bytes = fs::read(&self.path).map_err(|e| format!("Cannot read the open file: {e}"))?;
@@ -286,6 +328,11 @@ impl Session {
         Ok(true)
     }
     pub fn commit(&mut self, document: Document) -> Result<(), String> {
+        let result = self.commit_inner(document);
+        self.persistence_failed = result.is_err();
+        result
+    }
+    fn commit_inner(&mut self, document: Document) -> Result<(), String> {
         let bytes = encode(&document)?;
         let current = fs::read(&self.path).map_err(err)?;
         if fingerprint(&current) != self.baseline {
@@ -304,14 +351,21 @@ impl Session {
         publish(&self.path,&bytes,true).map_err(|e| format!("Changes are preserved locally but could not be saved to the selected file: {e}. Use Retry or Save a copy as."))?;
         self.baseline = fingerprint(&bytes);
         self.dirty = false;
+        self.persistence_failed = false;
         Ok(())
     }
     pub fn save_as(&mut self, path: PathBuf) -> Result<(), String> {
         let bytes = encode(&self.document)?;
         publish(&path, &bytes, false)?;
         self.path = path;
+        self.recovery_path = self.recovery_path.parent().unwrap().join(format!(
+            "{}-{}.ihtd",
+            fingerprint(self.document.document_id.as_bytes()),
+            fingerprint(self.path.to_string_lossy().as_bytes())
+        ));
         self.baseline = fingerprint(&bytes);
         self.dirty = false;
+        self.persistence_failed = false;
         Ok(())
     }
 }
@@ -320,6 +374,45 @@ impl Session {
 mod tests {
     use super::*;
     use ihtd_core::model::ItemKind;
+    #[test]
+    fn copied_collections_have_independent_recovery_and_restore_only_their_own_edits() {
+        let tmp = tempfile::tempdir().unwrap();
+        let recovery_dir = tmp.path().join("recovery");
+        fs::create_dir_all(&recovery_dir).unwrap();
+        let first_path = tmp.path().join("first.ihtd");
+        let mut first = Session::new(first_path.clone(), &recovery_dir).unwrap();
+        let second_path = tmp.path().join("second.ihtd");
+        fs::copy(&first_path, &second_path).unwrap();
+        let mut second = Session::open(second_path.clone(), &recovery_dir).unwrap();
+        assert_eq!(first.document.document_id, second.document.document_id);
+        assert_ne!(first.recovery_path, second.recovery_path);
+        let mut pending = first.document.clone();
+        pending.revision += 1;
+        publish(&first.recovery_path, &encode(&pending).unwrap(), true).unwrap();
+        first.restore_available().unwrap();
+        second.restore_available().unwrap();
+        assert!(first.dirty);
+        assert_eq!(first.document.revision, pending.revision);
+        assert!(!second.dirty);
+        let third_path = tmp.path().join("third.ihtd");
+        first.save_as(third_path).unwrap();
+        assert_ne!(first.recovery_path, second.recovery_path);
+        assert!(!first.dirty);
+    }
+    #[test]
+    fn failed_recovery_write_does_not_accept_an_edit_or_claim_it_is_durable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let blocked = tmp.path().join("blocked");
+        fs::write(&blocked, "not a directory").unwrap();
+        let mut session = Session::new(tmp.path().join("tasks.ihtd"), &blocked).unwrap();
+        let original = session.document.clone();
+        let mut candidate = original.clone();
+        candidate.revision += 1;
+        assert!(session.commit(candidate).is_err());
+        assert_eq!(session.document, original);
+        assert!(!session.dirty);
+        assert!(session.persistence_failed);
+    }
     #[test]
     fn sqlite_roundtrip_is_self_contained_and_preserves_shared_ids() {
         let mut doc = Document::new("roundtrip".into());

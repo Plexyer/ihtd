@@ -308,6 +308,9 @@ pub struct Document {
     /// Ordered explicit root placements, including shared items with parents.
     #[serde(default)]
     pub root_order: Vec<i64>,
+    /// IDs only: preserve deleted-container rules without keeping item contents.
+    #[serde(default)]
+    pub deleted_item_ids: BTreeSet<i64>,
     pub tags: BTreeMap<i64, Tag>,
     pub views: BTreeMap<i64, View>,
 }
@@ -322,6 +325,7 @@ impl Document {
             items: BTreeMap::new(),
             links: Vec::new(),
             root_order: Vec::new(),
+            deleted_item_ids: BTreeSet::new(),
             tags: BTreeMap::new(),
             views: BTreeMap::from([(
                 1,
@@ -382,6 +386,9 @@ impl Document {
         for (&key, tag) in &self.tags {
             validate_id(&mut ids, key, tag.id)?;
             validate_name(&tag.name, "Tag name")?;
+        }
+        for &id in &self.deleted_item_ids {
+            validate_id(&mut ids, id, id)?;
         }
         for (&key, view) in &self.views {
             validate_id(&mut ids, key, view.id)?;

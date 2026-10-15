@@ -1,7 +1,9 @@
 [package]
+license = "AGPL-3.0-only"
 name = "ihtd_bridge"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

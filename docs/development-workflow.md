@@ -41,6 +41,9 @@ tag on the chosen master commit and push it. The tag must match pubspec and its
 commit must be reachable from master. Do not move or reuse a distributed tag.
 The coordinator waits for all platforms, verifies expected filenames and each
 checksum, and stages unique installation guides and one combined SHA256SUMS.
+Windows contributes both the setup EXE and the complete portable ZIP. The
+Windows workflow also supports a manual single-platform build on a task branch
+for testing installer changes without waiting on other platforms.
 Only its final job has release-write permission. It creates one **draft
 prerelease** with generated notes and all packages. A failed build creates no
 release. An upload failure can leave a partial draft; inspect and remove only
@@ -51,8 +54,8 @@ protected signing environment and pinned release certificate described in
 [Android signing](android-signing.md). Owner backups, secret activation and
 physical-device update validation are required before stable public distribution.
 The first permanent-key APK cannot update old development-key APKs. Checksums detect
-corruption but do not replace publisher signatures. The repository is private:
-downloads require repository access until public distribution is configured.
+corruption but do not replace publisher signatures. The repository is public (verified 2026-10-15); published release assets can be
+downloaded without signing in. Draft releases remain private to authorized users.
 
 ## GitHub administrator settings
 
@@ -70,3 +73,16 @@ The current integration credential returns HTTP 403 for branch-protection API
 access. Apply these settings through an administrator account in GitHub's
 Settings → Branches/Rules. This document describes intended protection; it does
 not claim that protection has been enabled.
+
+## Update discovery
+
+Production coordinated assembly generates update.json (schema 1) after verifying
+all packages and includes its SHA-256 in SHA256SUMS. The manifest records package
+identities/minimum target, size/hash and source commit. It does not supply a
+publisher signature: Android independently verifies APK cryptographic signatures
+against its installed/pinned permanent identity. Desktop unsigned packages remain
+manual. Only published stable, complete releases are advertised by the updater;
+review the draft, clear prerelease status and publish as latest when ready.
+Changing visibility requires the [audit and owner steps](public-repository-guide.md).
+See [implementation/acceptance](update-acceptance.md) for first manual migration
+and two-build test. No new push/merge workflows were introduced for updates.

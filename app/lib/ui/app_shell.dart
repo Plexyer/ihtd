@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/app_controller.dart';
 import 'item_editor.dart';
+import 'item_removal.dart';
 import 'item_drag.dart';
 import 'shared.dart';
 import 'view_editor.dart';
+import 'document_status.dart';
+import 'app_theme.dart';
+import 'app_updates.dart';
+import 'app_license.dart';
+import '../services/update_composition.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -13,149 +20,177 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final app = ref.watch(appProvider);
+    app.confirmDocumentAction = (title, message) => context.mounted
+        ? confirmDocumentAction(context, title, message)
+        : Future.value(false);
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 1100;
         final drawer = constraints.maxWidth < 780;
-        return Scaffold(
-          drawer: drawer
-              ? Drawer(
-                  child: SafeArea(child: _Sidebar(app: app)),
-                )
-              : null,
-          body: SafeArea(
-            child: Column(
-              children: [
-                _FileBar(app: app, drawer: drawer),
-                if (constraints.maxWidth <= 540 && app.document != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
+        final surfaces = AppSurfaces.of(context);
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: surfaceOverlays(top: surfaces.header, bottom: surfaces.canvas),
+          child: Scaffold(
+            drawer: drawer
+                ? AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: surfaceOverlays(
+                      top: surfaces.sidebar,
+                      bottom: surfaces.sidebar,
                     ),
-                    child: Text(
-                      app.status,
-                      style: Theme.of(context).textTheme.bodySmall,
+                    child: Drawer(
+                      backgroundColor: surfaces.sidebar,
+                      surfaceTintColor: Colors.transparent,
+                      child: SafeArea(child: _Sidebar(app: app)),
+                    ),
+                  )
+                : null,
+            body: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  ColoredBox(
+                    key: const ValueKey('header-surface'),
+                    color: surfaces.header,
+                    child: SafeArea(
+                      bottom: false,
+                      child: _FileBar(app: app, drawer: drawer),
                     ),
                   ),
-                if (app.busy) const LinearProgressIndicator(minHeight: 2),
-                if (app.error != null)
-                  Material(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, size: 19),
-                          const SizedBox(width: 12),
-                          Expanded(child: SelectableText(app.error!)),
-                          IconButton(
-                            tooltip: 'Dismiss error',
-                            onPressed: app.clearError,
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
+                  if ((app.document != null ||
+                          app.documentServices.binding != null) &&
+                      (constraints.maxWidth <= 540 || app.documentIssue))
+                    DocumentStatus(app: app),
+                  if (app.busy) const LinearProgressIndicator(minHeight: 2),
+                  if (app.error != null)
+                    Material(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, size: 19),
+                            const SizedBox(width: 12),
+                            Expanded(child: SelectableText(app.error!)),
+                            IconButton(
+                              tooltip: 'Dismiss error',
+                              onPressed: app.clearError,
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (!drawer)
-                        SizedBox(width: 242, child: _Sidebar(app: app)),
-                      Expanded(
-                        child: app.document == null
-                            ? _Welcome(app: app)
-                            : _TaskPane(
-                                app: app,
-                                showDetail: (id) async {
-                                  await app.selectItem(id);
-                                  if (!context.mounted ||
-                                      app.selectedItemId != id) {
-                                    return;
-                                  }
-                                  if (!wide) {
-                                    showModalBottomSheet<void>(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      useSafeArea: true,
-                                      isDismissible: false,
-                                      enableDrag: false,
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 620,
-                                      ),
-                                      builder: (context) => Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom: MediaQuery.viewInsetsOf(
-                                            context,
-                                          ).bottom,
-                                        ),
-                                        child: PopScope(
-                                          canPop: false,
-                                          onPopInvokedWithResult:
-                                              (didPop, result) async {
-                                                if (!didPop &&
-                                                    await app.finishDraft() &&
-                                                    context.mounted) {
-                                                  Navigator.of(context).pop();
-                                                }
-                                              },
-                                          child: SizedBox(
-                                            height:
-                                                MediaQuery.sizeOf(context)
-                                                    .height *
-                                                .88,
-                                            child: Column(
-                                              children: [
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerRight,
-                                                  child: TextButton.icon(
-                                                    onPressed: () async {
-                                                      if (await app
-                                                              .finishDraft() &&
-                                                          context.mounted) {
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      }
-                                                    },
-                                                    icon: const Icon(
-                                                      Icons.close,
+                  Expanded(
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: Row(
+                        children: [
+                          if (!drawer)
+                            SizedBox(width: 242, child: _Sidebar(app: app)),
+                          Expanded(
+                            child: app.document == null
+                                ? _Welcome(app: app)
+                                : _TaskPane(
+                                    app: app,
+                                    showDetail: (id) async {
+                                      await app.selectItem(id);
+                                      if (!context.mounted ||
+                                          app.selectedItemId != id) {
+                                        return;
+                                      }
+                                      if (!wide) {
+                                        showModalBottomSheet<void>(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          useSafeArea: true,
+                                          isDismissible: false,
+                                          enableDrag: false,
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 620,
+                                          ),
+                                          builder: (context) => Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: MediaQuery.viewInsetsOf(
+                                                context,
+                                              ).bottom,
+                                            ),
+                                            child: PopScope(
+                                              canPop: false,
+                                              onPopInvokedWithResult:
+                                                  (didPop, result) async {
+                                                    if (!didPop &&
+                                                        await app
+                                                            .finishDraft() &&
+                                                        context.mounted) {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    }
+                                                  },
+                                              child: SizedBox(
+                                                height:
+                                                    MediaQuery.sizeOf(context)
+                                                        .height *
+                                                    .88,
+                                                child: Column(
+                                                  children: [
+                                                    Align(
+                                                      alignment:
+                                                          Alignment.centerRight,
+                                                      child: TextButton.icon(
+                                                        onPressed: () async {
+                                                          if (await app
+                                                                  .finishDraft() &&
+                                                              context.mounted) {
+                                                            Navigator.of(
+                                                              context,
+                                                            ).pop();
+                                                          }
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons.close,
+                                                        ),
+                                                        label: const Text(
+                                                          'Done',
+                                                        ),
+                                                      ),
                                                     ),
-                                                    label: const Text('Done'),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Consumer(
-                                                    builder:
-                                                        (context, ref, child) =>
-                                                            ItemEditor(
+                                                    Expanded(
+                                                      child: Consumer(
+                                                        builder:
+                                                            (
+                                                              context,
+                                                              ref,
+                                                              child,
+                                                            ) => ItemEditor(
                                                               app: ref.watch(
                                                                 appProvider,
                                                               ),
                                                             ),
-                                                  ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                          ),
+                          if (wide &&
+                              app.document != null &&
+                              app.selectedItemId != null) ...[
+                            const VerticalDivider(width: 1),
+                            SizedBox(width: 360, child: ItemEditor(app: app)),
+                          ],
+                        ],
                       ),
-                      if (wide &&
-                          app.document != null &&
-                          app.selectedItemId != null) ...[
-                        const VerticalDivider(width: 1),
-                        SizedBox(width: 360, child: ItemEditor(app: app)),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -164,31 +199,24 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-class _FileBar extends StatelessWidget {
+class _FileBar extends ConsumerWidget {
   const _FileBar({required this.app, required this.drawer});
   final AppController app;
   final bool drawer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final name = app.documentName;
     return Container(
       height: 58,
       padding: EdgeInsets.only(left: drawer ? 4 : 20, right: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xffe1e7ef))),
+      decoration: BoxDecoration(
+        color: AppSurfaces.of(context).header,
+        border: const Border(bottom: BorderSide(color: Color(0xffe1e7ef))),
       ),
       child: Row(
         children: [
-          if (drawer)
-            Builder(
-              builder: (context) => IconButton(
-                tooltip: 'Open views',
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                icon: const Icon(Icons.menu),
-              ),
-            ),
+          AppUpdateButton(app: app),
           const Icon(Icons.check_circle, color: Color(0xff2763a5), size: 23),
           const SizedBox(width: 10),
           const Text(
@@ -207,7 +235,7 @@ class _FileBar extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: Color(0xff657589)),
             ),
           ),
-          if (MediaQuery.sizeOf(context).width > 540) ...[
+          if (MediaQuery.sizeOf(context).width > 540 && !app.documentIssue) ...[
             Icon(
               app.error == null
                   ? Icons.save_outlined
@@ -233,6 +261,17 @@ class _FileBar extends StatelessWidget {
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'about':
+                  showIhtdAbout(context);
+                case 'updates':
+                  final updates = ref.read(updateProvider);
+                  showUpdateDetails(context, updates);
+                  updates.check();
+                case 'connection':
+                  showDialog<void>(
+                    context: context,
+                    builder: (_) => DocumentIssueDialog(app: app),
+                  );
                 case 'new':
                   app.newDocument();
                 case 'open':
@@ -240,12 +279,25 @@ class _FileBar extends StatelessWidget {
                 case 'save':
                   app.saveAs();
                 case 'retry':
-                  app.dispatch({'op': 'retry'});
+                  app.retryDocumentSave();
                 default:
                   app.exportDocument(value);
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'about',
+                child: Text('About and licenses…'),
+              ),
+              const PopupMenuItem(
+                value: 'updates',
+                child: Text('Check for updates…'),
+              ),
+              if (app.documentServices.binding != null)
+                const PopupMenuItem(
+                  value: 'connection',
+                  child: Text('File connection and saving…'),
+                ),
               const PopupMenuItem(value: 'new', child: Text('New collection…')),
               const PopupMenuItem(
                 value: 'open',
@@ -293,7 +345,7 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final views = documentValues(app, 'views');
     return Material(
-      color: const Color(0xffeef2f7),
+      color: AppSurfaces.of(context).sidebar,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 28, 14, 16),
         child: Column(
@@ -322,11 +374,21 @@ class _Sidebar extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(9),
                         ),
-                        selectedTileColor: const Color(0xffdbe7f7),
+                        key: ValueKey('view-${view['id']}'),
+                        tileColor:
+                            app.issuesForView(intValue(view['id'])).isNotEmpty
+                            ? const Color(0xfffff4d0)
+                            : null,
+                        selectedTileColor:
+                            app.issuesForView(intValue(view['id'])).isNotEmpty
+                            ? const Color(0xffffe7a0)
+                            : const Color(0xffdbe7f7),
                         selectedColor: const Color(0xff235b9b),
                         selected: app.selectedViewId == intValue(view['id']),
                         leading: Icon(
-                          intValue(view['id']) == 1
+                          app.issuesForView(intValue(view['id'])).isNotEmpty
+                              ? Icons.warning_amber_rounded
+                              : intValue(view['id']) == 1
                               ? Icons.layers_outlined
                               : Icons.filter_alt_outlined,
                           size: 21,
@@ -418,6 +480,12 @@ class _Welcome extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
+        if (Scaffold.of(context).hasDrawer)
+          TextButton.icon(
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu),
+            label: const Text('Open views'),
+          ),
         FilledButton.icon(
           onPressed: app.busy ? null : app.newDocument,
           icon: const Icon(Icons.add),
@@ -454,9 +522,21 @@ class _TaskPane extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${view['name'] ?? 'All items'}',
-                      style: Theme.of(context).textTheme.headlineMedium,
+                    Row(
+                      children: [
+                        if (Scaffold.of(context).hasDrawer)
+                          IconButton(
+                            tooltip: 'Open views',
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                            icon: const Icon(Icons.menu),
+                          ),
+                        Expanded(
+                          child: Text(
+                            '${view['name'] ?? 'All items'}',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -541,6 +621,41 @@ class _TaskPane extends StatelessWidget {
               ),
             ),
           ),
+          if (app.issuesForView(app.selectedViewId).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                key: const ValueKey('view-rule-warning'),
+                color: const Color(0xfffff4d0),
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () => showViewEditor(context, app, existing: view),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 20,
+                          color: Color(0xff8a5b00),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${app.issuesForView(app.selectedViewId).take(2).map((issue) => "Rule ${issue['path']}: deleted container #${issue['container_id']}").join('; ')}'
+                            '${app.issuesForView(app.selectedViewId).length > 2 ? '; and ${app.issuesForView(app.selectedViewId).length - 2} more' : ''}. Tap to review view rules.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xff795000),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: app.rows.isEmpty
                 ? EmptyState(
@@ -714,6 +829,7 @@ class _TaskPane extends StatelessWidget {
                                         ),
                                       ),
                                     PopupMenuButton<String>(
+                                      key: ValueKey('menu-${row['path']}'),
                                       tooltip: 'Item actions',
                                       icon: const Icon(
                                         Icons.more_horiz,
@@ -721,6 +837,14 @@ class _TaskPane extends StatelessWidget {
                                       ),
                                       onSelected: (action) {
                                         if (action == 'details') showDetail(id);
+                                        if (action == 'remove') {
+                                          removeItemPlacement(
+                                            context,
+                                            app,
+                                            id,
+                                            row['parent_id'] as int?,
+                                          );
+                                        }
                                         if (action == 'task') {
                                           showCreateItem(
                                             context,
@@ -740,7 +864,7 @@ class _TaskPane extends StatelessWidget {
                                           showLinkItem(context, app, id);
                                         }
                                       },
-                                      itemBuilder: (context) => const [
+                                      itemBuilder: (context) => [
                                         PopupMenuItem(
                                           value: 'details',
                                           child: Text('Open details'),
@@ -757,6 +881,23 @@ class _TaskPane extends StatelessWidget {
                                           value: 'link',
                                           child: Text(
                                             'Add existing item here…',
+                                          ),
+                                        ),
+                                        const PopupMenuDivider(),
+                                        PopupMenuItem(
+                                          value: 'remove',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                removalLabel(app, id) ==
+                                                        'Unlink'
+                                                    ? Icons.link_off
+                                                    : Icons.delete_outline,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(removalLabel(app, id)),
+                                            ],
                                           ),
                                         ),
                                       ],

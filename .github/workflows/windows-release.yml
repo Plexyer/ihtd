@@ -1,6 +1,7 @@
 name: Windows build
 on:
   workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -29,9 +30,14 @@ jobs:
       - name: Test and build
         shell: pwsh
         run: ./scripts/build-windows.ps1
+      - name: Install verified Inno Setup compiler
+        shell: pwsh
+        run: ./scripts/install-inno-setup.ps1
       - name: Exercise desktop and phone layout
         working-directory: app
         shell: pwsh
+        env:
+          IHTD_INSTALLER_TEST_COLLECTION: ${{ runner.temp }}/ihtd-installer-fixture.ihtd
         run: |
           function Invoke-IhtdTest([string[]] $TestArguments, [string] $LogName) {
             & flutter @TestArguments 2>&1 | Tee-Object -FilePath $LogName
@@ -43,7 +49,7 @@ jobs:
               throw "Flutter test failed: $LogName"
             }
           }
-          Invoke-IhtdTest -TestArguments @('test', 'test/android_documents_test.dart') -LogName 'adapter-test.log'
+          Invoke-IhtdTest -TestArguments @('test', 'test') -LogName 'adapter-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/app_test.dart', '-d', 'windows') -LogName 'desktop-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/phone_layout_test.dart', '-d', 'windows') -LogName 'phone-test.log'
       - name: Verify release launch and package
@@ -58,11 +64,25 @@ jobs:
             if (-not $process.HasExited) { Stop-Process -Id $process.Id }
           }
           ./scripts/package-windows.ps1
+      - name: Verify installer upgrade and uninstall
+        shell: pwsh
+        env:
+          IHTD_INSTALLER_TEST_COLLECTION: ${{ runner.temp }}/ihtd-installer-fixture.ihtd
+        run: ./scripts/verify-windows-installer.ps1
+      - name: Retain failed installer test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-test-logs
+          path: ${{ runner.temp }}/ihtd-installer-test-*/*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: windows-package
           path: |
             dist/windows/*.zip
+            dist/windows/*-setup.exe
             dist/windows/SHA256SUMS
             dist/windows/INSTALL.md
           if-no-files-found: error

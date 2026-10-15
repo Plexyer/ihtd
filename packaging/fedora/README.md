@@ -22,7 +22,7 @@ With a working Docker Linux engine, run these commands from the repository root:
 
 ```
 docker build -f packaging/fedora/Dockerfile -t ihtd-fedora-builder .
-docker run --name ihtd-fedora-package ihtd-fedora-builder
+docker run -e IHTD_SOURCE_REVISION="$(git rev-parse HEAD)" --name ihtd-fedora-package ihtd-fedora-builder
 docker cp ihtd-fedora-package:/workspace/dist/fedora ./dist/fedora
 ```
 

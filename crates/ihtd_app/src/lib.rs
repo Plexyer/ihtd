@@ -1,10 +1,12 @@
 pub mod export;
+pub mod filesystem;
 pub mod presentation;
 pub mod storage;
 
 use ihtd_core::{
     graph::ItemId,
     model::{ContainerPreferences, ItemKind},
+    removal::RemovalPreview,
 };
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -27,6 +29,16 @@ fn number(v: &Value, key: &str) -> Result<i64, String> {
         .as_i64()
         .ok_or_else(|| format!("Missing or invalid {key}"))
 }
+fn optional_number(v: &Value, key: &str) -> Result<Option<i64>, String> {
+    match v.get(key) {
+        Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| format!("Invalid {key}")),
+        None => Err(format!("Missing {key}; use null for the root placement")),
+    }
+}
 fn string(v: &Value, key: &str) -> Result<String, String> {
     v[key]
         .as_str()
@@ -42,6 +54,16 @@ fn decode<T: serde::de::DeserializeOwned>(v: &Value) -> Result<T, String> {
 
 impl Backend {
     pub fn execute(&mut self, request: &str) -> String {
+        if let Ok(value) = serde_json::from_str::<Value>(request) {
+            if value["op"] == "filesystem" {
+                return match filesystem::execute(&value) {
+                    Ok(data) => json!({"ok":true,"data":data}).to_string(),
+                    Err(filesystem::Failure(code)) => {
+                        json!({"ok":false,"error_code":code,"error":code}).to_string()
+                    }
+                };
+            }
+        }
         let result = serde_json::from_str::<Value>(request)
             .map_err(|e| e.to_string())
             .and_then(|v| self.command(v));
@@ -54,7 +76,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default()})
+                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
             }
         }
     }
@@ -68,15 +90,32 @@ impl Backend {
             }
             "snapshot" => return Ok(json!({})),
             "open" | "new" => {
-                if self.session.as_ref().map(|s| s.dirty).unwrap_or(false) {
+                if self.session.as_ref().map(|s| s.dirty).unwrap_or(false)
+                    && !request
+                        .get("preserve_pending")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                {
                     return Err("Save your pending edits with Retry or Save a copy as before switching files.".into());
                 }
                 let path = PathBuf::from(string(&request, "path")?);
-                let next = if op == "new" {
+                let mut next = if op == "new" {
                     Session::new(path, &self.recovery_dir)?
                 } else {
                     Session::open(path, &self.recovery_dir)?
                 };
+                if op == "open" {
+                    if let Some(recovery) = request.get("recovery_path").and_then(Value::as_str) {
+                        next.restore_recovery(std::path::Path::new(recovery))?;
+                    }
+                    if request
+                        .get("recover_local")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        next.restore_available()?;
+                    }
+                }
                 self.session = Some(next);
                 return Ok(json!({}));
             }
@@ -87,6 +126,11 @@ impl Backend {
             .as_mut()
             .ok_or("Open or create a collection first")?;
         match op.as_str() {
+            "copy" => {
+                let path = PathBuf::from(string(&request, "path")?);
+                storage::publish(&path, &storage::encode(&session.document)?, false)?;
+                return Ok(json!({}));
+            }
             "poll" => return Ok(json!({"reloaded":session.check_external()?})),
             "retry" => {
                 session.commit(session.document.clone())?;
@@ -110,6 +154,13 @@ impl Backend {
                 return Ok(
                     json!({"rows":presentation::outline(&session.document,number(&request,"view_id")?,flag(&request,"completed_only"),&expanded)?}),
                 );
+            }
+            "preview_removal" => {
+                return serde_json::to_value(session.document.preview_removal(
+                    number(&request, "id")?,
+                    optional_number(&request, "parent")?,
+                )?)
+                .map_err(|e| e.to_string());
             }
             "creation_defaults" => {
                 let view = session
@@ -209,6 +260,11 @@ impl Backend {
                     request["before"].as_i64(),
                 )?;
                 json!({})
+            }
+            "remove_placement" => {
+                let preview: RemovalPreview = decode(&request["preview"])?;
+                document.remove_placement(&preview, flag(&request, "confirm_delete"))?;
+                json!({"deleted_ids":preview.deleted_ids})
             }
             "unlink" => {
                 document.unlink(number(&request, "parent")?, number(&request, "child")?)?;
@@ -314,5 +370,143 @@ mod tests {
                 .len(),
             1
         );
+    }
+}
+
+#[cfg(test)]
+mod removal_tests {
+    use super::*;
+    fn run(b: &mut Backend, request: Value) -> Value {
+        serde_json::from_str(&b.execute(&request.to_string())).unwrap()
+    }
+    #[test]
+    fn removal_previews_are_readonly_stale_safe_and_roundtrip_with_deleted_view_rules() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("private.ihtd");
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        assert_eq!(run(&mut b, json!({"op":"new","path":path}))["ok"], true);
+        let folder = run(
+            &mut b,
+            json!({"op":"add_item","kind":"folder","title":"Trip","view_id":1}),
+        )["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let child = run(
+            &mut b,
+            json!({"op":"add_item","kind":"task","title":"Pack","view_id":1,"parent_id":folder}),
+        )["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let view = run(&mut b, json!({"op":"add_view","name":"Inside trip","filter":{"op":"folder","folder_id":folder}}))["data"]["id"].as_i64().unwrap();
+        let before = std::fs::read(&path).unwrap();
+        assert_eq!(
+            run(
+                &mut b,
+                json!({"op":"preview_removal","id":folder,"parent":"invalid"})
+            )["ok"],
+            false
+        );
+        assert_eq!(
+            run(&mut b, json!({"op":"preview_removal","id":folder}))["ok"],
+            false
+        );
+        let preview = run(
+            &mut b,
+            json!({"op":"preview_removal","id":folder,"parent":null}),
+        );
+        assert_eq!(preview["ok"], true);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(preview["data"]["deleted_ids"], json!([folder, child]));
+        assert_eq!(
+            run(
+                &mut b,
+                json!({"op":"remove_placement","preview":preview["data"],"confirm_delete":false})
+            )["ok"],
+            false
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        run(&mut b, json!({"op":"add_tag","name":"Preserved"}));
+        let latest = std::fs::read(&path).unwrap();
+        assert_eq!(
+            run(
+                &mut b,
+                json!({"op":"remove_placement","preview":preview["data"],"confirm_delete":true})
+            )["ok"],
+            false
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), latest);
+        let preview = run(
+            &mut b,
+            json!({"op":"preview_removal","id":folder,"parent":null}),
+        );
+        let removed = run(
+            &mut b,
+            json!({"op":"remove_placement","preview":preview["data"],"confirm_delete":true}),
+        );
+        assert_eq!(removed["ok"], true);
+        assert_eq!(
+            removed["snapshot"]["view_issues"][view.to_string()][0]["container_id"],
+            folder
+        );
+        let document = storage::decode(&std::fs::read(&path).unwrap()).unwrap();
+        assert!(document.items.is_empty());
+        assert_eq!(document.tags.len(), 1);
+        assert_eq!(document.deleted_item_ids, BTreeSet::from([folder, child]));
+        let exported = export::export(&document, "json").unwrap();
+        let imported: ihtd_core::model::Document = serde_json::from_str(&exported).unwrap();
+        assert_eq!(document, imported);
+        run(&mut b, json!({"op":"open","path":path}));
+        let snapshot = run(&mut b, json!({"op":"snapshot"}));
+        assert_eq!(
+            snapshot["snapshot"]["document"],
+            removed["snapshot"]["document"]
+        );
+    }
+
+    #[test]
+    fn missing_private_destination_rejects_delete_without_touching_other_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("private.ihtd");
+        let other = tmp.path().join("unrelated.ihtd");
+        std::fs::write(&other, b"untouched").unwrap();
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        run(&mut b, json!({"op":"new","path":path}));
+        let id = run(
+            &mut b,
+            json!({"op":"add_item","kind":"task","title":"Remove","view_id":1}),
+        )["data"]["id"]
+            .clone();
+        let preview = run(
+            &mut b,
+            json!({"op":"preview_removal","id":id,"parent":null}),
+        );
+        // A missing private working file is detected before mutation; it must
+        // not be treated like a temporarily disconnected external destination.
+        std::fs::remove_file(&path).unwrap();
+        let removed = run(
+            &mut b,
+            json!({"op":"remove_placement","preview":preview["data"],"confirm_delete":true}),
+        );
+        assert_eq!(removed["ok"], false);
+        assert_eq!(removed["snapshot"]["dirty"], false);
+        assert!(removed["snapshot"]["document"]["items"]
+            .as_object()
+            .unwrap()
+            .contains_key(&id.as_i64().unwrap().to_string()));
+        let recovery = removed["snapshot"]["recovery_path"].as_str().unwrap();
+        assert_eq!(
+            storage::decode(&std::fs::read(recovery).unwrap())
+                .unwrap()
+                .items
+                .len(),
+            1
+        );
+        assert_eq!(std::fs::read(other).unwrap(), b"untouched");
     }
 }

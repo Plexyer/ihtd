@@ -6,7 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:app/main.dart' as app;
 import 'package:app/services/app_controller.dart';
+import 'package:app/services/document_save_coordinator.dart';
+import 'package:app/services/filesystem_documents.dart';
+import 'package:app/src/rust/api/simple.dart' as api;
 import 'package:app/ui/app_shell.dart';
+import 'package:app/ui/view_editor.dart';
+import 'package:app/src/rust/frb_generated.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +25,37 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    await app.main();
+    final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
+    Future<void> start([String? initialPath]) async {
+      await RustLib.init();
+      runApp(
+        ProviderScope(
+          overrides: [
+            appProvider.overrideWith(
+              (ref) => AppController(
+                // This test drives poll explicitly after filesystem changes.
+                // A periodic poll already in flight can skip that call and
+                // race its immediate assertions, independently of UI layout.
+                polling: false,
+                initialDocumentPath: initialPath,
+                supportDirectory: () async =>
+                    Directory('${directory.path}/support'),
+                documentServices: DocumentSaveCoordinator(
+                  adapter: FilesystemDocumentAdapter(
+                    (request) => api.command(request: request),
+                  ),
+                  supportDirectory: () async =>
+                      Directory('${directory.path}/support'),
+                ),
+              ),
+            ),
+          ],
+          child: const app.IhtdApp(),
+        ),
+      );
+    }
+
+    await start();
     await tester.pumpAndSettle();
     expect(find.text('Create collection'), findsOneWidget);
     final container = ProviderScope.containerOf(
@@ -28,7 +63,6 @@ void main() {
     );
     final controller = container.read(appProvider);
     await controller.ready;
-    final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
     final path = '${directory.path}/collection.ihtd';
     expect(await controller.dispatch({'op': 'new', 'path': path}), isNotNull);
     await tester.pumpAndSettle();
@@ -132,11 +166,260 @@ void main() {
       'view_id': view!['id'],
     });
     expect(defaults!['tag_ids'], [tag['id']]);
-    final snapshot = controller.document!;
+    // The expression projection must not normalize a saved nested tag OR:
+    // task-creation hints depend on these existing branch boundaries.
+    final otherTag = await controller.dispatch({
+      'op': 'add_tag',
+      'name': 'Travel',
+    });
+    final expressionView = await controller.dispatch({
+      'op': 'add_view',
+      'name': 'Nested expression',
+      'filter': {
+        'op': 'or',
+        'rules': [
+          {'op': 'tag', 'tag_id': tag['id']},
+          {
+            'op': 'or',
+            'rules': [
+              {'op': 'tag', 'tag_id': otherTag!['id']},
+            ],
+          },
+        ],
+      },
+    });
+    final expressionId = expressionView!['id'] as int;
+    final hintsBefore = await controller.dispatch({
+      'op': 'creation_defaults',
+      'view_id': expressionId,
+    });
+    final savedView = Map<String, dynamic>.from(
+      controller.document!['views']['$expressionId'] as Map,
+    );
+    final originalFilter = savedView['filter'];
+    final dialog = showViewEditor(
+      tester.element(find.byType(AppShell)),
+      controller,
+      existing: savedView,
+    );
+    await tester.pumpAndSettle();
+    final nameField = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == 'View name',
+    );
+    await tester.enterText(nameField, 'Renamed expression');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save view'));
+    await tester.pumpAndSettle();
+    await dialog;
+    expect(controller.error, isNull);
+    expect(
+      controller.document!['views']['$expressionId']['filter'],
+      originalFilter,
+    );
+    expect(
+      await controller.dispatch({
+        'op': 'creation_defaults',
+        'view_id': expressionId,
+      }),
+      hintsBefore,
+    );
+    final createdInView = await controller.dispatch({
+      'op': 'add_item',
+      'view_id': expressionId,
+      'kind': 'task',
+      'title': 'Expression-created task',
+      'tag_ids': [tag['id']],
+    });
+    expect(createdInView, isNotNull);
+    await controller.selectView(expressionId);
+    controller.setCompletedOnly(false);
+    await tester.pumpAndSettle();
+    expect(
+      controller.rows.any((row) => row['id'] == createdInView!['id']),
+      true,
+    );
+    await controller.selectView(1);
+    var snapshot = controller.document!;
     expect(await controller.dispatch({'op': 'open', 'path': path}), isNotNull);
     expect(controller.document, snapshot);
     expect(await File(path).length(), greaterThan(0));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+
+    // Real domain + shared UI: Delete previews cascade but retain shared
+    // branches; Unlink removes the selected explicit root immediately.
+    controller.setCompletedOnly(false);
+    await controller.selectView(1);
+    Future<int> addRemovalItem(
+      String title, {
+      String kind = 'task',
+      int? parent,
+    }) async {
+      final result = await controller.dispatch({
+        'op': 'add_item',
+        'view_id': 1,
+        'kind': kind,
+        'title': title,
+        'parent_id': parent,
+      });
+      expect(result, isNotNull);
+      return result!['id'] as int;
+    }
+
+    final trip = await addRemovalItem('Removal trip', kind: 'folder');
+    final unique = await addRemovalItem('Only in trip', parent: trip);
+    final kept = await addRemovalItem(
+      'Shared packing folder',
+      kind: 'folder',
+      parent: trip,
+    );
+    final keptChild = await addRemovalItem(
+      'Keep through shared branch',
+      parent: kept,
+    );
+    await controller.dispatch({'op': 'link', 'parent': b['id'], 'child': kept});
+    final affectedView = await controller.dispatch({
+      'op': 'add_view',
+      'name': 'Inside removal trip',
+      'filter': {'op': 'folder', 'folder_id': trip},
+    });
+    await controller.selectItem(trip);
+    Future<void> openRemovalMenu(String rowPath, String label) async {
+      await tester.pumpAndSettle();
+      final menu = find.byKey(ValueKey('menu-$rowPath'));
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      final removal = find.byWidgetPredicate(
+        (w) => w is PopupMenuItem<String> && w.value == 'remove',
+      );
+      expect(
+        find.descendant(of: removal, matching: find.text(label)),
+        findsOneWidget,
+      );
+      await tester.tap(removal);
+      await tester.pumpAndSettle();
+    }
+
+    await openRemovalMenu('$trip', 'Delete');
+    expect(find.text('Delete “Removal trip”?'), findsOneWidget);
+    expect(find.textContaining('These shared branches remain'), findsOneWidget);
+    final beforeCancel = controller.document!;
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(controller.document, beforeCancel);
+    await openRemovalMenu('$trip', 'Delete');
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(controller.error, isNull);
+    expect(controller.selectedItemId, isNull);
+    expect(controller.document!['items']['$trip'], isNull);
+    expect(controller.document!['items']['$unique'], isNull);
+    expect(controller.document!['items']['$kept'], isNotNull);
+    expect(controller.document!['items']['$keptChild'], isNotNull);
+    await controller.selectView(affectedView!['id'] as int);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('view-rule-warning')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('view-rule-warning')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Deleted container (#$trip)'), findsOneWidget);
+    await tester.tap(find.textContaining('Deleted container (#$trip)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('choose-rule-reference')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('reference-${b['id']}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save view'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('view-rule-warning')), findsNothing);
+    await controller.selectView(1);
+    await controller.dispatch({'op': 'link', 'parent': a['id'], 'child': kept});
+    await controller.dispatch({
+      'op': 'move_item',
+      'id': kept,
+      'source_parent': a['id'],
+      'destination_parent': null,
+    });
+    await controller.selectItem(kept);
+    await openRemovalMenu('$kept', 'Unlink');
+    expect(controller.selectedItemId, kept);
+    expect(controller.document!['root_order'], isNot(contains(kept)));
+    expect(controller.placements['$kept']['parents'], [b['id']]);
+    expect(find.text('Delete “Shared packing folder”?'), findsNothing);
+    snapshot = controller.document!;
+    expect(await controller.dispatch({'op': 'open', 'path': path}), isNotNull);
+    expect(controller.document, snapshot);
+    expect(controller.document!['items']['$trip'], isNull);
+    expect(controller.document!['items']['$keptChild'], isNotNull);
+
+    // Exercise the actual filesystem adapter: renaming cannot recreate the old
+    // path or publish edits merely because the task/editor is opened again.
+    final renamedPath = '${directory.path}/renamed collection.ihtd';
+    final externalBefore = await File(path).readAsBytes();
+    await File(path).rename(renamedPath);
+    await controller.poll();
+    expect(controller.documentServices.hasIssue, true);
+    expect(
+      await controller.dispatch({
+        'op': 'add_tag',
+        'name': 'Pending after rename',
+      }),
+      isNotNull,
+    );
+    expect(
+      await controller.removePlacement(
+        keptChild,
+        kept,
+        confirmDelete: (_) async => true,
+      ),
+      true,
+    );
+    expect(controller.document!['items']['$keptChild'], isNull);
+    await controller.selectItem(task);
+    await controller.poll();
+    expect(controller.documentServices.pending, true);
+    expect(await File(path).exists(), false);
+    expect(await File(renamedPath).readAsBytes(), externalBefore);
+    final selected = {
+      'reference': controller.documentServices.adapter
+          .referenceFor(renamedPath)
+          .toJson(),
+    };
+    final approved = {
+      ...selected,
+      ...(await controller.documentServices.inspect(selected)),
+      'explicitSelection': true,
+    };
+    expect(await controller.documentServices.confirm(selected: approved), true);
+    expect(controller.documentServices.pending, false);
+    expect(controller.path, renamedPath);
+    snapshot = controller.document!;
+
+    // Explorer passes the full document path as a single argument. Exercise a
+    // fresh controller with a different path, spaces and non-ASCII characters.
+    final launchPath = '${directory.path}/日本 travel collection.ihtd';
+    await File(controller.path!).copy(launchPath);
+    await tester.pumpWidget(const SizedBox.shrink());
+    RustLib.dispose();
+    await start(launchPath);
+    await tester.pumpAndSettle();
+    final launched = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    ).read(appProvider);
+    await launched.ready;
+    // Initialization can finish after the first settle while native file IO
+    // is pending. Render its final notification before checking the UI.
+    await tester.pumpAndSettle();
+    expect(launched.error, isNull);
+    expect(launched.path, launchPath);
+    expect(launched.document, snapshot);
+    expect(find.text('Create collection'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    // Windows installer checks use this real collection as preservation data.
+    final installerFixture =
+        Platform.environment['IHTD_INSTALLER_TEST_COLLECTION'];
+    if (installerFixture != null) await File(launchPath).copy(installerFixture);
   });
 }

@@ -63,7 +63,7 @@ filesystem write, not completion of a cloud upload.
 
 Download the compiled Windows ZIP and Fedora RPM/portable bundle from the
 [IHTD 0.2.0 release](https://github.com/Plexyer/ihtd/releases/tag/v0.2.0).
-The private release includes SHA-256 checksums and Fedora install instructions.
+The release includes SHA-256 checksums and Fedora install instructions.
 Source and build scripts are tracked in Git; compiled packages are release assets.
 
 Version 0.2.1 platform changes have been merged into master.
@@ -116,3 +116,13 @@ encryption, export-import UI, permanent item-deletion UI, or installer.
 Removing a placement keeps the underlying item and other placements. There is
 no product-imposed hierarchy depth limit, but available memory and the number
 of displayed shared paths bound practical document size.
+
+## License
+
+IHTD's original source is licensed under the **GNU Affero General Public License,
+version 3 only** (`AGPL-3.0-only`); see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT).
+Commercial use is allowed. Distributing covered derivatives requires AGPL source
+rights, and modified network-interactive versions must offer their corresponding
+source to remote users. Private offline changes and independent programs are not
+automatically required to be published. Dependencies retain their own licenses.
+See [licensing and source access](docs/licensing.md) for scope and distribution.
