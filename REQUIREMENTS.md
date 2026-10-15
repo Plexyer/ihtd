@@ -227,3 +227,28 @@ surface tint. Transparent system bars use contrasting icons for their adjacent
 surfaces; Android window themes prevent extra system contrast strips and use
 the current light palette even when the OS uses dark mode. Keyboard-owned bars
 remain controlled by the keyboard. A full app dark theme is a separate feature.
+
+## Updates (implementation candidate, physical acceptance pending)
+
+Owner approved 2026-10-15. Implement one shared release-discovery/coordinator/UI
+flow for Android, Windows and Fedora; native adapters supply OS capabilities.
+The drawer button sits beside the current view name. A newer compatible stable
+GitHub Release shows a blue download arrow/circle in the header; its popup shows
+version, notes and size. Download confirmation closes the popup, then animated
+progress runs while editing continues. Only a verified download becomes a green
+tick. Android tapping that tick flushes drafts/checkpoints locally and opens the
+system installer without an additional app confirmation. Android controls final
+approval/reopening. Persist/reconcile actual installed version and hide the icon
+when current. No silent installs, uninstalls or user-data cleanup.
+
+Android downloads continue through DownloadManager while minimized/locked; use
+native source permission when needed, app-scoped storage and pinned cryptographic
+APK signature plus package/version/size/hash checks. No Play dependency. Updates
+need Internet permission; offline core editing remains available. Automatic checks
+are at most daily, optional, and anonymous; manual checks explain failures.
+Public stable complete releases only, never draft/prerelease artifacts or mere
+master merges. Desktop unsigned packages use manual release-page guidance until
+trusted package signing is available. Public visibility requires the history/
+asset audit and owner review. Public visibility and corrected protections are
+verified; original source uses AGPL-3.0-only following the owner's confirmation. See
+[update acceptance and limitations](docs/update-acceptance.md).

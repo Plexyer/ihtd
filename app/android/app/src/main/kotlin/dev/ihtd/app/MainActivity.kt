@@ -18,6 +18,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val updates = UpdateBridge(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dev.ihtd.app/updates")
+            .setMethodCallHandler(updates::handle)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dev.ihtd.app/documents")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

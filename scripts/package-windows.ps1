@@ -22,6 +22,13 @@ $stage = Join-Path $output "IHTD-$version"
 if (Test-Path $stage) { throw "Package staging already exists: $stage" }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Copy-Item (Join-Path $bundle '*') $stage -Recurse
+Copy-Item (Join-Path $projectRoot 'LICENSE') $stage
+Copy-Item (Join-Path $projectRoot 'COPYRIGHT') $stage
+$sourceRevision = $env:IHTD_SOURCE_REVISION
+if (-not $sourceRevision) { $sourceRevision = & git -C $projectRoot rev-parse HEAD }
+if ($sourceRevision -notmatch '^[0-9a-f]{40}$') { throw 'Set IHTD_SOURCE_REVISION to the exact source commit' }
+$source = "Corresponding source: https://github.com/Plexyer/ihtd/tree/$sourceRevision`nBuild instructions: https://github.com/Plexyer/ihtd/blob/$sourceRevision/docs/building.md`nProject license: GNU AGPL version 3 only; see LICENSE and COPYRIGHT."
+Set-Content -Path (Join-Path $stage 'SOURCE.txt') -Value $source -Encoding utf8
 
 # Ship Microsoft's redistributable CRT DLLs app-locally so a fresh user's
 # installation needs neither an administrator nor a separate runtime installer.

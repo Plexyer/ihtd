@@ -10,6 +10,9 @@ import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
 import 'app_theme.dart';
+import 'app_updates.dart';
+import 'app_license.dart';
+import '../services/update_composition.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -196,13 +199,13 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-class _FileBar extends StatelessWidget {
+class _FileBar extends ConsumerWidget {
   const _FileBar({required this.app, required this.drawer});
   final AppController app;
   final bool drawer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final name = app.documentName;
     return Container(
       height: 58,
@@ -213,14 +216,7 @@ class _FileBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (drawer)
-            Builder(
-              builder: (context) => IconButton(
-                tooltip: 'Open views',
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                icon: const Icon(Icons.menu),
-              ),
-            ),
+          AppUpdateButton(app: app),
           const Icon(Icons.check_circle, color: Color(0xff2763a5), size: 23),
           const SizedBox(width: 10),
           const Text(
@@ -265,6 +261,12 @@ class _FileBar extends StatelessWidget {
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'about':
+                  showIhtdAbout(context);
+                case 'updates':
+                  final updates = ref.read(updateProvider);
+                  showUpdateDetails(context, updates);
+                  updates.check();
                 case 'connection':
                   showDialog<void>(
                     context: context,
@@ -283,6 +285,14 @@ class _FileBar extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'about',
+                child: Text('About and licenses…'),
+              ),
+              const PopupMenuItem(
+                value: 'updates',
+                child: Text('Check for updates…'),
+              ),
               if (app.documentServices.binding != null)
                 const PopupMenuItem(
                   value: 'connection',
@@ -470,6 +480,12 @@ class _Welcome extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
+        if (Scaffold.of(context).hasDrawer)
+          TextButton.icon(
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu),
+            label: const Text('Open views'),
+          ),
         FilledButton.icon(
           onPressed: app.busy ? null : app.newDocument,
           icon: const Icon(Icons.add),
@@ -506,9 +522,21 @@ class _TaskPane extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${view['name'] ?? 'All items'}',
-                      style: Theme.of(context).textTheme.headlineMedium,
+                    Row(
+                      children: [
+                        if (Scaffold.of(context).hasDrawer)
+                          IconButton(
+                            tooltip: 'Open views',
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                            icon: const Icon(Icons.menu),
+                          ),
+                        Expanded(
+                          child: Text(
+                            '${view['name'] ?? 'All items'}',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(

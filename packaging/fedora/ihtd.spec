@@ -1,8 +1,8 @@
 Name: ihtd
-Version: 0.2.2
+Version: 0.2.3
 Release: 1%{?dist}
 Summary: Tasks and folders with shared identities and saved views
-License: LicenseRef-Proprietary
+License: AGPL-3.0-only
 ExclusiveArch: x86_64
 Requires: gtk3, libstdc++, mesa-libEGL, mesa-libGL
 %global debug_package %{nil}
@@ -16,12 +16,16 @@ documents. Includes drag-and-drop moves, automatic completion, and exports.
 %install
 mkdir -p %{buildroot}/opt/ihtd %{buildroot}%{_bindir} %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
 cp -a %{_sourcedir}/IHTD/. %{buildroot}/opt/ihtd/
+mkdir -p %{buildroot}%{_licensedir}/%{name}
+cp %{_sourcedir}/IHTD/LICENSE %{_sourcedir}/IHTD/COPYRIGHT %{buildroot}%{_licensedir}/%{name}/
 printf '#!/bin/sh\nexec /opt/ihtd/ihtd "$@"\n' > %{buildroot}%{_bindir}/ihtd
 chmod 755 %{buildroot}%{_bindir}/ihtd
 cp %{_sourcedir}/dev.ihtd.app.desktop %{buildroot}%{_datadir}/applications/
 cp %{_sourcedir}/ihtd.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 
 %files
+%license %{_licensedir}/%{name}/LICENSE
+%license %{_licensedir}/%{name}/COPYRIGHT
 /opt/ihtd
 %{_bindir}/ihtd
 %{_datadir}/applications/dev.ihtd.app.desktop

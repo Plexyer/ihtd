@@ -8,6 +8,10 @@ spec_version="$(sed -n 's/^Version: //p' packaging/fedora/ihtd.spec)"
 rpm_root="$(mktemp -d /var/tmp/ihtd-rpm.XXXXXX)"
 mkdir -p dist/fedora "$rpm_root"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp -a app/build/linux/x64/release/bundle "$rpm_root/SOURCES/IHTD"
+cp LICENSE COPYRIGHT "$rpm_root/SOURCES/IHTD/"
+source_revision="${IHTD_SOURCE_REVISION:-$(git rev-parse HEAD 2>/dev/null || true)}"
+[[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || { printf '%s\n' 'Set IHTD_SOURCE_REVISION to the exact source commit when packaging outside a Git checkout' >&2; exit 1; }
+printf 'Corresponding source: https://github.com/Plexyer/ihtd/tree/%s\nBuild instructions: https://github.com/Plexyer/ihtd/blob/%s/docs/building.md\nProject license: GNU AGPL version 3 only; see LICENSE and COPYRIGHT.\n' "$source_revision" "$source_revision" > "$rpm_root/SOURCES/IHTD/SOURCE.txt"
 cp packaging/fedora/dev.ihtd.app.desktop packaging/fedora/ihtd.svg "$rpm_root/SOURCES/"
 rpmbuild -bb --define "_topdir $rpm_root" packaging/fedora/ihtd.spec
 cp "$rpm_root"/RPMS/x86_64/*.rpm dist/fedora/

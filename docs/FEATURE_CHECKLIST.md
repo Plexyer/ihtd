@@ -327,36 +327,56 @@ and verification.
     association.
   - [ ] Fedora: sign the RPM and document verification; later decide whether
     public usage justifies hosting a signed DNF repository.
-- [ ] Define the open-source license with the owner: elicit their desired terms,
+- [x] Define the open-source license with the owner: elicit their desired terms,
   compare suitable licenses, and add the chosen license/notices before public
-  announcement. Owner has an idea of the terms; no license has been selected.
-- [ ] Prepare safe public distribution of the source and release assets.
+  announcement. Owner confirmed AGPLv3 including network copyleft on 2026-10-15;
+  AGPL-3.0-only files/metadata/notices are added. See [licensing](licensing.md).
+  - [ ] Complete native dependency notice/compatibility inventory before stable
+    binary distribution; preserve separate third-party runtime/library licenses.
+- [x] Prepare safe public distribution of the source and release assets.
   Follow [public repository guide](public-repository-guide.md): audit full Git
   history/all refs and public-facing assets/metadata for confidential material,
   remediate/rotate any exposed secrets, choose a license, and obtain owner action
   before changing visibility. GitHub Secrets remain private; Git history does not.
+  - [x] Record automated audit scope/results in [publication audit](publication-audit.md):
+    no detected credential matches in history/available scanned surfaces.
+  - [x] Correct literal quotes in GitHub master/development/version-tag rulesets
+    and android-release tag policy; verified corrected patterns match actual refs.
+    Follow [exact correction steps](public-repository-guide.md#required-correction-found-during-the-audit).
+  - [x] Owner reviews privacy/license/protection settings, then changes visibility;
+    signed-out public pages/downloads and effective protections verified. Stable
+    updater release/signing and actual phone tests remain open below.
 - [ ] Add a shared, privacy-conscious update experience.
   Implementation handoff: [update workflow plan](update-workflow-plan.md).
   Owner approved 2026-10-15: move drawer menu beside current view name; header
   blue arrow opens release-information/Download popup; confirmation closes popup,
   animated circle/downward arrow shows download; verified package becomes green
   tick. Downloads continue while minimized/locked using Android background
-  facilities and its normal notification. Tap tick invokes Android's native permission/installer UI without an
+  facilities and its normal notification. Tap tick invokes Android's native
+  permission/installer UI without an
   extra IHTD installation confirmation. Reconcile actual version on next launch;
   Android automatic reopening is not guaranteed. Public stable Releases, not
-  master merges/drafts/test branches, advertise updates. Implementation pending.
-  - [ ] Check the latest compatible GitHub release infrequently, compare its
+  master merges/drafts/test branches, advertise updates. Shared implementation
+  is complete; physical acceptance/public distribution
+  and desktop signing remain pending. Follow [update acceptance](update-acceptance.md).
+  - [x] Check the latest compatible GitHub release infrequently, compare its
     semantic version with the installed version, and show a small update icon
     only when a newer release is available.
-  - [ ] Add an update screen with version, release notes, download size, and a
+  - [x] Add an update screen with version, release notes, download size, and a
     user-confirmed action; also provide **Check for updates** and an option to
     disable automatic checks.
-  - [ ] Keep stable releases as the default channel; expose development builds
+  - [x] Keep stable releases as the default channel; expose development builds
     only through an explicit opt-in if that channel is added.
   - [ ] Verify downloaded metadata/package authenticity before offering an
     install action, and show useful offline, download, and verification errors.
+    - [x] Android cryptographic APK verification against installed/pinned signer,
+      package/build/API/ABI and hash/size; shared errors, no unverified green tick.
+    - [ ] Windows/Fedora trusted package signing and automatic handoff; current
+      shared UI uses an explicit manual release-page fallback.
+  - [ ] Physically validate the update flow on Pixel/GrapheneOS, Samsung, Windows
+    and Fedora. Public feed and first updater-enabled manual installation required.
 - [ ] Implement the platform-specific update handoff.
-  - [ ] Android/GrapheneOS: download the signed ARM64 APK and hand it to the
+  - [x] Android/GrapheneOS: download the signed ARM64 APK and hand it to the
     system package installer; explain the one-time "install unknown apps"
     permission and require Android's normal user confirmation.
   - [ ] Android: confirm an update preserves app data, retained document grants,

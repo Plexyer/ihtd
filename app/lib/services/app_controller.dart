@@ -93,6 +93,32 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   int? selectedItemId;
   Future<bool> Function()? flushDraft;
   Future<bool> finishDraft() async => await flushDraft?.call() ?? true;
+
+  /// Installation may terminate the process: flush drafts and durably checkpoint
+  /// locally without forcing a disconnected/conflicted external publication.
+  Future<bool> prepareForUpdate() async {
+    await ready;
+    if (!await finishDraft()) return false;
+    while (busy || _polling) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    if (_localPersistenceFailed) return false;
+    if (document == null) return true;
+    try {
+      await _documents.checkpoint(
+        dirty: _localDirty,
+        recoveryPath: _recoveryPath,
+        revision: document?['revision'] as int?,
+      );
+      return !_localPersistenceFailed &&
+          _documents.localDurable &&
+          (!_localDirty ||
+              (_recoveryPath != null && await File(_recoveryPath!).exists()));
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Future<AppExitResponse> didRequestAppExit() async {
     if (!await finishDraft()) return AppExitResponse.cancel;

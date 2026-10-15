@@ -1,5 +1,9 @@
 # Making IHTD public safely: owner and implementation guide
 
+**Owner steps completed and verified on 2026-10-15:** repository public,
+branch/tag patterns corrected, AGPLv3 selected. See the verification section
+below; remaining release/signing/phone checks are separate.
+
 Prepared 2026-10-15. No visibility change or secret audit has happened as part of
 this planning task. Public source and public releases allow anonymous in-app
 update discovery/download. GitHub Actions secrets remain private after a visibility
@@ -61,6 +65,27 @@ Choose remediation after reviewing findings:
 
 The model must prepare a concrete remediation proposal for your approval before
 rewriting history, force-pushing, deleting refs or relocating the project.
+
+## Required correction found during the audit
+
+The 2026-10-15 audit found literal double quotes in the existing GitHub ref
+patterns. Correct these before public conversion/release; removing quotes in a
+document does not change GitHub settings.
+
+1. In **Settings → Rules → Rulesets**, edit the master ruleset (currently named
+   `mater branch`). Change its target branch pattern from `"master"` to `master`
+   **without quotation marks**, retain required PR/check/force-push/deletion rules,
+   and save. The API representation should be `refs/heads/master`.
+2. Edit the development ruleset: `"development"` → `development`, without quotes;
+   API include `refs/heads/development`. Keep Development checks required.
+3. Edit the version release tag ruleset: `"v*"` → `v*`, without quotes; API include
+   `refs/tags/v*`. Retain update/deletion protection for immutable release tags.
+4. In **Settings → Environments → android-release**, edit the deployment tag
+   pattern `"v*"` to `v*`, without quotes. Keep its type **Tag**, rather than Branch;
+   do not broaden deployment access to arbitrary branches/PRs.
+5. Verify the rules actually apply to master/development and version tags, and
+   that protected tag signing can run for an approved reviewed release. If needed,
+   ask the model to recheck the APIs after saving. Keep keys/secrets unchanged.
 
 ## 3. Choose how others may use the code
 
@@ -130,3 +155,27 @@ source integration branches.
 The model can prepare source changes, metadata, audits and PRs. This guide does
 not authorize it to change visibility, rewrite history or publish a stable release
 without the corresponding explicit owner action/approval.
+
+## Verification after owner changes (2026-10-15)
+
+- Public repository metadata confirms visibility=public; signed-out GitHub web
+  pages expose the repository and published release, while draft releases stay
+  absent from that signed-out release page.
+- All three rulesets now target unquoted refs/heads/master,
+  refs/heads/development and refs/tags/v*. Both actual branches have effective
+  PR/status/deletion/force-push rules; required checks match the workflow names.
+- android-release deployment restriction is type Tag, pattern v*, without quotes.
+- Public published-release checksum/RPM downloads succeed and the RPM SHA-256
+  matches the published checksums. Source README is publicly readable.
+- The cloud API connection automatically authenticates requests (even with no
+  user-supplied token header); public-access conclusions therefore also use the
+  signed-out web state and visibility metadata, not API HTTP 200 alone. Drafts
+  seen through this authenticated API are not evidence of public draft exposure.
+- Only an old prerelease is published. No stable update.json/APK feed exists yet;
+  merge/release review and actual two-phone upgrade tests remain necessary.
+- Owner explicitly chose AGPLv3 with its network-interaction condition; adopt
+  AGPL-3.0-only. Its LICENSE/metadata/notice changes must reach master before the
+  default repository page detects the license and new official packages include it.
+
+The original remediation/visibility instructions above are retained for reference;
+the quoted-pattern correction and visibility change are now completed.

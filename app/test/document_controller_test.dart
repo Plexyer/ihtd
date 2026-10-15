@@ -125,6 +125,31 @@ void main() {
   });
 
   test(
+    'update preparation rejects invalid drafts and failed private metadata',
+    () async {
+      app.flushDraft = () async => false;
+      expect(await app.prepareForUpdate(), false);
+      app.flushDraft = null;
+      await storage.markLocalFailure();
+      expect(await app.prepareForUpdate(), false);
+      expect(writes, 0);
+    },
+  );
+  test(
+    'update preparation preserves pending rename barrier without publishing',
+    () async {
+      filename = 'Renamed.ihtd';
+      await app.poll();
+      await app.dispatch({'op': 'update_item'});
+      expect(storage.pending, true);
+      expect(await app.prepareForUpdate(), true);
+      expect(writes, 0);
+      expect(storage.pending, true);
+      expect(storage.connection, DocumentConnection.renamed);
+      expect(await File(workingPath).readAsString(), 'edited-1');
+    },
+  );
+  test(
     'resume detection, mutation and opening task preserve blocked save status',
     () async {
       filename = 'Renamed.ihtd';
