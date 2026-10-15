@@ -327,21 +327,25 @@ and verification.
     association.
   - [ ] Fedora: sign the RPM and document verification; later decide whether
     public usage justifies hosting a signed DNF repository.
-- [ ] Define the open-source license with the owner: elicit their desired terms,
+- [x] Define the open-source license with the owner: elicit their desired terms,
   compare suitable licenses, and add the chosen license/notices before public
-  announcement. Owner has an idea of the terms; no license has been selected.
-- [ ] Prepare safe public distribution of the source and release assets.
+  announcement. Owner confirmed AGPLv3 including network copyleft on 2026-10-15;
+  AGPL-3.0-only files/metadata/notices are added. See [licensing](licensing.md).
+  - [ ] Complete native dependency notice/compatibility inventory before stable
+    binary distribution; preserve separate third-party runtime/library licenses.
+- [x] Prepare safe public distribution of the source and release assets.
   Follow [public repository guide](public-repository-guide.md): audit full Git
   history/all refs and public-facing assets/metadata for confidential material,
   remediate/rotate any exposed secrets, choose a license, and obtain owner action
   before changing visibility. GitHub Secrets remain private; Git history does not.
   - [x] Record automated audit scope/results in [publication audit](publication-audit.md):
     no detected credential matches in history/available scanned surfaces.
-  - [ ] Correct literal quotes in GitHub master/development/version-tag rulesets
-    and android-release tag policy; current patterns do not match the real refs.
+  - [x] Correct literal quotes in GitHub master/development/version-tag rulesets
+    and android-release tag policy; verified corrected patterns match actual refs.
     Follow [exact correction steps](public-repository-guide.md#required-correction-found-during-the-audit).
-  - [ ] Owner reviews privacy/license/protection settings, then changes visibility;
-    verify anonymous release downloads afterward.
+  - [x] Owner reviews privacy/license/protection settings, then changes visibility;
+    signed-out public pages/downloads and effective protections verified. Stable
+    updater release/signing and actual phone tests remain open below.
 - [ ] Add a shared, privacy-conscious update experience.
   Implementation handoff: [update workflow plan](update-workflow-plan.md).
   Owner approved 2026-10-15: move drawer menu beside current view name; header

@@ -5,6 +5,10 @@ cd /workspace
 version="$(sed -n 's/^version: \([^+]*\).*/\1/p' app/pubspec.yaml)"
 dnf install -y "./dist/fedora/ihtd-$version-1.fc44.x86_64.rpm"
 rpm -V ihtd
+for notice in /opt/ihtd/LICENSE /opt/ihtd/COPYRIGHT /opt/ihtd/SOURCE.txt /usr/share/licenses/ihtd/LICENSE; do
+  [[ -s "$notice" ]] || { printf 'Missing license/source notice: %s\n' "$notice" >&2; exit 1; }
+done
+[[ "$(rpm -q --queryformat '%{LICENSE}' ihtd)" == 'AGPL-3.0-only' ]]
 for binary in /opt/ihtd/ihtd /opt/ihtd/lib/*.so; do
   dependencies="$(ldd "$binary")"
   if [[ "$dependencies" == *"not found"* ]]; then

@@ -1,8 +1,9 @@
 # Update implementation and physical acceptance
 
 Implementation candidate: 0.2.3 build 12. This is not a published stable release.
-The repository is still private; anonymous update discovery will report public
-releases unavailable until the owner clears publication. No credential is embedded
+The repository is now public and its corrected protections are verified. There
+is no compatible stable updater release yet; publication and phone acceptance
+remain pending. No credential is embedded
 in the app. See [publication audit](publication-audit.md) and
 [public conversion guide](public-repository-guide.md).
 
@@ -126,5 +127,5 @@ Host unit/native tests do not replace these two-phone and desktop acceptance che
   This file is a local test candidate, not an advertised public update.
 
 Native GitHub validation is tracked in the PR. Physical acceptance above remains
-unrun. The owner must also fix the quoted GitHub rule/tag patterns documented
-in [the audit](publication-audit.md) before release/public conversion.
+unrun. The owner corrected the quoted GitHub rule/tag patterns, verified in
+[the publication follow-up](public-repository-guide.md#verification-after-owner-changes-2026-10-15).

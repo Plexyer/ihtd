@@ -54,8 +54,8 @@ protected signing environment and pinned release certificate described in
 [Android signing](android-signing.md). Owner backups, secret activation and
 physical-device update validation are required before stable public distribution.
 The first permanent-key APK cannot update old development-key APKs. Checksums detect
-corruption but do not replace publisher signatures. The repository is private:
-downloads require repository access until public distribution is configured.
+corruption but do not replace publisher signatures. The repository is public (verified 2026-10-15); published release assets can be
+downloaded without signing in. Draft releases remain private to authorized users.
 
 ## GitHub administrator settings
 

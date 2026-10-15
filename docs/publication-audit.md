@@ -1,6 +1,10 @@
 # Public-distribution audit, 2026-10-15
 
-Repository was private at inspection. No credentials were deliberately displayed,
+**Current status:** public visibility and corrected protections were verified
+after the owner's changes; see the follow-up below. The initial audit record
+is preserved here.
+
+Repository was private at initial inspection. No credentials were deliberately displayed,
 rotated or changed; no history was rewritten. Raw downloaded material and redacted
 scanner reports remain in private temporary workspace storage, outside Git.
 
@@ -24,7 +28,7 @@ scanner reports remain in private temporary workspace storage, outside Git.
   execution of fork code was found. Three active rulesets and the signing
   environment are readable, but their patterns are misconfigured (see below).
 
-## Blocking configuration finding: quoted patterns
+## Original configuration finding: quoted patterns (resolved)
 
 The GitHub API reports these actual includes:
 
@@ -64,3 +68,19 @@ private until that review is cleared. Rerun the scan after subsequent changes
 and immediately before conversion. If any confidential material is found later,
 rotate/revoke affected credentials and discuss cleanup before publication;
 never replace the permanent Android key casually.
+
+## Follow-up after owner changes, 2026-10-15
+
+Repository visibility is public. Ruleset includes now read refs/heads/master,
+refs/heads/development and refs/tags/v*, with no embedded quotes. Effective rules
+on both real branches include PRs, required status checks, deletion/force-push
+protection; required checks are Development checks and All platforms validated.
+The signing environment allows tags matching v*. The quoted-pattern blocker is
+resolved. Public web pages show signed-out state and the published v0.2.0 assets
+are downloadable; an RPM download matches its published SHA-256.
+
+There is no newer stable updater-compatible release; PR #19 is still open and
+existing published assets are a prerelease. Owner selected AGPLv3 including the
+network clause; repository/license/package changes are prepared for review.
+These checks do not constitute a production signing deployment or physical
+end-to-end update test. Original scan scope/limitations above still apply.

@@ -11,6 +11,7 @@ import 'view_editor.dart';
 import 'document_status.dart';
 import 'app_theme.dart';
 import 'app_updates.dart';
+import 'app_license.dart';
 import '../services/update_composition.dart';
 
 class AppShell extends ConsumerWidget {
@@ -260,6 +261,8 @@ class _FileBar extends ConsumerWidget {
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'about':
+                  showIhtdAbout(context);
                 case 'updates':
                   final updates = ref.read(updateProvider);
                   showUpdateDetails(context, updates);
@@ -282,6 +285,10 @@ class _FileBar extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'about',
+                child: Text('About and licenses…'),
+              ),
               const PopupMenuItem(
                 value: 'updates',
                 child: Text('Check for updates…'),

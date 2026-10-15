@@ -228,3 +228,13 @@ secrets/tokens or advertise unsigned test packages as trusted updates. Initial
 updater installation is manual; later versions require public stable complete
 releases and strictly increasing semantic versions/Android build codes. Physical
 upgrade acceptance is still required; neither a host build nor unit tests certify it.
+
+## Project license and source pointers
+
+IHTD original source is AGPL-3.0-only; see [licensing](licensing.md). app/LICENSE
+mirrors root LICENSE for Flutter's bundled notices/browser. Desktop packaging
+copies LICENSE/COPYRIGHT and records the exact source commit in SOURCE.txt.
+If packaging from an archive or Docker context without .git, provide the original
+40-character commit through IHTD_SOURCE_REVISION; Fedora CI and the documented
+Docker command do so. Preserve native dependency notices as well as Flutter's
+notices before stable distribution; project licensing does not replace them.

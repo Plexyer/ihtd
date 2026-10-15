@@ -64,6 +64,10 @@ of cross-platform completion. Follow the implemented
   ready and before OS handoff. Never embed GitHub credentials or execute unsigned
   desktop installers. Preserve local-save barriers; follow docs/update-acceptance.md.
 
+- Original IHTD source uses AGPL-3.0-only; preserve LICENSE/COPYRIGHT and third-party
+  notices. Keep app/LICENSE identical to root LICENSE, retain source pointers in
+  packages, and follow docs/licensing.md before distributing binaries.
+
 ## Verification
 
 - Core/storage: `cargo test --workspace --locked` (67 tests at this baseline).
@@ -101,7 +105,7 @@ for future coding tasks in this repository:
    the exact outstanding sync step. Never claim a failed push was successful.
 
 These routine pulls, commits, and pushes do not need fresh user confirmation.
-The source repository is private `https://github.com/Plexyer/ihtd.git`; its
+The source repository is public `https://github.com/Plexyer/ihtd.git`; its
 initial default branch is `master`. This workflow synchronizes local work with
 GitHub; it does not move a local Codex session to cloud execution.
 

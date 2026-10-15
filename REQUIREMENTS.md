@@ -249,5 +249,6 @@ are at most daily, optional, and anonymous; manual checks explain failures.
 Public stable complete releases only, never draft/prerelease artifacts or mere
 master merges. Desktop unsigned packages use manual release-page guidance until
 trusted package signing is available. Public visibility requires the history/
-asset audit and owner review, with license selection still pending. See
+asset audit and owner review. Public visibility and corrected protections are
+verified; original source uses AGPL-3.0-only following the owner's confirmation. See
 [update acceptance and limitations](docs/update-acceptance.md).

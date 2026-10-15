@@ -42,8 +42,8 @@ not replace, clear or obscure document save/recovery warnings.
 - A master merge is not an update: existing reviewed master -> immutable vX.Y.Z
   tag -> all-platform build -> draft prerelease -> owner review -> published
   stable release remains the release policy. Do not silently change CI triggers.
-- User approved public distribution; changing repository visibility still waits
-  for the audit and owner's manual action in public-repository-guide.md.
+- Owner made the repository public and corrected ref/tag protections; verification
+  is recorded in public-repository-guide.md. Stable publication remains separate.
 - Stable channel only in this milestone. Do not turn the build-11 download branch
   into an update feed or treat Actions artifacts, drafts or prereleases as stable.
 - Proposal for automatic checks: on first eligible start and at most every 24h,
@@ -53,8 +53,8 @@ not replace, clear or obscure document save/recovery warnings.
 - Owner confirmed: downloads continue when minimized or the phone locks, using
   Android background download facilities and normal system notification. Do not
   claim suspended-process reliability without native background integration.
-- Owner has desired license terms but no license selected. Define those terms
-  together later and compare suitable licenses; tracked explicitly in the checklist.
+- Owner selected AGPLv3 including the network requirement on 2026-10-15;
+  use AGPL-3.0-only and follow licensing.md.
 
 ## 1. Audit repository before public distribution
 
@@ -210,8 +210,9 @@ implemented. See [implementation and acceptance](update-acceptance.md) and
 unit/widget tests, clean analysis, production metadata/pin boundary checks,
 cryptographic signed/tampered APK JVM verification and real Linux UI integration.
 
-Keep public conversion/license/security-owner review, anonymous feed verification,
-physical Pixel/Samsung/desktop acceptance and trusted desktop package signing open.
+Public visibility and corrected rule/tag patterns have been rechecked, and the
+owner selected AGPLv3-only. Keep compatible stable publication, physical
+Pixel/Samsung/desktop acceptance and trusted desktop package signing open.
 No visibility change, history rewrite, stable publication or signing-key change
 has been performed. Native Android download/installer lifecycle behavior must
 still be verified on both actual phones.
