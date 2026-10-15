@@ -36,6 +36,11 @@ jobs:
   android:
     needs: version
     uses: ./.github/workflows/android-release.yml
+    # Environment secrets still need a named handoff into a reusable workflow.
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
     with:
       production: ${{ startsWith(github.ref, 'refs/tags/') }}
   windows:
