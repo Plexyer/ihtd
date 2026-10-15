@@ -299,8 +299,14 @@ and verification.
       fail-closed release assembly, and secure local generation/upload tools.
     - [ ] Owner downloads the keystore/password at home, keeps independent
       backups, and verifies recovery before activating public releases.
-    - [ ] Administrator configures tag-only android-release environment and
-      its three signing secrets; integration secret API returns HTTP 403.
+    - [x] Administrator configures tag-only android-release environment and
+      its three signing secrets. Tag policy verified; owner reconfirmed all
+      three secret names on 2026-10-15. Integration secret API returns HTTP 403.
+    - [x] Forward the three named signing secrets through the reusable-workflow
+      caller, with optional declarations for unsigned PR/branch builds.
+    - [ ] Complete a production tag run with the corrected secret handoff and
+      verify every draft asset. v0.2.3 native jobs passed but signing received
+      empty secrets; preserve its tag and use [0.2.4](release-0.2.4.md) next.
     - [ ] Verify two permanent-key APKs on the actual Pixel as an in-place
       update, preserving working/recovery copies and document grants.
   - [ ] Android: publish a clearly named ARM64 APK compatible with the Pixel 9

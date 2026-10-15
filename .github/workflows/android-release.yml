@@ -5,6 +5,14 @@ on:
       production:
         type: boolean
         default: false
+    # Unsigned calls need no credentials; production signing checks every value.
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
 permissions:
   contents: read
 concurrency:
