@@ -1,7 +1,7 @@
 name: app
 description: Portable tasks and folders with shared identities and saved views.
 publish_to: none
-version: 0.2.2+11
+version: 0.2.3+12
 environment:
   sdk: ^3.13.4
 dependencies:
@@ -13,6 +13,8 @@ dependencies:
   package_info_plus: ^9.0.0
   flutter_rust_bridge: 2.13.0
   flutter_rust_bridge_hooks: 2.13.0
+  pub_semver: ^2.2.1
+  url_launcher: ^6.3.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

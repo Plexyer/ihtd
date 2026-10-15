@@ -73,3 +73,16 @@ The current integration credential returns HTTP 403 for branch-protection API
 access. Apply these settings through an administrator account in GitHub's
 Settings → Branches/Rules. This document describes intended protection; it does
 not claim that protection has been enabled.
+
+## Update discovery
+
+Production coordinated assembly generates update.json (schema 1) after verifying
+all packages and includes its SHA-256 in SHA256SUMS. The manifest records package
+identities/minimum target, size/hash and source commit. It does not supply a
+publisher signature: Android independently verifies APK cryptographic signatures
+against its installed/pinned permanent identity. Desktop unsigned packages remain
+manual. Only published stable, complete releases are advertised by the updater;
+review the draft, clear prerelease status and publish as latest when ready.
+Changing visibility requires the [audit and owner steps](public-repository-guide.md).
+See [implementation/acceptance](update-acceptance.md) for first manual migration
+and two-build test. No new push/merge workflows were introduced for updates.

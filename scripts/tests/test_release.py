@@ -51,6 +51,39 @@ class ReleaseTests(unittest.TestCase):
             self.assertTrue((root / 'out/IHTD-0.2.1-windows-x64-setup.exe').is_file())
             self.assertEqual((root / 'out/INSTALL-android.md').read_text(), 'android')
 
+    def test_production_metadata_contains_only_complete_verified_packages(self):
+        import json
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            version = '0.2.3'
+            certificate = 'a' * 64
+            names = {
+                'android': [f'IHTD-{version}-android-arm64.apk', 'SIGNING-CERTIFICATE.sha256'],
+                'windows': [f'IHTD-{version}-windows-x64.zip', f'IHTD-{version}-windows-x64-setup.exe'],
+                'fedora': [f'ihtd-{version}-1.fc44.x86_64.rpm', f'IHTD-{version}-fedora44-x86_64.tar.gz'],
+            }
+            for platform, files in names.items():
+                directory = root / f'{platform}-package'
+                directory.mkdir()
+                checksums = []
+                for name in files:
+                    payload = certificate.encode() if name == 'SIGNING-CERTIFICATE.sha256' else name.encode()
+                    (directory / name).write_bytes(payload)
+                    checksums.append(f'{hashlib.sha256(payload).hexdigest()}  {name}')
+                (directory / 'SHA256SUMS').write_text('\n'.join(checksums))
+                (directory / 'INSTALL.md').write_text('Instructions')
+            module('assemble-release').assemble(root, root / 'out', version, production=True,
+                certificate=certificate, build=12, commit='b' * 40)
+            metadata = json.loads((root / 'out/update.json').read_text())
+            self.assertEqual(metadata['build'], 12)
+            self.assertEqual(metadata['tag'], 'v0.2.3')
+            self.assertEqual(len(metadata['packages']), 3)
+            android = metadata['packages'][0]
+            self.assertEqual(android['certificate'], certificate)
+            self.assertEqual(android['packageId'], 'dev.ihtd.app')
+            self.assertEqual(android['minApi'], 35)
+            self.assertIn('update.json', (root / 'out/SHA256SUMS').read_text())
+
     def test_tag_must_match(self):
         version = module('release-version')
         current = version.read_version()

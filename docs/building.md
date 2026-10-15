@@ -210,3 +210,21 @@ The verified build was produced in a temporary mirror at
 `C:/Users/k1ker/AppData/Local/Temp/ihtd-toolchain/flutter`. The source and
 portable release were copied back to this repository. These temporary paths
 are not required at runtime. No system security settings were changed.
+
+## In-app updater candidate
+
+See [updater architecture/acceptance](update-acceptance.md). Version 0.2.3+12 adds
+shared update discovery and Android native background downloading/installation.
+Run `flutter test test/update_test.dart test/update_catalog_test.dart test/update_network_test.dart`
+and Android `:app:testDebugUnitTest` (includes cryptographic signed/tampered APK
+checks). The small binary test manifest is a non-secret fixture; test signing
+keys are generated temporarily at runtime and deleted. No release key is used by tests.
+
+Release Android now requests INTERNET and REQUEST_INSTALL_PACKAGES, without broad
+storage access. Earlier "no internet permission" verification above describes the
+historical prototype. Normal document editing still works without network access.
+Production all-platform release assembly adds update.json; never manually include
+secrets/tokens or advertise unsigned test packages as trusted updates. Initial
+updater installation is manual; later versions require public stable complete
+releases and strictly increasing semantic versions/Android build codes. Physical
+upgrade acceptance is still required; neither a host build nor unit tests certify it.

@@ -1,6 +1,6 @@
 # In-app updates: implementation handoff
 
-Owner decisions recorded 2026-10-15. This is a plan, not implemented behavior.
+Owner decisions recorded 2026-10-15. Shared implementation is now present; see execution evidence below.
 Read AGENTS.md, REQUIREMENTS.md, FEATURE_CHECKLIST.md and shared-app-architecture.md.
 Work in dependency order; update evidence and outstanding acceptance after each step.
 
@@ -60,7 +60,7 @@ not replace, clear or obscure document save/recovery warnings.
 
 - [ ] Follow public-repository-guide.md: full reachable history and all remote
   branches/tags, release assets, artifacts/logs and collaboration metadata.
-- [ ] Record sanitized findings and a go/no-go report. Never commit discovered
+- [x] Record sanitized findings and a go/no-go report. Never commit discovered
   secrets, raw scanner output, tokens, signing files or private collection data.
 - [ ] For any exposure, stop public conversion; rotate/revoke credentials first.
   Permanent Android signing-key exposure requires a separate owner decision:
@@ -73,21 +73,21 @@ not replace, clear or obscure document save/recovery warnings.
 
 ## 2. Establish release/update contract and trust
 
-- [ ] Inspect actual source/version and published releases anew. Authoritative
+- [x] Inspect actual source/version and published releases anew. Authoritative
   app/pubspec.yaml supplies X.Y.Z+BUILD; read installed values from package APIs,
   not a hardcoded Dart constant. Build 11 is a test candidate, not a stable feed.
-- [ ] Define versioned, bounded update metadata per release: version/build, tag,
+- [x] Define versioned, bounded update metadata per release: version/build, tag,
   source commit, platform/arch/package format, minimum OS, filename, exact bytes,
   SHA-256, release-notes reference and installer identity. Reject ambiguous assets,
   mismatches, duplicates, unsupported schema, wrong architecture and downgrades.
   Android requires strictly higher versionCode as well as coherent versionName;
   compare semantic versions correctly, not lexicographically. Fetch OS/ABI facts
   through capabilities, including Samsung compatibility; do not infer from brand.
-- [ ] Extend scripts/assemble-release.py and its tests to produce metadata only
+- [x] Extend scripts/assemble-release.py and its tests to produce metadata only
   after every required package passes. Publish metadata with complete assets.
   Preserve pinned Android certificate, ELF/ZIP 16 KB verification and immutable
   tags. Do not mark a partial release stable/latest. Document exact release step.
-- [ ] Decide and document manifest trust before implementing installation. HTTPS
+- [x] Decide and document manifest trust before implementing installation. HTTPS
   and SHA256SUMS from the same server detect corruption, not publisher authenticity.
   Android must cryptographically verify APK signature/certificate against the
   installed app and pinned permanent identity (or explicitly supported signing
@@ -100,7 +100,7 @@ not replace, clear or obscure document save/recovery warnings.
   design protected signing, rotation and offline recovery, never embed private keys.
   Current unsigned desktop packages are blockers to automatic install handoff;
   show an honest manual release-page fallback until verification is available.
-- [ ] Handle GitHub pagination/rate limits/cache validators/offline states and
+- [x] Handle GitHub pagination/rate limits/cache validators/offline states and
   retry-after. Never interpret an API/network failure as proof the app is current.
   Reject unexpected download schemes/hosts, unsafe filenames/paths, excessive
   metadata/package sizes and redirect loops. Allow documented GitHub asset/CDN
@@ -108,57 +108,57 @@ not replace, clear or obscure document save/recovery warnings.
 
 ## 3. Implement shared update service and adapters
 
-- [ ] Add typed contracts under app/lib/services/: release source, installed
+- [x] Add typed contracts under app/lib/services/: release source, installed
   identity, package selector, downloader, verifier, installer adapter, persisted
   update store; select platform adapters only at composition/bootstrap.
-- [ ] Shared coordinator owns eligibility/version policy, state, progress, errors,
+- [x] Shared coordinator owns eligibility/version policy, state, progress, errors,
   dialogs and user intent. Suggested states: idle/checking/available/downloading/
   verifying/ready/handed-off/error; distinguish cancellation and installation
   outcomes. Use attempt IDs to reject stale events; single active download.
-- [ ] Persist selected release/identity, completed private package and verified
+- [x] Persist selected release/identity, completed private package and verified
   digest atomically. Revalidate cache after restart and before handoff; invalidate
   corrupt, obsolete or incompatible packages. Never trust a stored ready flag.
   Resume partial downloads only with validated server identity/range semantics;
   otherwise safely restart. No unbounded polling or silent re-downloads.
-- [ ] Switching collection/view does not reset downloads; update storage is
+- [x] Switching collection/view does not reset downloads; update storage is
   separate from documents/recovery. Bounded diagnostic events use existing privacy
   principles; never log tokens, document content/paths or signed URL queries.
 
 ## 4. Shared UI and safe handoff preparation
 
-- [ ] Implement agreed header/view-menu move in app/lib/ui/app_shell.dart and
+- [x] Implement agreed header/view-menu move in app/lib/ui/app_shell.dart and
   shared update widgets/dialogs. Use layout constraints, not OS-name branches.
-- [ ] Add Check for updates and automatic-check preference to appropriate menu/
+- [x] Add Check for updates and automatic-check preference to appropriate menu/
   settings. Manual checks explain no update/offline/rate limit/unsupported device.
-- [ ] Implement approved icon/dialog/progress/error states, screen-reader labels,
+- [x] Implement approved icon/dialog/progress/error states, screen-reader labels,
   focus order, reduced motion, narrow/large-text and desktop behavior. A download
   should not steal focus or reopen its dismissed popup.
-- [ ] Before installer handoff, flush debounced edits and active editor drafts
+- [x] Before installer handoff, flush debounced edits and active editor drafts
   through existing shared controller/coordinator. Invalid drafts/private write
   failures block handoff with actionable feedback. Unpublished external changes
   must remain durable locally; do not force reconnect, clear save barriers or
   require unsafe publication to install. Add a warning only if necessary to
   explain unresolved data risk, not a redundant routine install confirmation.
-- [ ] Preserve app support directory, working copies, recovery, document grants
+- [x] Preserve app support directory, working copies, recovery, document grants
   and schema compatibility. Never uninstall first or delete user data.
 
 ## 5. Android adapter: Pixel/GrapheneOS and Samsung
 
-- [ ] Audit target SDK and current MainActivity/manifest. Add INTERNET permission
+- [x] Audit target SDK and current MainActivity/manifest. Add INTERNET permission
   to release manifest (currently absent); request no broad storage permission.
   Add REQUEST_INSTALL_PACKAGES only for this legitimate user-initiated updater;
   document distribution/store-policy consequences for any future Play release.
-- [ ] Implement native download/cache handoff and restrictive FileProvider or
+- [x] Implement native download/cache handoff and restrictive FileProvider or
   equivalent content URI with temporary read grant and APK MIME type. Never expose
   file://, arbitrary private files, exported writable paths or signing secrets.
-- [ ] Use an appropriate Android background download
+- [x] Use an appropriate Android background download
   service with network/lifecycle handling and system notification; verify modern
   Android background restrictions, destination access and privacy. Restore state
   from native work after process death. Describe OS force-stop limitations.
-- [ ] Check canRequestPackageInstalls; use system source-permission settings,
+- [x] Check canRequestPackageInstalls; use system source-permission settings,
   handle refusal/back/resume, then native installer intent/PackageInstaller as
   appropriate. Do not prompt for permission before the user requests installation.
-- [ ] Native verifier/installer reports typed observations; shared service owns
+- [x] Native verifier/installer reports typed observations; shared service owns
   messages and state. Handle unavailable handler, cancellation, insufficient
   storage, bad signature, version incompatibility and interrupted installation.
 - [ ] Build permanent-key upgrade candidates with increasing versionCode, verify
@@ -167,7 +167,7 @@ not replace, clear or obscure document save/recovery warnings.
 
 ## 6. Windows and Fedora adapters
 
-- [ ] Use the same coordinator/UI. Report actual installation type and capabilities;
+- [x] Use the same coordinator/UI. Report actual installation type and capabilities;
   do not auto-select portable replacement for a package-managed installation.
 - [ ] Windows: verified signed setup EXE, fixed argument handling (no shell
   interpolation), preserved Inno AppId, graceful handoff/exit and actual post-start
@@ -175,17 +175,17 @@ not replace, clear or obscure document save/recovery warnings.
 - [ ] Fedora: verified compatible RPM handed to available graphical package tooling;
   package manager owns authentication/files. If repository-managed, guide to
   DNF/GNOME Software instead. Portable archives remain manual in this milestone.
-- [ ] If native signing prerequisites are not ready, document the limitation and
+- [x] If native signing prerequisites are not ready, document the limitation and
   retain safe release-page/manual download flow. Do not claim all-platform
   automatic installation based on Android completion.
 
 ## 7. Verification and release acceptance
 
-- [ ] Unit/contract tests: versions/builds, asset/OS/ABI selection, draft/prerelease
+- [x] Unit/contract tests: versions/builds, asset/OS/ABI selection, draft/prerelease
   exclusion, missing assets, malicious metadata, redirects, trust failures, offline/
   rate limits, progress, retries/cancel, stale events, interrupted downloads,
   persisted recovery, cache tampering, install cancellation and actual-version checks.
-- [ ] Widget tests: moved menu, exact popup sequence, no duplicate Android confirm,
+- [x] Widget tests: moved menu, exact popup sequence, no duplicate Android confirm,
   blue/progress/green states, large text, screen readers, reduced motion, document
   warning coexistence and install blocked by unflushed/invalid editor state.
 - [ ] Native tests verify APK signatures (not just fields), wrong key/package/build,
@@ -201,8 +201,17 @@ not replace, clear or obscure document save/recovery warnings.
   Commit/push task branch, PR to development; owner merges. Public conversion,
   stable publication and any destructive remediation are separate owner actions.
 
-## Completion boundary
+## Execution evidence (2026-10-15)
 
-This task's current deliverable is documentation only. No updater, public
-visibility change, secret audit, history rewrite, package publication or signing
-configuration is claimed complete by this plan.
+Shared coordinator/catalog/UI, production update metadata, native Android
+DownloadManager/apksig/installer and unsigned-desktop manual fallback are
+implemented. See [implementation and acceptance](update-acceptance.md) and
+[publication audit](publication-audit.md). Automated checks cover 126 Flutter
+unit/widget tests, clean analysis, production metadata/pin boundary checks,
+cryptographic signed/tampered APK JVM verification and real Linux UI integration.
+
+Keep public conversion/license/security-owner review, anonymous feed verification,
+physical Pixel/Samsung/desktop acceptance and trusted desktop package signing open.
+No visibility change, history rewrite, stable publication or signing-key change
+has been performed. Native Android download/installer lifecycle behavior must
+still be verified on both actual phones.

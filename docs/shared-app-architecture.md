@@ -52,6 +52,15 @@ common Delete confirmation. Row menus and details use the same action. Save
 adapters are unchanged. Optional deleted-ID metadata retains view references
 without retaining item contents; shared Flutter warns and opens rule editing.
 
+Shared updates: `update_contract.dart`, `update_catalog.dart` and
+`update_coordinator.dart` own release identity/compatibility, discovery, persisted
+state and installation intent. `ui/app_updates.dart` owns shared visual feedback
+and confirmation. Only `update_composition.dart` selects native adapters. Android
+`UpdateBridge` provides DownloadManager, cryptographic verification and installer
+access; desktop adapters currently provide explicit manual release-page handoff
+until trusted package signatures are configured. Document checkpoint policy stays
+in AppController/DocumentSaveCoordinator. See [update acceptance](update-acceptance.md).
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

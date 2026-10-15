@@ -57,5 +57,7 @@ flutter {
 }
 
 dependencies {
+    implementation("com.android.tools.build:apksig:8.9.1")
+    implementation("androidx.core:core:1.15.0")
     testImplementation("junit:junit:4.13.2")
 }
