@@ -253,7 +253,10 @@ class UpdateCoordinator extends ChangeNotifier with WidgetsBindingObserver {
           ? 'Allow IHTD to install updates in Android settings, then tap the green tick again.'
           : 'Complete the update in the system installer. Reopen IHTD afterward if needed.';
     } catch (e) {
-      phase = UpdatePhase.error;
+      // A missing/blocked system installer does not invalidate a verified APK.
+      phase = e is UpdateFailure && e.code == 'installer'
+          ? UpdatePhase.ready
+          : UpdatePhase.error;
       message = updateError(e);
     } finally {
       _operation = false;
@@ -304,6 +307,7 @@ String updateError(Object error) => switch (error is UpdateFailure
     'The release information could not be verified. No update was installed.',
   'verification' =>
     'Package verification failed. No update was installed. Download again.',
+  'installer' => 'Android could not open the system installer. Check device installation restrictions, then tap the green tick to retry.',
   'download_failed' =>
     'Download failed or was interrupted. Tap Retry to download again.',
   _ => 'The update could not be completed. Your collections are unchanged. Try again.',

@@ -49,6 +49,7 @@ class Adapter implements UpdatePlatform {
     100,
   );
   String result = 'installer';
+  bool failInstall = false;
   Completer<void>? startGate;
   @override
   bool get canInstall => true;
@@ -71,6 +72,7 @@ class Adapter implements UpdatePlatform {
   @override
   Future<String> install(UpdateCandidate c) async {
     installs++;
+    if (failInstall) throw const UpdateFailure('installer');
     return result;
   }
 
@@ -167,6 +169,22 @@ void main() {
     expect(u.phase, UpdatePhase.ready);
     expect(u.message, contains('settings'));
   });
+  test(
+    'system installer failure retains verified ready package for retry',
+    () async {
+      adapter.observation = const DownloadObservation('complete', 100, 100);
+      await u.download();
+      await u.poll();
+      adapter.failInstall = true;
+      await u.install(() async => true);
+      expect(u.phase, UpdatePhase.ready);
+      expect(u.message, contains('system installer'));
+      adapter.failInstall = false;
+      await u.install(() async => true);
+      expect(adapter.starts, 1);
+      expect(adapter.installs, 2);
+    },
+  );
   test('duplicate user taps cannot enqueue simultaneous downloads', () async {
     adapter.startGate = Completer<void>();
     final first = u.download();

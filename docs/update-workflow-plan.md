@@ -206,7 +206,7 @@ not replace, clear or obscure document save/recovery warnings.
 Shared coordinator/catalog/UI, production update metadata, native Android
 DownloadManager/apksig/installer and unsigned-desktop manual fallback are
 implemented. See [implementation and acceptance](update-acceptance.md) and
-[publication audit](publication-audit.md). Automated checks cover 128 Flutter
+[publication audit](publication-audit.md). Automated checks cover 129 Flutter
 unit/widget tests, clean analysis, production metadata/pin boundary checks,
 cryptographic signed/tampered APK JVM verification and real Linux UI integration.
 
