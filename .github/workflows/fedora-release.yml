@@ -1,6 +1,7 @@
 name: Fedora build
 on:
   workflow_call:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:

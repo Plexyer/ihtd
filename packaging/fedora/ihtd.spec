@@ -24,7 +24,8 @@ cp %{_sourcedir}/dev.ihtd.app.desktop %{buildroot}%{_datadir}/applications/
 cp %{_sourcedir}/ihtd.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 
 %files
-%license %{_licensedir}/%{name}/LICENSE %{_licensedir}/%{name}/COPYRIGHT
+%license %{_licensedir}/%{name}/LICENSE
+%license %{_licensedir}/%{name}/COPYRIGHT
 /opt/ihtd
 %{_bindir}/ihtd
 %{_datadir}/applications/dev.ihtd.app.desktop
