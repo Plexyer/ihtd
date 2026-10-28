@@ -28,6 +28,9 @@ of cross-platform completion. Follow the implemented
   and other UI/model behavior described below. Read it and the checklist before
   implementing those tasks; older passing checks describe the baseline only.
   Ask about new ambiguities rather than inventing product behavior.
+  Any conversion of existing stored data must first implement its migration
+  safety gate: verified backup beside the original/authorized backup folder,
+  staged validation, guarded publication and automatic redacted failure logs.
 - Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android development
   targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
   copies and local recovery; physical phone validation remains outstanding.

@@ -15,6 +15,27 @@ priorities, examples and later linking/copying rework. All items below are pendi
 implementation. Keep general logic/UI shared across Android, Windows and Fedora.
 Ask the owner about genuinely unresolved behavior rather than inventing defaults.
 
+- [ ] **Migration safety prerequisite — before migrating existing data.**
+  - [ ] Determine whether a migration is actually required, including semantic
+    transformations that change existing data without changing a schema number.
+  - [ ] Before migration, create a consistent, durable backup beside the original
+    collection file, or in an authorized backup folder where necessary. Verify
+    it by reading it back before changing data; do not overwrite earlier backups.
+  - [ ] On Android, acquire any missing backup-folder authorization first. With
+    no usable destination, insufficient space or failed verification, stop the
+    migration and preserve existing data; do not silently fall back to a private
+    collection backup instead of the location the owner chose.
+  - [ ] Migrate a separate candidate, validate preserved contents/relationships
+    and new metadata, then publish through the shared identity/conflict/read-back
+    safeguards. Preserve pending working copies and recoveries independently.
+  - [ ] On failure/interruption, stop further writes, retain the backup/recoverable
+    state and automatically persist a privacy-preserving diagnostic log. Provide
+    clear failure/recovery information and user-initiated log export; never upload
+    logs automatically or include collection contents/credentials by default.
+  - [ ] Verify backup refusal/failure, staged migration failure, publication
+    failure, interruption/retry, external changes and successful upgrades from
+    the currently distributed version before releasing data-migrating features.
+  See [migration safety requirements](changes-2026-10-28.md#14-migration-safety-prerequisite).
 - [ ] **1 — Medium: protect All tasks.** Lock its name, unfiltered rule and
   deletion; allow sorting and visibility/display preferences. Ensure it exists
   when opening older collections, preserving customized old views separately.
@@ -103,7 +124,8 @@ Ask the owner about genuinely unresolved behavior rather than inventing defaults
     allowed only with All descendants: automatically select/lock that depth and
     show an explanation. Preserve acyclicity and original identities elsewhere.
 
-Dependencies: 7 before 6; 8 before 5; collection/default support from 7 also
+Dependencies: migration safety before any feature that converts existing stored
+data; 7 before 6; 8 before 5; collection/default support from 7 also
 supports 5; 10 and 11 together. Coordinate 3 with the revised linking/removal
 contract. Earlier intermediate choices permitting different child lists for two
 linked appearances, and the old three-button Link/Copy design, were superseded.
