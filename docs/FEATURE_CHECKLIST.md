@@ -2,17 +2,17 @@
 
 Updated 2026-10-28 with the owner's clarified Changes.docx backlog.
 The section below and the existing agreed-work sections contain approved
-requirements. Optional suggestions still require discussion. Approval of a
-requirement does not mark it implemented or authorize starting implementation
-during this documentation task.
+requirements. Optional suggestions still require discussion. Implementation and validation evidence are tracked separately; an approved
+requirement is not automatically complete. The migration foundation below is an
+implementation candidate; physical acceptance remains open.
 
 ## Owner-clarified Changes.docx backlog
 
 Source: all 12 requests and 13 screenshots in Changes.docx, plus the owner's
 subsequent selectable answers and corrections through 2026-10-28. The complete
 [clarified specification](changes-2026-10-28.md) preserves the original numbering,
-priorities, examples and later linking/copying rework. All items below are pending
-implementation. Keep general logic/UI shared across Android, Windows and Fedora.
+priorities, examples and later linking/copying rework. Implementation status is
+recorded on each item below. Keep general logic/UI shared across Android, Windows and Fedora.
 Ask the owner about genuinely unresolved behavior rather than inventing defaults.
 
 ### Implementation order
@@ -48,28 +48,33 @@ Steps 6, 9 and 11 are mostly independent and may be brought forward. Migration
 and preservation tests accompany every data-changing step; do not defer them
 until step 12. This order is a plan, not completed implementation.
 
-### Pending implementation tasks
+### Implementation and acceptance tasks
 
 - [ ] **Migration safety prerequisite — before migrating existing data.**
-  - [ ] Determine whether a migration is actually required, including semantic
+  - [x] Determine whether a migration is actually required, including semantic
     transformations that change existing data without changing a schema number.
-  - [ ] Before migration, create a consistent, durable backup beside the original
+  - [x] Before migration, create a consistent, durable backup beside the original
     collection file, or in an authorized backup folder where necessary. Verify
     it by reading it back before changing data; do not overwrite earlier backups.
-  - [ ] On Android, acquire any missing backup-folder authorization first. With
+  - [x] On Android, acquire any missing backup-folder authorization first. With
     no usable destination, insufficient space or failed verification, stop the
     migration and preserve existing data; do not silently fall back to a private
     collection backup instead of the location the owner chose.
-  - [ ] Migrate a separate candidate, validate preserved contents/relationships
+  - [x] Migrate a separate candidate, validate preserved contents/relationships
     and new metadata, then publish through the shared identity/conflict/read-back
     safeguards. Preserve pending working copies and recoveries independently.
-  - [ ] On failure/interruption, stop further writes, retain the backup/recoverable
+  - [x] On failure/interruption, stop further writes, retain the backup/recoverable
     state and automatically persist a privacy-preserving diagnostic log. Provide
     clear failure/recovery information and user-initiated log export; never upload
     logs automatically or include collection contents/credentials by default.
   - [ ] Verify backup refusal/failure, staged migration failure, publication
     failure, interruption/retry, external changes and successful upgrades from
     the currently distributed version before releasing data-migrating features.
+  Implementation candidate: [migration safety and acceptance](migration-safety.md).
+  Shared policy, Rust conversion, native backup adapters and host verification are
+  implemented; the parent stays open for physical acceptance. Current schema-2
+  files need no migration. Future semantic/schema conversions must register their
+  own plan and preservation checks before shipping.
   See [migration safety requirements](changes-2026-10-28.md#14-migration-safety-prerequisite).
 - [ ] **1 — Medium: protect All tasks.** Lock its name, unfiltered rule and
   deletion; allow sorting and visibility/display preferences. Ensure it exists

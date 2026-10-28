@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-14. This records the implemented prototype and the user's
+Updated 2026-10-28. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Approved changes awaiting implementation
@@ -19,7 +19,10 @@ where migration is necessary, first create and verify a backup beside the origin
 collection or in an authorized backup folder. Stop if backup fails; migrate a
 separate candidate and validate it before guarded publication. Preserve recovery
 data and automatically persist exportable, redacted failure diagnostics. This is
-an implementation prerequisite, not an already-implemented backup guarantee.
+implemented as a shared migration-safety candidate; see
+[behavior and acceptance](docs/migration-safety.md). Current schema-2 files need no
+conversion. Physical upgrade acceptance remains required, and later feature/data
+migrations need their own explicit plans and preservation tests.
 
 ## Model
 

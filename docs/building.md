@@ -238,3 +238,14 @@ If packaging from an archive or Docker context without .git, provide the origina
 40-character commit through IHTD_SOURCE_REVISION; Fedora CI and the documented
 Docker command do so. Preserve native dependency notices as well as Flutter's
 notices before stable distribution; project licensing does not replace them.
+
+## Migration safety verification
+
+See [migration behavior and physical acceptance](migration-safety.md). Run the
+normal Rust/Flutter suites plus `flutter test integration_test/migration_test.dart
+-d windows` (or `-d linux` under the existing Xvfb wrapper). It uses committed,
+synthetic schema-1/schema-2 fixtures, creates real sibling backups and checks
+preservation/publication/restart. Windows/Fedora native pipelines include it.
+Kotlin document tests include strict create-new backup/source-alias protection.
+Run native integration/build targets sequentially in one checkout. This work
+changes no app version/tag and does not prove a physical phone upgrade.

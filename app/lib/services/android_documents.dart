@@ -1,8 +1,10 @@
 import 'package:flutter/services.dart';
 
 import 'document_adapter.dart';
+import 'migration_contract.dart';
 
-class AndroidDocumentAdapter implements DocumentAdapter {
+class AndroidDocumentAdapter
+    implements DocumentAdapter, MigrationBackupAdapter {
   static const channel = MethodChannel('dev.ihtd.app/documents');
   @override
   String get kind => 'android';
@@ -86,5 +88,34 @@ class AndroidDocumentAdapter implements DocumentAdapter {
       throw const DocumentFailure(DocumentFailureKind.verificationFailed);
     }
     return observation;
+  }
+
+  @override
+  bool get backupFolderRequired => true;
+  @override
+  Future<DocumentReference?> pickBackupFolder() async {
+    final selected = await _invoke<String>('backupFolder');
+    return selected == null ? null : referenceFor(selected);
+  }
+
+  @override
+  Future<DocumentReference> createMigrationBackup({
+    required DocumentReference source,
+    required String snapshotPath,
+    required String name,
+    DocumentReference? folder,
+  }) async {
+    if (folder == null) throw const MigrationFailure('backup_required');
+    final result = await _map('backup', {
+      'uri': source.locator,
+      'folder': folder.locator,
+      'path': snapshotPath,
+      'name': name,
+    });
+    return DocumentReference(
+      kind,
+      result['uri'] as String,
+      nameHint: result['name'] as String?,
+    );
   }
 }

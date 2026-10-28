@@ -118,6 +118,14 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
 }
 
 pub fn decode(bytes: &[u8]) -> Result<Document, String> {
+    let mut document = decode_preserving(bytes)?;
+    document.recompute_completion()?;
+    Ok(document)
+}
+
+/// Migration validation must preserve stored field values, not compare two
+/// independently normalized versions that could both hide the same data loss.
+pub fn decode_preserving(bytes: &[u8]) -> Result<Document, String> {
     let mut local = NamedTempFile::new().map_err(err)?;
     local.write_all(bytes).map_err(err)?;
     local.flush().map_err(err)?;
@@ -225,7 +233,6 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         .collect::<Result<_, _>>()
         .map_err(err)?;
     document.validate()?;
-    document.recompute_completion()?;
     Ok(document)
 }
 
@@ -262,7 +269,19 @@ pub struct Session {
 }
 impl Session {
     pub fn open(path: PathBuf, recovery_dir: &Path) -> Result<Self, String> {
+        Self::open_expected(path, recovery_dir, None)
+    }
+    pub fn open_expected(
+        path: PathBuf,
+        recovery_dir: &Path,
+        expected_hash: Option<&str>,
+    ) -> Result<Self, String> {
         let bytes = fs::read(&path).map_err(err)?;
+        if expected_hash.is_some_and(|expected| expected != fingerprint(&bytes)) {
+            return Err("Validated migration candidate changed before opening.".into());
+        }
+        crate::migration::reject_sidecars(&path).map_err(|e| e.0.to_string())?;
+        crate::migration::require_current(&bytes)?;
         let document = decode(&bytes)?;
         let recovery_path = recovery_dir.join(format!(
             "{}-{}.ihtd",
@@ -285,11 +304,22 @@ impl Session {
         Self::open(path, recovery_dir)
     }
     pub fn restore_recovery(&mut self, recovery: &Path) -> Result<(), String> {
-        let document = decode(&fs::read(recovery).map_err(err)?)?;
+        self.restore_recovery_mode(recovery, true)
+    }
+    pub fn restore_recovery_if_newer(&mut self, recovery: &Path) -> Result<(), String> {
+        self.restore_recovery_mode(recovery, false)
+    }
+    fn restore_recovery_mode(&mut self, recovery: &Path, force: bool) -> Result<(), String> {
+        let bytes = fs::read(recovery).map_err(err)?;
+        crate::migration::require_current(&bytes)?;
+        let document = decode(&bytes)?;
         if document.document_id != self.document.document_id
-            || document.revision < self.document.revision
+            || (force && document.revision < self.document.revision)
         {
             return Err("Recovery does not belong to this working collection revision.".into());
+        }
+        if !force && document.revision <= self.document.revision {
+            return Ok(());
         }
         self.document = document;
         self.dirty = true;
@@ -297,7 +327,9 @@ impl Session {
     }
     pub fn restore_available(&mut self) -> Result<(), String> {
         if self.recovery_path.exists() {
-            let recovered = decode(&fs::read(&self.recovery_path).map_err(err)?)?;
+            let bytes = fs::read(&self.recovery_path).map_err(err)?;
+            crate::migration::require_current(&bytes)?;
+            let recovered = decode(&bytes)?;
             if recovered.document_id == self.document.document_id
                 && recovered.revision > self.document.revision
             {
@@ -313,6 +345,7 @@ impl Session {
         if fingerprint == self.baseline {
             return Ok(false);
         }
+        crate::migration::require_current(&bytes)?;
         let replacement = decode(&bytes)?;
         if self.dirty {
             return Err("The file changed while local edits are waiting to save. Use Save a copy as to preserve your edits.".into());

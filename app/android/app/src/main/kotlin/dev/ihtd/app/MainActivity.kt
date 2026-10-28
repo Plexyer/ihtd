@@ -31,6 +31,46 @@ class MainActivity : FlutterActivity() {
                             "build" to info.longVersionCode, "androidApi" to Build.VERSION.SDK_INT,
                             "androidVersion" to Build.VERSION.RELEASE))
                     }
+                    "backupFolder" -> {
+                        if (pickerResult != null) {
+                            result.error("busy", "A picker is already open", null)
+                        } else {
+                            pickerResult = result
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                            try { startActivityForResult(intent, 4102) }
+                            catch (_: Exception) { pickerResult = null; result.error("unavailable", "Backup folder unavailable", null) }
+                        }
+                    }
+                    "backup" -> documents.execute {
+                        try {
+                            val folder = Uri.parse(requireNotNull(call.argument<String>("folder")))
+                            val source = Uri.parse(requireNotNull(call.argument<String>("uri")))
+                            require(folder.scheme == "content" && DocumentsContract.isTreeUri(folder))
+                            val local = File(requireNotNull(call.argument<String>("path"))).canonicalFile
+                            require(local.path.startsWith(filesDir.parentFile!!.canonicalPath + "/"))
+                            val name = requireNotNull(call.argument<String>("name"))
+                            require(name.startsWith("IHTD-before-upgrade-") && !name.contains('/') && !name.contains('\\'))
+                            val parent = DocumentsContract.buildDocumentUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
+                            val uri = DocumentsContract.createDocument(contentResolver, parent, "application/octet-stream", name)
+                                ?: error("Backup could not be created")
+                            require(uri != source)
+                            // A new provider document only: never truncate an existing user file.
+                            val bytes = local.readBytes()
+                            // Guard against a broken provider returning an existing document
+                            // (including an alias URI for the source) from createDocument.
+                            DocumentWriter.backup(bytes, { readDocument(uri) }) { output ->
+                                contentResolver.openOutputStream(uri, "w")?.use { stream ->
+                                    stream.write(output)
+                                    stream.flush()
+                                } ?: error("Backup write refused")
+                            }
+                            runOnUiThread { result.success(metadata(uri) + mapOf("uri" to uri.toString())) }
+                        } catch (_: Exception) {
+                            runOnUiThread { result.error("write_failed", "Backup could not be verified", null) }
+                        }
+                    }
                     "open", "create" -> {
                         if (pickerResult != null) {
                             result.error("busy", "A document picker is already open", null)
@@ -130,7 +170,7 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Android activity result callback used by FlutterActivity")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != 4101) return
+        if (requestCode != 4101 && requestCode != 4102) return
         val result = pickerResult ?: return
         pickerResult = null
         val uri = data?.data
@@ -141,7 +181,8 @@ class MainActivity : FlutterActivity() {
         try {
             val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             contentResolver.takePersistableUriPermission(uri, flags)
-            result.success(metadata(uri) + mapOf("uri" to uri.toString()))
+            if (requestCode == 4102) result.success(uri.toString())
+            else result.success(metadata(uri) + mapOf("uri" to uri.toString()))
         } catch (e: Exception) {
             result.error("permission", "Persistent document access is required", null)
         }
