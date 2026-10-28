@@ -1,9 +1,172 @@
 # Feature checklist
 
-Updated 2026-10-15 for physical Android feedback and agreed release/update
-workflow. Unchecked suggestions are not approved requirements unless they are
-listed under "Agreed release and update work"; clarify their behavior before
-implementing them.
+Updated 2026-10-28 with the owner's clarified Changes.docx backlog.
+The section below and the existing agreed-work sections contain approved
+requirements. Optional suggestions still require discussion. Approval of a
+requirement does not mark it implemented or authorize starting implementation
+during this documentation task.
+
+## Owner-clarified Changes.docx backlog
+
+Source: all 12 requests and 13 screenshots in Changes.docx, plus the owner's
+subsequent selectable answers and corrections through 2026-10-28. The complete
+[clarified specification](changes-2026-10-28.md) preserves the original numbering,
+priorities, examples and later linking/copying rework. All items below are pending
+implementation. Keep general logic/UI shared across Android, Windows and Fedora.
+Ask the owner about genuinely unresolved behavior rather than inventing defaults.
+
+### Implementation order
+
+Agreed 2026-10-28. Numbers in parentheses refer to the specification's original
+feature numbers, not new priorities. Use this order when planning implementation:
+
+1. **Migration safety foundation:** verified backups, staged migration,
+   recovery and automatic failure diagnostics before converting existing data.
+2. **Editor drafts and Save/Cancel (11 + 10):** implement together, including
+   stable cursor behavior, cancellation, exit prompts and draft recovery.
+3. **Collection settings and default inheritance (7):** provide the settings
+   needed by indicators and tag suggestions.
+4. **Linking/copying/removal and Links counter (13 + 3):** first appearance
+   counting and copy primitives, then global Delete, blocked-Unlink replacement
+   and the Link/Copy dialogs.
+5. **Sorting and drag insertion (4):** shared manual order and per-view automatic
+   sorting against the clarified hierarchy behavior.
+6. **Priority icons (8):** prepare the shared designs needed by indicators.
+7. **Summary indicators (5):** build on settings, inheritance and priority icons.
+8. **Tag picker and popularity (6):** build on collection settings and committed
+   item drafts.
+9. **Protected All tasks view (1):** include preservation of existing customized
+   views during migration.
+10. **Additional Create button (2):** integrate with the settled editor behavior.
+11. **Branding and update-indicator placement (9 + 12):** coordinate header changes
+    and platform icon/splash assets.
+12. **Full upgrade and device testing:** verify upgrades, data preservation,
+    recovery and changed features on Pixel/GrapheneOS, Samsung, Windows and Fedora
+    before release.
+
+Steps 6, 9 and 11 are mostly independent and may be brought forward. Migration
+and preservation tests accompany every data-changing step; do not defer them
+until step 12. This order is a plan, not completed implementation.
+
+### Pending implementation tasks
+
+- [ ] **Migration safety prerequisite — before migrating existing data.**
+  - [ ] Determine whether a migration is actually required, including semantic
+    transformations that change existing data without changing a schema number.
+  - [ ] Before migration, create a consistent, durable backup beside the original
+    collection file, or in an authorized backup folder where necessary. Verify
+    it by reading it back before changing data; do not overwrite earlier backups.
+  - [ ] On Android, acquire any missing backup-folder authorization first. With
+    no usable destination, insufficient space or failed verification, stop the
+    migration and preserve existing data; do not silently fall back to a private
+    collection backup instead of the location the owner chose.
+  - [ ] Migrate a separate candidate, validate preserved contents/relationships
+    and new metadata, then publish through the shared identity/conflict/read-back
+    safeguards. Preserve pending working copies and recoveries independently.
+  - [ ] On failure/interruption, stop further writes, retain the backup/recoverable
+    state and automatically persist a privacy-preserving diagnostic log. Provide
+    clear failure/recovery information and user-initiated log export; never upload
+    logs automatically or include collection contents/credentials by default.
+  - [ ] Verify backup refusal/failure, staged migration failure, publication
+    failure, interruption/retry, external changes and successful upgrades from
+    the currently distributed version before releasing data-migrating features.
+  See [migration safety requirements](changes-2026-10-28.md#14-migration-safety-prerequisite).
+- [ ] **1 — Medium: protect All tasks.** Lock its name, unfiltered rule and
+  deletion; allow sorting and visibility/display preferences. Ensure it exists
+  when opening older collections, preserving customized old views separately.
+- [ ] **2 — Medium: additional top-right Create action.** Show it for new
+  tasks/folders in short or keyboard-constrained layouts on any platform, retaining
+  the bottom Create action. Make creation possible without scrolling to the end.
+- [ ] **3 — Medium: show linked appearances.** Display `Links: N` on tasks and
+  folders only for N >= 2. Count all collection hierarchy paths, including paths
+  through linked parents, rather than only direct relationships or view renderings.
+- [ ] **4 — Medium: per-view sorting and clear drag insertion targets.**
+  - [ ] Offer Manual, Title, Due date and Priority for every parent and the top
+    level. Automatic modes support ascending/descending; modes are per view.
+  - [ ] Keep one shared manual order. A between-sibling drop while automatically
+    sorted switches that parent/current view to Manual, uses the displayed order
+    as its starting point, applies the drop and saves the shared manual order.
+  - [ ] In automatic sorts, keep folders first and sort each kind separately.
+    Undated and None-priority items stay last in either direction. Break ties by
+    title, then manual order for identical titles.
+  - [ ] Show between-item insertion indicators as well as inside-parent targets.
+- [ ] **5 — Medium: compact direct-child summary indicators.**
+  - [ ] Default Total and High-priority count on; Low/Medium counts and next due
+    date off. Allow an optional ratio replacing the plain count: `Total: 2 / 5`.
+  - [ ] Count direct child tasks only, included by the view rules/current tab.
+    The ratio is the exception: include both completion states matching the view
+    rules regardless of tab. Next due means earliest date today or later.
+  - [ ] Show zero for enabled counters. Stack enabled priority icon/count pairs
+    compactly without increasing card height; keep icons readable.
+  - [ ] Inherit each indicator independently: collection defaults, optional
+    parent defaults, then parent/view overrides. Only non-overridden settings
+    follow later default changes. Skip disabled indicators' metric computation.
+- [ ] **6 — Medium: clear selected tags and a bounded suggestion list.**
+  - [ ] Show all selected tags above a light divider; below show up to N popular
+    unselected tags plus Select other. N defaults to 5 and is a collection setting.
+  - [ ] Select other opens searchable multi-select with Done/Cancel; Done applies
+    to the item draft and picker Cancel discards the picker operation.
+  - [ ] Rank committed manual assignments by gradually decaying usage, excluding
+    automatic/copied assignments. Influence halves after 3 days by default;
+    configure that period in collection settings. Older collections start without
+    usage scores and use alphabetical suggestions until usage establishes rank.
+- [ ] **7 — Medium: collection Settings page.** Add Settings to the top-right
+  menu. Include tag suggestion count/fading period and collection-level indicator
+  defaults; support the agreed parent/default/view override hierarchy.
+- [ ] **8 — Medium: consistent priority icons.** None: no icon; Low: gray `!`;
+  Medium: soft yellow leaning orange; High: red rounded-triangle outline with
+  red `!`. Use the same designs at smaller sizes in the summary counters.
+- [ ] **9 — Medium: new branding across platforms.** Replace the header,
+  launcher/application icons and splash branding with a filled blue diagonal
+  infinity shape, running top-left to bottom-right, with a white tick in each loop.
+- [ ] **10 — High: coherent editor Save/Cancel controls.** Replace Done with
+  top-right Save, add top-left Cancel, and remove both confusing X controls.
+  Save closes the editor; never leave its empty outer window open.
+- [ ] **11 — High: cancellable item drafts and stable text editing.**
+  - [ ] Fix the reported note-cursor jump; stage title/notes/tags/due date/priority
+    and automatic completion until Save or a valid existing-editor outside tap.
+    Cancel discards the draft. Apply the same policy to task and folder editors.
+  - [ ] With unsaved changes, Back/Escape and desktop item/view/collection
+    switches prompt Save/Discard/Keep editing. New-item outside taps prompt
+    Create/Discard/Keep editing. Invalid existing-editor outside saves stay open.
+  - [ ] Retain unfinished drafts separately and offer restore/discard after an
+    app close/crash. Keep external document save/recovery barriers intact.
+  - [ ] Apply visibility settings immediately. Newly created collection tags
+    survive item Cancel, but cancelled assignments do not. Conversion and
+    Link/Unlink/Delete are separate operations after resolving unfinished edits.
+- [ ] **12 — Low: move the update indicator.** Put all its states immediately
+  left of the top-right three-dot menu; reserve its space while hidden so header
+  content does not shift.
+- [ ] **Additional approved work — revise Unlink/Delete and add Link/Copy.**
+  - [ ] Two or more appearances: offer both Unlink and Delete; one appearance:
+    Delete only. Delete removes the item everywhere and always confirms. For
+    multiple appearances, explain the global effect and direct users to Unlink
+    for local removal. Preserve children that have surviving appearances elsewhere.
+  - [ ] Keep linked parents' children shared. Block a child Unlink that would
+    affect other parent appearances; identify the blocking linked parent and
+    offer Cancel or replacement of the selected parent occurrence with a full,
+    independent copy. Then delete the selected copied child/descendants, leaving
+    originals elsewhere untouched. Force full depth/every appearance independent
+    for this special operation; do not leave the removed copied branch at top level.
+  - [ ] Add a searchable Link/Copy destination popup for tasks/folders/Top level.
+    Default to Link, with copy depth disabled. Bottom actions: Cancel and a single
+    mode-dependent Link to/Copy to. Info expands the popup with two explanations.
+  - [ ] Copy defaults to source only, linking its children. Offer available
+    depths and All descendants. By default copy each unique item once, preserving
+    internal links; an unchecked Make every appearance independent option disables
+    reuse when checked. Deeper references reuse an item copied within the depth.
+  - [ ] Exclude self/descendants in Link mode. Copying into self/descendants is
+    allowed only with All descendants: automatically select/lock that depth and
+    show an explanation. Preserve acyclicity and original identities elsewhere.
+
+Dependencies: migration safety before any feature that converts existing stored
+data; 7 before 6; 8 before 5; collection/default support from 7 also
+supports 5; 10 and 11 together. Coordinate 3 with the revised linking/removal
+contract. Earlier intermediate choices permitting different child lists for two
+linked appearances, and the old three-button Link/Copy design, were superseded.
+
+This section records pending work, not completed tests or physical acceptance.
+See the specification for the exact editor action matrix and copy examples.
 
 ## Remaining agreed work
 
@@ -222,6 +385,9 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
   Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
   Owner semantics confirmed 2026-10-14. Shared implementation and automated
   domain/UI checks are complete; physical acceptance remains pending.
+  The 2026-10-28 backlog above revises this baseline's menu, global Delete and
+  blocked-child Unlink behavior. Checked entries below record the earlier
+  implementation; they are not evidence that the new behavior is implemented.
   - [x] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
     its data, and its remaining placements.
@@ -398,8 +564,6 @@ and verification.
 
 ## Optional features to discuss
 
-- [ ] Delete items everywhere, clearly distinguished from removing one placement;
-  decide how shared subitems and recovery/trash should behave.
 - [ ] Undo/redo for edits, moves, and completion changes.
 - [ ] Quick search without creating a saved filter view.
 - [ ] Import exported JSON, with rules for restoring versus merging collections.

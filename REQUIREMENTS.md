@@ -3,6 +3,24 @@
 Updated 2026-10-14. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
+## Approved changes awaiting implementation
+
+The [2026-10-28 Changes.docx specification](docs/changes-2026-10-28.md) and
+[checklist backlog](docs/FEATURE_CHECKLIST.md#owner-clarified-changesdocx-backlog)
+record the owner's later approved changes, including cancellable item drafts,
+appearance counts, global Delete/blocked child Unlink, configurable Link/Copy,
+sorting, indicators and tag suggestions. They are not implemented by this
+documentation update. The sections below describe the existing prototype;
+use the later specification when implementing the approved changes rather
+than treating the old removal/autosave behavior as the new target.
+
+The owner also requires a [migration safety gate](docs/changes-2026-10-28.md#14-migration-safety-prerequisite):
+where migration is necessary, first create and verify a backup beside the original
+collection or in an authorized backup folder. Stop if backup fails; migrate a
+separate candidate and validate it before guarded publication. Preserve recovery
+data and automatically persist exportable, redacted failure diagnostics. This is
+an implementation prerequisite, not an already-implemented backup guarantee.
+
 ## Model
 
 Every task and folder has a positive document-local ID independent of its

@@ -1,5 +1,14 @@
 # Portable .ihtd document storage
 
+## Required safety for upcoming migrations
+
+The owner-approved [migration safety prerequisite](changes-2026-10-28.md#14-migration-safety-prerequisite)
+requires a verified backup beside the original collection or in an authorized
+backup folder before migrating, a separately validated candidate before guarded
+publication, and automatically persisted/exportable redacted failure logs.
+This is pending implementation. The existing format/migration description below
+does not establish that these stronger backup and logging safeguards are present.
+
 ## Format and publication
 
 An .ihtd document is a self-contained SQLite file with application ID
