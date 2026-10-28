@@ -23,6 +23,11 @@ of cross-platform completion. Follow the implemented
   `crates/ihtd_core`, storage/application commands in `crates/ihtd_app`.
 - Flutter Rust Bridge 2.13.0; bridge toolchain Rust 1.93.1 is pinned in
   `app/rust/rust-toolchain.toml`. Keep generated bindings consistent with APIs.
+- The owner-clarified [Changes.docx backlog](docs/changes-2026-10-28.md) is
+  approved but not implemented. It revises editor drafts, linking/removal/copying
+  and other UI/model behavior described below. Read it and the checklist before
+  implementing those tasks; older passing checks describe the baseline only.
+  Ask about new ambiguities rather than inventing product behavior.
 - Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android development
   targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
   copies and local recovery; physical phone validation remains outstanding.
