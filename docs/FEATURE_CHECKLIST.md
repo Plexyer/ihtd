@@ -15,6 +15,41 @@ priorities, examples and later linking/copying rework. All items below are pendi
 implementation. Keep general logic/UI shared across Android, Windows and Fedora.
 Ask the owner about genuinely unresolved behavior rather than inventing defaults.
 
+### Implementation order
+
+Agreed 2026-10-28. Numbers in parentheses refer to the specification's original
+feature numbers, not new priorities. Use this order when planning implementation:
+
+1. **Migration safety foundation:** verified backups, staged migration,
+   recovery and automatic failure diagnostics before converting existing data.
+2. **Editor drafts and Save/Cancel (11 + 10):** implement together, including
+   stable cursor behavior, cancellation, exit prompts and draft recovery.
+3. **Collection settings and default inheritance (7):** provide the settings
+   needed by indicators and tag suggestions.
+4. **Linking/copying/removal and Links counter (13 + 3):** first appearance
+   counting and copy primitives, then global Delete, blocked-Unlink replacement
+   and the Link/Copy dialogs.
+5. **Sorting and drag insertion (4):** shared manual order and per-view automatic
+   sorting against the clarified hierarchy behavior.
+6. **Priority icons (8):** prepare the shared designs needed by indicators.
+7. **Summary indicators (5):** build on settings, inheritance and priority icons.
+8. **Tag picker and popularity (6):** build on collection settings and committed
+   item drafts.
+9. **Protected All tasks view (1):** include preservation of existing customized
+   views during migration.
+10. **Additional Create button (2):** integrate with the settled editor behavior.
+11. **Branding and update-indicator placement (9 + 12):** coordinate header changes
+    and platform icon/splash assets.
+12. **Full upgrade and device testing:** verify upgrades, data preservation,
+    recovery and changed features on Pixel/GrapheneOS, Samsung, Windows and Fedora
+    before release.
+
+Steps 6, 9 and 11 are mostly independent and may be brought forward. Migration
+and preservation tests accompany every data-changing step; do not defer them
+until step 12. This order is a plan, not completed implementation.
+
+### Pending implementation tasks
+
 - [ ] **Migration safety prerequisite — before migrating existing data.**
   - [ ] Determine whether a migration is actually required, including semantic
     transformations that change existing data without changing a schema number.
