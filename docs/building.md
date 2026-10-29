@@ -259,3 +259,11 @@ widget tests inject an in-memory draft store to isolate UI/fake-clock behavior;
 repository/unit and native integration tests use actual private files. See
 [item draft behavior and physical acceptance](item-editor-drafts.md). No collection
 schema migration or app version bump is needed for this editor task.
+
+## Collection settings verification
+
+Run Rust/Flutter tests and native `integration_test/collection_settings_test.dart`
+with the same desktop target/Xvfb wrapper as the other native tests. Windows and
+Fedora pipelines include it. Frozen schema-2 fixtures check read-only defaults
+and save/reopen preservation; the native test covers private drafts, external
+file disconnection and restart. See [settings acceptance](collection-settings.md).

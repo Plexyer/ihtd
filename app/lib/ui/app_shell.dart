@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/app_controller.dart';
 import '../services/item_draft.dart';
 import 'item_editor.dart';
+import 'collection_settings.dart';
 import 'item_removal.dart';
 import 'item_drag.dart';
 import 'shared.dart';
@@ -274,6 +275,8 @@ class _FileBar extends ConsumerWidget {
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'settings':
+                  showCollectionSettings(context, app);
                 case 'about':
                   showIhtdAbout(context);
                 case 'updates':
@@ -298,6 +301,11 @@ class _FileBar extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
+              if (app.document != null)
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Text('Settings…'),
+                ),
               const PopupMenuItem(
                 value: 'about',
                 child: Text('About and licenses…'),

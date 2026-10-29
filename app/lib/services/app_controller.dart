@@ -89,6 +89,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   String? get path => _documents.externalLocation ?? _workingPath;
   Map<String, dynamic>? document;
   Map<String, dynamic> completion = {};
+  Map<String, dynamic> collectionSettings = {};
   Map<String, dynamic> placements = {};
   Map<String, dynamic> viewIssues = {};
   List<Map<String, dynamic>> rows = [];
@@ -604,6 +605,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     _workingPath = nextPath;
+    collectionSettings = _map(state['collection_settings']);
     completion = _map(state['completion']);
     placements = _map(state['placements']);
     viewIssues = _map(state['view_issues']);

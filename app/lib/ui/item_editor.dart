@@ -9,6 +9,7 @@ import 'shared.dart';
 import 'item_removal.dart';
 import 'guarded_editor_route.dart';
 import 'editor_dialog.dart';
+import 'collection_settings.dart';
 
 Future<DraftExitChoice> chooseItemDraftExit(
   BuildContext context,
@@ -552,6 +553,18 @@ class _ItemEditorState extends State<ItemEditor> {
                   ),
               ],
               if (!d.isNew) ...[
+                OutlinedButton.icon(
+                  onPressed: disabled
+                      ? null
+                      : () => showIndicatorSettings(
+                          context,
+                          app,
+                          itemId: id!,
+                          viewId: d.viewId,
+                        ),
+                  icon: const Icon(Icons.tune),
+                  label: const Text('Summary indicator settings…'),
+                ),
                 const SectionLabel('Visibility in this view'),
                 if (folder) ...[
                   SwitchListTile(

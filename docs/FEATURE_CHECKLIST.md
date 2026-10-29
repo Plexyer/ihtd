@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-28 with the owner's clarified Changes.docx backlog.
+Updated 2026-10-29 with implementation evidence for the owner's clarified backlog.
 The section below and the existing agreed-work sections contain approved
 requirements. Optional suggestions still require discussion. Implementation and validation evidence are tracked separately; an approved
 requirement is not automatically complete. The migration foundation below is an
@@ -115,9 +115,19 @@ until step 12. This order is a plan, not completed implementation.
     automatic/copied assignments. Influence halves after 3 days by default;
     configure that period in collection settings. Older collections start without
     usage scores and use alphabetical suggestions until usage establishes rank.
-- [ ] **7 — Medium: collection Settings page.** Add Settings to the top-right
-  menu. Include tag suggestion count/fading period and collection-level indicator
-  defaults; support the agreed parent/default/view override hierarchy.
+- [ ] **7 — Medium: collection Settings page.**
+  - [x] Add Settings to the top-right menu, with isolated Save/Cancel and validated
+    tag suggestion count (default 5) and fading half-life (default 3 days).
+  - [x] Store collection indicator defaults, optional shared defaults per parent
+    and independent parent/view overrides. Allow each field to resume inheritance.
+  - [x] Provide shared controls, reject stale/different-collection saves, preserve
+    existing visibility and document-save safeguards, and verify old-file retention.
+  - [ ] Verify physical upgrades, keyboard/layout behavior and cross-platform
+    collection transfer on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Implementation candidate: [collection settings and acceptance](collection-settings.md).
+  Optional metadata needs no conversion of existing schema-2 data; loading defaults
+  does not rewrite files. Summary metrics and tag-picker/popularity behavior remain
+  in items 5/6; these settings provide their shared foundation.
 - [ ] **8 — Medium: consistent priority icons.** None: no icon; Low: gray `!`;
   Medium: soft yellow leaning orange; High: red rounded-triangle outline with
   red `!`. Use the same designs at smaller sizes in the summary counters.
@@ -175,8 +185,8 @@ supports 5; 10 and 11 together. Coordinate 3 with the revised linking/removal
 contract. Earlier intermediate choices permitting different child lists for two
 linked appearances, and the old three-button Link/Copy design, were superseded.
 
-This section records pending work, not completed tests or physical acceptance.
-See the specification for the exact editor action matrix and copy examples.
+Checked subitems record implemented scope; physical acceptance remains separately
+open. See the specification for the exact editor action matrix and copy examples.
 
 ## Remaining agreed work
 
