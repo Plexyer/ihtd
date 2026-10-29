@@ -7,6 +7,21 @@ class DocumentWriterTest {
     private val old = "original".toByteArray()
     private val edited = "edited".toByteArray()
 
+    @Test fun backupRequiresANewEmptyDocumentAndVerifiesTheOriginalBytes() {
+        var backup = ByteArray(0)
+        DocumentWriter.backup(old, { backup }) { backup = it }
+        assertArrayEquals(old, backup)
+        var writes = 0
+        assertThrows(DocumentWriter.Failure::class.java) {
+            DocumentWriter.backup(edited, { old }) { writes++ }
+        }
+        assertEquals(0, writes)
+        assertThrows(DocumentWriter.Failure::class.java) {
+            DocumentWriter.backup(old, { old }) { writes++ }
+        }
+        assertEquals(0, writes)
+    }
+
     @Test fun publishesAndVerifies() {
         var remote = old
         val result = DocumentWriter.publish(edited, DocumentWriter.hash(old), { remote }) { remote = it }

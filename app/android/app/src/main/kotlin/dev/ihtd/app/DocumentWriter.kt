@@ -8,6 +8,17 @@ internal object DocumentWriter {
     fun hash(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(bytes).joinToString("") { "%02x".format(it) }
 
+    /** A backup must be a newly created empty document, never an already-matching
+     * alias of the source. Unlike normal publication, there is no interrupted-
+     * save shortcut that accepts existing matching bytes as success. */
+    fun backup(bytes: ByteArray, read: () -> ByteArray, write: (ByteArray) -> Unit): String {
+        if (read().isNotEmpty()) throw Failure("external_changed")
+        try { write(bytes) } catch (_: Exception) { throw Failure("write_failed") }
+        val verified = try { hash(read()) } catch (_: Exception) { throw Failure("verification_failed") }
+        if (verified != hash(bytes)) throw Failure("verification_failed")
+        return verified
+    }
+
     fun publish(bytes: ByteArray, expected: String, read: () -> ByteArray, write: (ByteArray) -> Unit): String {
         val digest = hash(bytes)
         val remote = hash(read())

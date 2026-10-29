@@ -13,6 +13,7 @@ import '../src/rust/api/simple.dart' as api;
 import 'document_save_coordinator.dart';
 import 'document_adapter.dart';
 import 'document_composition.dart';
+import 'migration_contract.dart';
 
 final appProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
@@ -34,6 +35,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
            ),
        _command = command ?? ((request) => api.command(request: request)),
        _supportDirectory = supportDirectory ?? getApplicationSupportDirectory {
+    _documents.migrations.command = _command;
     WidgetsBinding.instance.addObserver(this);
     _documents.onStateChanged = _syncDocumentStatus;
     ready = _initialize();
@@ -55,7 +57,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   bool _localPersistenceFailed = false;
   String? _recoveryPath;
   void _syncDocumentStatus() {
-    if (_documents.binding != null) {
+    if (_documents.binding != null || _documents.migrations.hasIssue) {
       status =
           _mutating &&
               !_documents.hasIssue &&
@@ -139,16 +141,30 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final dir = await _supportDirectory();
       await _send({'op': 'initialize', 'recovery_dir': '${dir.path}/recovery'});
-      final previous = await _documents.initialize();
+      _documents.migrations.recoveryDirectory = '${dir.path}/recovery';
+      var previous = await _documents.initialize();
+      final storedPrevious = previous;
+      if (previous != null) {
+        previous = await _documents.migrations.prepare(
+          previous,
+          retained: true,
+          automatic: true,
+        );
+      }
       if (previous != null) {
         await _send({
           'op': 'open',
           'path': previous['path'],
           'recover_local': true,
-          if (previous['localDirty'] == true &&
+          'recovery_if_newer': previous['localDirty'] != true,
+          if ((previous['localDirty'] == true ||
+                  previous['migrationAttempt'] != null) &&
               previous['recoveryPath'] != null)
             'recovery_path': previous['recoveryPath'],
         });
+        if (!identical(previous, storedPrevious)) {
+          await _documents.attach(previous, retained: true);
+        }
         await refreshRows();
         try {
           await _documents.checkpoint(
@@ -179,13 +195,18 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           'preserve_pending': true,
         });
         await _documents.attach(staged);
+        if (staged['migrationAttempt'] != null) await _documents.publish();
         await refreshRows();
         notifyListeners();
       }
     } catch (e) {
       error = '$e';
+      if (_documents.migrations.hasIssue) status = _documents.summary;
       if (_documents.binding != null) {
-        if (e is DocumentFailure && e.kind != DocumentFailureKind.localFailed) {
+        if (e is MigrationFailure) {
+          status = _documents.summary;
+        } else if (e is DocumentFailure &&
+            e.kind != DocumentFailureKind.localFailed) {
           await _documents.check();
         } else {
           await _documents.markLocalFailure();
@@ -237,9 +258,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<Map<String, dynamic>> _send(Map<String, dynamic> command) async {
+    if (command['op'] == 'open') {
+      final expected = await _documents.migrations.expectedHashForOpen(
+        command['path'] as String,
+      );
+      if (expected != null) command = {...command, 'expected_hash': expected};
+    }
     final response = _map(jsonDecode(await _command(jsonEncode(command))));
     _apply(response['snapshot']);
-    if (response['ok'] != true) throw StateError('${response['error']}');
+    if (response['ok'] != true) {
+      if (command['op'] == 'open') {
+        await _documents.migrations.candidateOpenFailed(
+          command['path'] as String,
+        );
+      }
+      throw StateError('${response['error']}');
+    }
     return _map(response['data']);
   }
 
@@ -481,7 +515,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       if (action == 'open' || action == 'new') {
         await storage.check();
-        if (storage.pending || storage.hasIssue) {
+        if (storage.binding != null && (storage.pending || storage.hasIssue)) {
           final confirmed =
               await confirmDocumentAction?.call(
                 'Switch collection?',
@@ -502,6 +536,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           'preserve_pending': true,
         });
         await storage.attach(staged);
+        if (staged['migrationAttempt'] != null) await storage.publish();
         status = storage.summary;
       } else {
         final extension = format == 'markdown' ? 'md' : format ?? 'ihtd';
@@ -655,6 +690,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     flush: false,
   );
 
+  Future<void> chooseMigrationBackupFolder() => _documentAction(
+    (storage) => storage.migrations.chooseBackupFolder(),
+    flush: false,
+  );
+
+  Future<void> exportMigrationFile(String path) =>
+      _documentAction((storage) async {
+        // Only locations from private migration journals are offered by the UI.
+        final selected = await storage.pick(
+          suggested: path.endsWith('.json')
+              ? 'IHTD-recovered-metadata.json'
+              : 'IHTD-recovered-collection.ihtd',
+        );
+        if (selected != null) await storage.copyTo(selected, path);
+      }, flush: false);
+
   Future<void> restoreRetained(Map<String, dynamic> saved) => _documentAction((
     storage,
   ) async {
@@ -668,12 +719,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         false;
     if (!confirmed) return;
     await storage.archive();
+    saved = await storage.migrations.prepare(saved, retained: true);
     await _send({
       'op': 'open',
       'path': saved['path'],
       'recover_local': true,
+      'recovery_if_newer': saved['localDirty'] != true,
       'preserve_pending': true,
-      if (saved['localDirty'] == true && saved['recoveryPath'] != null)
+      if ((saved['localDirty'] == true || saved['migrationAttempt'] != null) &&
+          saved['recoveryPath'] != null)
         'recovery_path': saved['recoveryPath'],
     });
     await storage.attach(saved, retained: true);

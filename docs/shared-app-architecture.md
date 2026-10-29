@@ -61,6 +61,14 @@ access; desktop adapters currently provide explicit manual release-page handoff
 until trusted package signatures are configured. Document checkpoint policy stays
 in AppController/DocumentSaveCoordinator. See [update acceptance](update-acceptance.md).
 
+Shared migrations: `services/migration_safety.dart` owns backup gates, attempt
+journals, restart handling, failure logs and recovery export. Rust migration
+operations inspect without mutable model open and validate separate candidates;
+model sessions reject old schemas. `MigrationBackupAdapter` supplies only folder
+access and create-new backups. Publication stays in DocumentSaveCoordinator.
+Read [migration safety](migration-safety.md) before adding a schema or semantic
+conversion; current-format UI work must not invent a migration.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

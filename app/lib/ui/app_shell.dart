@@ -57,7 +57,8 @@ class AppShell extends ConsumerWidget {
                     ),
                   ),
                   if ((app.document != null ||
-                          app.documentServices.binding != null) &&
+                          app.documentServices.binding != null ||
+                          app.documentServices.migrations.hasIssue) &&
                       (constraints.maxWidth <= 540 || app.documentIssue))
                     DocumentStatus(app: app),
                   if (app.busy) const LinearProgressIndicator(minHeight: 2),

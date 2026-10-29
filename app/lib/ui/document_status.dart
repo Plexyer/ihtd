@@ -153,6 +153,75 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
     if (choice != null) await widget.app.restoreRetained(choice);
   }
 
+  Future<void> migrationRecovery(DocumentSaveCoordinator storage) async {
+    late List<Map<String, dynamic>> attempts;
+    try {
+      attempts = await storage.migrations.recoveryAttempts();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => result = 'Recovery details could not be read. Check local storage; existing files have not been changed.',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Upgrade recovery files'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'These private originals and candidates are retained. Open a verified backup through Open collection to inspect it separately. Export copies before replacing any changed external file.',
+                ),
+                for (final attempt in attempts) ...[
+                  SelectableText(
+                    "Attempt: ${attempt['id']}\nStage: ${attempt['stage']}\n"
+                    "${[for (final b in (attempt['backups'] as List? ?? []))
+                      if (b['verified'] == true) 'Backup: ${b['reference']['locator']}'].join('\n')}\n",
+                  ),
+                  for (final entry in <String, String?>{
+                    'original':
+                        (attempt['original'] as Map?)?['path'] as String? ??
+                        attempt['metadataSource'] as String?,
+                    'external snapshot': attempt['externalSnapshot'] as String?,
+                    for (
+                      var i = 0;
+                      i < (attempt['candidates'] as List? ?? []).length;
+                      i++
+                    )
+                      'candidate ${i + 1}':
+                          attempt['candidates'][i]['path'] as String?,
+                    'recovery':
+                        (attempt['original'] as Map?)?['recoveryPath']
+                            as String?,
+                  }.entries)
+                    if (entry.value != null)
+                      TextButton(
+                        onPressed: () =>
+                            widget.app.exportMigrationFile(entry.value!),
+                        child: Text('Save ${entry.key} as a separate copy…'),
+                      ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.app,
@@ -174,6 +243,22 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
                 ),
                 const SizedBox(height: 12),
                 Text(storage.explanation),
+                if (storage.migrations.hasIssue) ...[
+                  for (final location in storage.migrations.backupLocations)
+                    SelectableText('Verified backup: $location'),
+                  TextButton(
+                    onPressed: app.busy
+                        ? null
+                        : app.chooseMigrationBackupFolder,
+                    child: const Text('Choose authorized backup folder…'),
+                  ),
+                  TextButton(
+                    onPressed: app.busy
+                        ? null
+                        : () => migrationRecovery(storage),
+                    child: const Text('Upgrade recovery files…'),
+                  ),
+                ],
                 if (app.error != null) ...[
                   const SizedBox(height: 12),
                   Text(app.error!),
@@ -187,7 +272,8 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (storage.hasIssue || storage.pending)
+                    if ((storage.hasIssue || storage.pending) &&
+                        !storage.migrations.hasIssue)
                       FilledButton(
                         onPressed: app.busy
                             ? null
@@ -250,6 +336,13 @@ class _DocumentIssueDialogState extends State<DocumentIssueDialog> {
                       onPressed: app.busy ? null : retained,
                       child: const Text('Retained working copies…'),
                     ),
+                    if (!storage.migrations.hasIssue)
+                      TextButton(
+                        onPressed: app.busy
+                            ? null
+                            : () => migrationRecovery(storage),
+                        child: const Text('Upgrade backups and recovery…'),
+                      ),
                     if (result != null) Text(result!),
                   ],
                 ),

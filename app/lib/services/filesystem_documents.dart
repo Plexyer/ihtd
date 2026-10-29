@@ -6,8 +6,10 @@ import 'package:file_selector/file_selector.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'document_adapter.dart';
+import 'migration_contract.dart';
 
-class FilesystemDocumentAdapter implements DocumentAdapter {
+class FilesystemDocumentAdapter
+    implements DocumentAdapter, MigrationBackupAdapter {
   FilesystemDocumentAdapter(this.command);
   final Future<String> Function(String) command;
   @override
@@ -120,4 +122,30 @@ class FilesystemDocumentAdapter implements DocumentAdapter {
       'allow_missing': create,
     }),
   );
+  @override
+  bool get backupFolderRequired => false;
+  @override
+  Future<DocumentReference?> pickBackupFolder() async {
+    final selected = await getDirectoryPath(
+      confirmButtonText: 'Use backup folder',
+    );
+    return selected == null ? null : referenceFor(selected);
+  }
+
+  @override
+  Future<DocumentReference> createMigrationBackup({
+    required DocumentReference source,
+    required String snapshotPath,
+    required String name,
+    DocumentReference? folder,
+  }) async {
+    final result = await _operation({
+      'action': 'backup',
+      'destination': source.locator,
+      'working': snapshotPath,
+      'name': name,
+      'folder': folder?.locator,
+    });
+    return referenceFor(result['path'] as String);
+  }
 }

@@ -10,6 +10,7 @@ class ArchitectureBoundaryTest(unittest.TestCase):
     def test_shared_policy_and_ui_do_not_select_platforms_or_import_native_adapters(self):
         paths = list((ROOT / 'app/lib/ui').glob('*.dart'))
         paths += [ROOT / 'app/lib/services/document_save_coordinator.dart',
+                  ROOT / 'app/lib/services/migration_safety.dart',
                   ROOT / 'app/lib/services/app_controller.dart',
                   ROOT / 'app/lib/services/update_coordinator.dart',
                   ROOT / 'app/lib/services/update_catalog.dart']

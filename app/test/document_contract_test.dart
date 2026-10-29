@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:app/services/document_adapter.dart';
 import 'package:app/services/document_save_coordinator.dart';
+import 'package:app/services/migration_contract.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeAdapter implements DocumentAdapter {
@@ -280,9 +281,19 @@ void main() {
     );
     await expectLater(
       coordinator.initialize(),
-      throwsA(isA<FileSystemException>()),
+      throwsA(isA<MigrationFailure>()),
     );
     expect(await old.readAsString(), original);
+    expect(
+      await coordinator.migrations.exportLog(),
+      contains('metadata_failed'),
+    );
+    final backups = await legacy
+        .list()
+        .where((file) => file.path.contains('before-upgrade'))
+        .toList();
+    expect(backups, hasLength(1));
+    expect(await File(backups.single.path).readAsString(), original);
     expect(await File('${support.path}/documents/active.json').exists(), false);
     await blocker.delete();
     await coordinator.initialize();
@@ -332,4 +343,53 @@ void main() {
     await coordinator.diagnostics.flush();
     await support.delete(recursive: true);
   });
+  for (final type in ['future', 'corrupt']) {
+    test(
+      '$type registry is preserved and cannot be silently downgraded by a background check',
+      () async {
+        final support = await Directory.systemTemp.createTemp(
+          'ihtd-registry-guard-',
+        );
+        final docs = Directory('${support.path}/documents');
+        await docs.create();
+        final active = File('${docs.path}/active.json');
+        final original = type == 'future'
+            ? jsonEncode({
+                'version': 4,
+                'reference': {
+                  'kind': 'android',
+                  'locator': 'private-future-uri',
+                },
+                'path': 'private-future-working',
+                'pending': true,
+              })
+            : '{incomplete private metadata';
+        await active.writeAsString(original);
+        final adapter = FakeAdapter('android');
+        final coordinator = DocumentSaveCoordinator(
+          adapter: adapter,
+          supportDirectory: () async => support,
+        );
+        await expectLater(
+          coordinator.initialize(),
+          throwsA(isA<MigrationFailure>()),
+        );
+        expect(coordinator.binding, isNull);
+        await coordinator.check();
+        expect(await active.readAsString(), original);
+        final backups = await docs
+            .list()
+            .where((file) => file.path.contains('before-upgrade'))
+            .toList();
+        expect(backups, hasLength(1));
+        expect(await File(backups.single.path).readAsString(), original);
+        final log = await coordinator.migrations.exportLog();
+        expect(log, isNot(contains('private-future')));
+        expect(log, isNot(contains('incomplete private')));
+        expect(adapter.writes, 0);
+        await coordinator.diagnostics.flush();
+        await support.delete(recursive: true);
+      },
+    );
+  }
 }

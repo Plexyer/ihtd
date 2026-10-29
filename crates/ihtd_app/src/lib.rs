@@ -1,5 +1,6 @@
 pub mod export;
 pub mod filesystem;
+pub mod migration;
 pub mod presentation;
 pub mod storage;
 
@@ -55,6 +56,14 @@ fn decode<T: serde::de::DeserializeOwned>(v: &Value) -> Result<T, String> {
 impl Backend {
     pub fn execute(&mut self, request: &str) -> String {
         if let Ok(value) = serde_json::from_str::<Value>(request) {
+            if value["op"] == "migration" {
+                return match migration::execute(&value) {
+                    Ok(data) => json!({"ok":true,"data":data}).to_string(),
+                    Err(migration::Failure(code)) => {
+                        json!({"ok":false,"error_code":code,"error":code}).to_string()
+                    }
+                };
+            }
             if value["op"] == "filesystem" {
                 return match filesystem::execute(&value) {
                     Ok(data) => json!({"ok":true,"data":data}).to_string(),
@@ -102,11 +111,19 @@ impl Backend {
                 let mut next = if op == "new" {
                     Session::new(path, &self.recovery_dir)?
                 } else {
-                    Session::open(path, &self.recovery_dir)?
+                    Session::open_expected(
+                        path,
+                        &self.recovery_dir,
+                        request["expected_hash"].as_str(),
+                    )?
                 };
                 if op == "open" {
                     if let Some(recovery) = request.get("recovery_path").and_then(Value::as_str) {
-                        next.restore_recovery(std::path::Path::new(recovery))?;
+                        if flag(&request, "recovery_if_newer") {
+                            next.restore_recovery_if_newer(std::path::Path::new(recovery))?;
+                        } else {
+                            next.restore_recovery(std::path::Path::new(recovery))?;
+                        }
                     }
                     if request
                         .get("recover_local")

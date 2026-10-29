@@ -8,6 +8,7 @@ import 'document_adapter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'document_diagnostics.dart';
+import 'migration_safety.dart';
 
 enum DocumentConnection {
   checking,
@@ -46,6 +47,7 @@ class DocumentSaveCoordinator {
   }) : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory;
   final Future<Directory> Function() _supportDirectory;
   final DocumentAdapter adapter;
+  late final migrations = MigrationSafety(adapter, diagnostics);
   final List<Directory> _legacyDirectories = [];
   DocumentReference referenceOf(Map<String, dynamic> record) =>
       record['reference'] is Map
@@ -78,9 +80,11 @@ class DocumentSaveCoordinator {
   final diagnostics = DocumentDiagnostics();
   String? get name => binding?['name'] as String?;
   bool get hasIssue =>
-      binding != null && connection != DocumentConnection.connected;
-  bool get severe => state.severe;
+      migrations.hasIssue ||
+      (binding != null && connection != DocumentConnection.connected);
+  bool get severe => state.severe || migrations.severe;
   String get summary {
+    if (migrations.hasIssue) return migrations.summary;
     if (publishing) return 'Saving to file…';
     if (connection == DocumentConnection.localFailed || !localDurable) {
       return 'Local saving failed — edits may be at risk';
@@ -105,6 +109,7 @@ class DocumentSaveCoordinator {
   }
 
   String get explanation {
+    if (migrations.hasIssue) return migrations.explanation;
     final where = localDurable
         ? (pending
               ? 'Your pending edits are retained locally and have not been confirmed in the external file.'
@@ -141,6 +146,8 @@ class DocumentSaveCoordinator {
         await adapter.environment(),
       );
     } catch (_) {}
+    migrations.onChanged = () => onStateChanged?.call();
+    await migrations.initialize(directory);
     final file = File('${directory.path}/active.json');
     if (!await file.exists()) {
       for (final legacyName in adapter.legacyRegistryNames) {
@@ -148,10 +155,10 @@ class DocumentSaveCoordinator {
         final active = File('${legacy.path}/active.json');
         if (await active.exists()) {
           // Copy only metadata. Existing working/recovery files remain intact.
-          final old = Map<String, dynamic>.from(
-            jsonDecode(await active.readAsString()),
+          await migrations.protectMetadata(
+            active,
+            (metadata) => _rememberVerified(metadata),
           );
-          await remember(old);
           break;
         }
       }
@@ -160,9 +167,15 @@ class DocumentSaveCoordinator {
       _legacyDirectories.add(Directory('${support.path}/$legacyName'));
     }
     if (await file.exists()) {
-      binding = Map<String, dynamic>.from(
-        jsonDecode(await file.readAsString()),
-      );
+      final loaded = await migrations.readMetadata(file);
+      if (loaded['version'] != 3) {
+        await migrations.protectMetadata(
+          file,
+          (metadata) => _rememberVerified(metadata),
+        );
+      } else {
+        binding = loaded;
+      }
       connection = _state(binding?['barrier']);
       pending = binding?['pending'] == true;
       _untrackedSave = binding?['untrackedSave'] == true;
@@ -196,8 +209,22 @@ class DocumentSaveCoordinator {
     _needsPersistence = true;
     final temp = File('${directory.path}/active.json.tmp');
     await temp.writeAsString(jsonEncode(binding), flush: true);
+    if (jsonEncode(jsonDecode(await temp.readAsString())) !=
+        jsonEncode(binding)) {
+      throw const FormatException('Registry candidate verification failed');
+    }
     await temp.rename('${directory.path}/active.json');
     _needsPersistence = false;
+  }
+
+  Future<void> _rememberVerified(Map<String, dynamic> record) async {
+    await remember(record);
+    final verified = jsonDecode(
+      await File('${directory.path}/active.json').readAsString(),
+    );
+    if (jsonEncode(verified) != jsonEncode(binding)) {
+      throw const FormatException('Registry verification failed');
+    }
   }
 
   Future<void> _persist() async {
@@ -255,7 +282,12 @@ class DocumentSaveCoordinator {
     }
     final path = freshPath();
     await File(path).writeAsBytes(content['bytes'] as Uint8List, flush: true);
-    return {...picked, ...metadata, 'path': path, 'hash': content['hash']};
+    return migrations.prepare({
+      ...picked,
+      ...metadata,
+      'path': path,
+      'hash': content['hash'],
+    });
   }
 
   Future<void> attach(
@@ -344,10 +376,26 @@ class DocumentSaveCoordinator {
   };
   Future<void> publish() async {
     if (binding == null) return;
+    if (migrations.issue?['original'] is Map) {
+      final original = Map<String, dynamic>.from(migrations.issue!['original']);
+      if (referenceOf(original).sameLocation(referenceOf(binding!)) &&
+          (binding!['migrationAttempt'] == null ||
+              binding!['migrationAttempt'] == migrations.issue?['id'])) {
+        return;
+      }
+    }
     await check();
     if (connection != DocumentConnection.connected || !pending || localDirty) {
+      if (binding!['migrationAttempt'] != null) {
+        await migrations.publicationFinished(
+          binding!['migrationAttempt'] as String,
+          false,
+        );
+      }
       return;
     }
+    final migrationId = binding!['migrationAttempt'] as String?;
+    if (migrationId != null) await migrations.publicationStarted(migrationId);
     publishing = true;
     diagnostics.record('publish_started', pending);
     // A killed write can be verified explicitly after restart, never retried
@@ -356,6 +404,9 @@ class DocumentSaveCoordinator {
     await _persist();
     if (!localDurable) {
       publishing = false;
+      if (migrationId != null) {
+        await migrations.publicationFinished(migrationId, false);
+      }
       return;
     }
     try {
@@ -375,6 +426,7 @@ class DocumentSaveCoordinator {
         'hash': hash,
         'barrier': null,
         'creating': false,
+        'migrationAttempt': null,
       });
       pending = await localHash() != hash;
       _untrackedSave = false;
@@ -405,6 +457,14 @@ class DocumentSaveCoordinator {
     } finally {
       publishing = false;
       await _persist();
+      if (migrationId != null) {
+        await migrations.publicationFinished(
+          migrationId,
+          connection == DocumentConnection.connected &&
+              !pending &&
+              localDurable,
+        );
+      }
     }
   }
 
@@ -553,26 +613,28 @@ class DocumentSaveCoordinator {
   Future<void> exportDiagnostics({bool extended = false}) async {
     final picked = await pick(suggested: 'IHTD-diagnostics.json');
     if (picked == null) return;
-    final output = diagnostics.export(
-      state: _eventCode(),
-      pending: pending,
-      recovery: {
-        'privateCommitPending': localDirty,
-        'localPersistenceConfirmed': localDurable,
-        'localRevision': binding?['localRevision'],
-        'lastFailureCode': lastFailure,
-      },
-      extended: extended
-          ? {
-              'confirmedName': name,
-              'currentName': observed?['name'],
-              'adapter': adapter.kind,
-              'size': observed?['size'],
-              'modified': observed?['modified'],
-              'flags': observed?['flags'],
-            }
-          : null,
-    );
+    final output = migrations.hasIssue
+        ? await migrations.exportLog()
+        : diagnostics.export(
+            state: _eventCode(),
+            pending: pending,
+            recovery: {
+              'privateCommitPending': localDirty,
+              'localPersistenceConfirmed': localDurable,
+              'localRevision': binding?['localRevision'],
+              'lastFailureCode': lastFailure,
+            },
+            extended: extended
+                ? {
+                    'confirmedName': name,
+                    'currentName': observed?['name'],
+                    'adapter': adapter.kind,
+                    'size': observed?['size'],
+                    'modified': observed?['modified'],
+                    'flags': observed?['flags'],
+                  }
+                : null,
+          );
     final path = freshPath('json');
     await File(path).writeAsString(output, flush: true);
     await copyTo(picked, path);

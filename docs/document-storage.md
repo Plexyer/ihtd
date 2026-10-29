@@ -6,14 +6,16 @@ The owner-approved [migration safety prerequisite](changes-2026-10-28.md#14-migr
 requires a verified backup beside the original collection or in an authorized
 backup folder before migrating, a separately validated candidate before guarded
 publication, and automatically persisted/exportable redacted failure logs.
-This is pending implementation. The existing format/migration description below
-does not establish that these stronger backup and logging safeguards are present.
+The shared implementation and remaining physical acceptance are described in
+[migration safety](migration-safety.md). Current schema-2 files need no conversion;
+legacy schema-1 files pass the verified-backup/candidate gate before model open.
 
 ## Format and publication
 
 An .ihtd document is a self-contained SQLite file with application ID
-0x49485444 and schema version 2. Version 1 files migrate on open and are saved
-as version 2 on their next change. Older apps reject the new format. Ordered
+0x49485444 and schema version 2. Version 1 files require a verified backup, migrate through a separate validated
+candidate, and publish through the guarded coordinator. Direct model open refuses
+an old schema; it cannot defer an unprotected conversion to the next edit. Older apps reject the new format. Ordered
 root placements are stored as root_order metadata, so a shared item can be
 at the top level and under another parent simultaneously. Tables contain metadata, items, tags, views,
 and ordered links. Each item occurs once in storage; views render its
