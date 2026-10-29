@@ -79,6 +79,15 @@ focus/composing subtrees with view editing. Read [item editor contracts](item-ed
 before adding fields or navigation; never reinstate live commits from onChanged,
 dispose, keyboard/lifecycle changes or background autosave.
 
+Shared collection settings: `crates/ihtd_core/src/settings.rs` owns collection
+values and per-indicator parent/view resolution, validation and atomic updates.
+Optional SQLite metadata carries these settings across platforms. Snapshots
+supply complete Rust defaults; `ui/collection_settings.dart` previews staged
+inheritance and uses guarded controller commands. Future metrics must use the
+shared resolved settings and avoid disabled calculations; tag popularity uses
+the stored count/half-life without replacing device update preferences.
+See [collection settings](collection-settings.md) for compatibility and acceptance.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

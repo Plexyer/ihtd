@@ -9,6 +9,7 @@ use ihtd_core::{
     graph::ItemId,
     model::{ContainerPreferences, ItemKind},
     removal::RemovalPreview,
+    settings::{CollectionSettings, IndicatorOverrides},
 };
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -86,7 +87,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
+                json!({"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
             }
         }
     }
@@ -356,6 +357,24 @@ impl Backend {
                 document.remove_view(number(&request, "id")?)?;
                 json!({})
             }
+            "set_collection_settings" => {
+                document.set_collection_settings(
+                    &decode::<CollectionSettings>(&request["expected_settings"])?,
+                    decode::<CollectionSettings>(&request["settings"])?,
+                )?;
+                json!({})
+            }
+            "set_indicator_settings" => {
+                document.set_indicator_settings(
+                    number(&request, "item_id")?,
+                    number(&request, "view_id")?,
+                    &decode::<IndicatorOverrides>(&request["expected_parent"])?,
+                    &decode::<IndicatorOverrides>(&request["expected_view"])?,
+                    decode::<IndicatorOverrides>(&request["parent_overrides"])?,
+                    decode::<IndicatorOverrides>(&request["view_overrides"])?,
+                )?;
+                json!({})
+            }
             "set_preferences" => {
                 document.set_container_preferences(
                     number(&request, "view_id")?,
@@ -545,5 +564,61 @@ mod removal_tests {
             1
         );
         assert_eq!(std::fs::read(other).unwrap(), b"untouched");
+    }
+}
+
+#[cfg(test)]
+mod settings_command_tests {
+    use super::*;
+    fn run(b: &mut Backend, request: Value) -> Value {
+        serde_json::from_str(&b.execute(&request.to_string())).unwrap()
+    }
+    #[test]
+    fn settings_commands_reject_stale_changes_and_preserve_unrelated_visibility() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        let initial = run(
+            &mut b,
+            json!({"op":"new","path":tmp.path().join("working.ihtd")}),
+        );
+        let mut settings = initial["snapshot"]["collection_settings"].clone();
+        assert_eq!(settings["tag_suggestion_count"], 5);
+        let expected = settings.clone();
+        settings["tag_half_life_days"] = json!(6);
+        let saved = run(
+            &mut b,
+            json!({"op":"set_collection_settings","expected_settings":expected,"settings":settings}),
+        );
+        assert_eq!(saved["ok"], true);
+        let stale = run(
+            &mut b,
+            json!({"op":"set_collection_settings","expected_settings":expected,"settings":expected}),
+        );
+        assert_eq!(stale["ok"], false);
+        assert_eq!(stale["snapshot"]["document"], saved["snapshot"]["document"]);
+        let id = run(
+            &mut b,
+            json!({"op":"add_item","kind":"folder","title":"Parent","view_id":1}),
+        )["data"]["id"]
+            .clone();
+        assert_eq!(
+            run(
+                &mut b,
+                json!({"op":"set_preferences","view_id":1,"item_id":id,"preferences":{"folder_hidden":true}})
+            )["ok"],
+            true
+        );
+        let accepted = run(
+            &mut b,
+            json!({"op":"set_indicator_settings","view_id":1,"item_id":id,
+            "expected_parent":{},"expected_view":{},"parent_overrides":{"total":false},"view_overrides":{"next_due_date":true}}),
+        );
+        assert_eq!(accepted["ok"], true);
+        let pref = &accepted["snapshot"]["document"]["views"]["1"]["preferences"][id.to_string()];
+        assert_eq!(pref["folder_hidden"], true);
+        assert_eq!(pref["indicators"]["next_due_date"], true);
     }
 }

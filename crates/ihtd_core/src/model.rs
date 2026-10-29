@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::filter::FilterExpr;
 pub use crate::graph::ItemKind;
 use crate::graph::{Graph, ItemId};
+use crate::settings::{CollectionSettings, IndicatorOverrides};
 
 pub const SCHEMA_VERSION: u32 = 2;
 
@@ -281,6 +282,8 @@ pub struct Tag {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct ContainerPreferences {
+    #[serde(skip_serializing_if = "IndicatorOverrides::is_empty")]
+    pub indicators: IndicatorOverrides,
     /// None uses the nearest inherited setting, or true when none applies.
     pub hide_completed: Option<bool>,
     pub inherit_hide_completed: bool,
@@ -313,12 +316,18 @@ pub struct Document {
     pub deleted_item_ids: BTreeSet<i64>,
     pub tags: BTreeMap<i64, Tag>,
     pub views: BTreeMap<i64, View>,
+    #[serde(default, skip_serializing_if = "CollectionSettings::is_default")]
+    pub collection_settings: CollectionSettings,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parent_indicator_defaults: BTreeMap<i64, IndicatorOverrides>,
 }
 
 impl Document {
     pub fn new(document_id: String) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
+            collection_settings: CollectionSettings::default(),
+            parent_indicator_defaults: BTreeMap::new(),
             document_id,
             revision: 0,
             next_id: 2,
@@ -341,6 +350,7 @@ impl Document {
 
     /// Validate data from disk before it can replace the open document.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_settings()?;
         if self.schema_version != SCHEMA_VERSION {
             return Err(format!(
                 "Unsupported document schema {}",

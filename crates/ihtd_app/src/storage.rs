@@ -80,6 +80,20 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
             .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
             .map_err(err)?;
     }
+    for (key, value) in [
+        (
+            "collection_settings",
+            serde_json::to_string(&document.collection_settings).map_err(err)?,
+        ),
+        (
+            "parent_indicator_defaults",
+            serde_json::to_string(&document.parent_indicator_defaults).map_err(err)?,
+        ),
+    ] {
+        transaction
+            .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
+            .map_err(err)?;
+    }
     for item in document.items.values() {
         transaction
             .execute(
@@ -186,8 +200,24 @@ pub fn decode_preserving(bytes: &[u8]) -> Result<Document, String> {
         )
         .optional()
         .map_err(err)?;
+    let optional_json = |key: &str| -> Result<Option<String>, String> {
+        connection
+            .query_row("SELECT value FROM metadata WHERE key=?1", [key], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(err)
+    };
     let mut document = Document {
         schema_version: ihtd_core::model::SCHEMA_VERSION,
+        collection_settings: optional_json("collection_settings")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
+        parent_indicator_defaults: optional_json("parent_indicator_defaults")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         document_id: metadata("document_id")?,
         revision: metadata("revision")?.parse().map_err(err)?,
         next_id: metadata("next_id")?.parse().map_err(err)?,
@@ -554,5 +584,88 @@ mod tests {
         s.save_as(copy.clone()).unwrap();
         assert_eq!(decode(&fs::read(copy).unwrap()).unwrap(), candidate);
         assert!(!s.dirty);
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+    use ihtd_core::settings::{CollectionSettings, IndicatorOverrides};
+    #[test]
+    fn distributed_schema_two_defaults_are_readonly_and_settings_roundtrip_preserves_everything_else(
+    ) {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let original = decode_preserving(bytes).unwrap();
+        assert_eq!(original.collection_settings, CollectionSettings::default());
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("existing.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let mut session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        let mut changed = session.document.clone();
+        let old = changed.collection_settings.clone();
+        let mut settings = old.clone();
+        settings.tag_suggestion_count = 0;
+        settings.tag_half_life_days = 7;
+        settings.indicators.next_due_date = true;
+        changed.set_collection_settings(&old, settings).unwrap();
+        let parent = *changed.items.keys().next().unwrap();
+        let view = *changed.views.keys().next().unwrap();
+        let empty = IndicatorOverrides::default();
+        changed
+            .set_indicator_settings(
+                parent,
+                view,
+                &empty,
+                &empty,
+                IndicatorOverrides {
+                    total: Some(false),
+                    ..empty.clone()
+                },
+                IndicatorOverrides {
+                    low_priority: Some(true),
+                    ..empty.clone()
+                },
+            )
+            .unwrap();
+        session.commit(changed.clone()).unwrap();
+        let reopened = decode_preserving(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(reopened, changed);
+        let mut preserved = reopened;
+        preserved.collection_settings = original.collection_settings.clone();
+        preserved.parent_indicator_defaults.clear();
+        preserved
+            .views
+            .get_mut(&view)
+            .unwrap()
+            .preferences
+            .get_mut(&parent)
+            .unwrap()
+            .indicators = empty;
+        // Remove only the new preference entry if none existed in the source.
+        if !original.views[&view].preferences.contains_key(&parent) {
+            preserved
+                .views
+                .get_mut(&view)
+                .unwrap()
+                .preferences
+                .remove(&parent);
+        }
+        preserved.revision = original.revision;
+        assert_eq!(preserved, original);
+    }
+    #[test]
+    fn malformed_optional_settings_are_not_silently_reset() {
+        let doc = Document::new("settings".into());
+        let file = NamedTempFile::new().unwrap();
+        fs::write(file.path(), encode(&doc).unwrap()).unwrap();
+        let c = Connection::open(file.path()).unwrap();
+        c.execute(
+            "UPDATE metadata SET value=?1 WHERE key='collection_settings'",
+            [r#"{"tag_half_life_days":0}"#],
+        )
+        .unwrap();
+        c.close().unwrap();
+        assert!(decode(&fs::read(file.path()).unwrap()).is_err());
     }
 }

@@ -25,7 +25,10 @@ of cross-platform completion. Follow the implemented
   `app/rust/rust-toolchain.toml`. Keep generated bindings consistent with APIs.
 - The owner-clarified [Changes.docx backlog](docs/changes-2026-10-28.md) is
   approved. The migration foundation is an implementation candidate; the other
-  features remain pending except the shared item-draft/Save/Cancel candidate.
+  features remain pending except the shared item-draft/Save/Cancel and collection
+  settings candidates. Read `docs/collection-settings.md` before adding indicators
+  or tag suggestions: Rust owns defaults/inheritance; per-field resets must resume
+  inheritance, and settings commands preserve item drafts/file-save barriers.
   Read `docs/item-editor-drafts.md`: private drafts never auto-commit on typing,
   disposal/backgrounding or model refresh. Use controller resolution guards for
   navigation/separate actions, preserve the owning working path plus UUID, and

@@ -9,8 +9,9 @@ The [2026-10-28 Changes.docx specification](docs/changes-2026-10-28.md) and
 [checklist backlog](docs/FEATURE_CHECKLIST.md#owner-clarified-changesdocx-backlog)
 record the owner's later approved changes, including cancellable item drafts,
 appearance counts, global Delete/blocked child Unlink, configurable Link/Copy,
-sorting, indicators and tag suggestions. They are not implemented by this
-documentation update. The sections below describe the existing prototype;
+sorting, indicators and tag suggestions. Implemented candidates and remaining
+acceptance are identified below and in the checklist; other backlog items remain
+pending. The sections below also describe the existing prototype;
 use the later specification when implementing the approved changes rather
 than treating the old removal/autosave behavior as the new target.
 
@@ -142,6 +143,19 @@ and private checkpoints do not commit drafts. Visibility and collection-tag
 creation remain immediate separate operations. Unfinished drafts can be restored
 or discarded after restart and stay bound to their working copy, even for
 collections sharing a UUID. Physical acceptance remains open.
+
+## Collection settings (implementation candidate)
+
+Follow [collection settings and inheritance](docs/collection-settings.md).
+Settings belong to the collection: suggested unselected tags defaults to 5 and
+usage half-life to 3 days, with collection defaults for summary indicators.
+Optional parent defaults and parent/view overrides inherit independently for
+each indicator; resetting one field resumes inheritance. Settings forms stage
+choices until Save, reject stale or different-copy saves and preserve external
+publication barriers. Separate indicator preferences do not commit item drafts.
+Optional schema-2 metadata preserves existing data without conversion or a
+rewrite on open. Actual summary metrics and tag suggestions remain later tasks;
+physical upgrade/device acceptance is pending.
 
 ## Fields and files
 
