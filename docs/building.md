@@ -249,3 +249,13 @@ preservation/publication/restart. Windows/Fedora native pipelines include it.
 Kotlin document tests include strict create-new backup/source-alias protection.
 Run native integration/build targets sequentially in one checkout. This work
 changes no app version/tag and does not prove a physical phone upgrade.
+
+## Item draft verification
+
+Run the normal Rust/Flutter suites and `integration_test/item_draft_test.dart`
+with the native desktop target, alongside the existing desktop/phone integrations.
+Windows/Fedora pipelines include this same-UUID restart/reconnection test. Shared
+widget tests inject an in-memory draft store to isolate UI/fake-clock behavior;
+repository/unit and native integration tests use actual private files. See
+[item draft behavior and physical acceptance](item-editor-drafts.md). No collection
+schema migration or app version bump is needed for this editor task.

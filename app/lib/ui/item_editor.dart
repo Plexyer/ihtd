@@ -1,11 +1,186 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/app_controller.dart';
+import '../services/item_draft.dart';
 import 'shared.dart';
-import 'editor_dialog.dart';
 import 'item_removal.dart';
+import 'guarded_editor_route.dart';
+import 'editor_dialog.dart';
+
+Future<DraftExitChoice> chooseItemDraftExit(
+  BuildContext context,
+  ItemDraft draft,
+  DraftExitReason reason,
+) async =>
+    await showDialog<DraftExitChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          draft.isNew
+              ? 'Create this ${draft.values['kind']}?'
+              : 'Save unfinished changes?',
+        ),
+        content: Text(
+          draft.isNew
+              ? 'Create this item, discard the unfinished draft, or keep editing?'
+              : 'Save your changes, discard them, or keep editing?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, DraftExitChoice.keepEditing),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, DraftExitChoice.discard),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, DraftExitChoice.save),
+            child: Text(draft.isNew ? 'Create' : 'Save'),
+          ),
+        ],
+      ),
+    ) ??
+    DraftExitChoice.keepEditing;
+
+Future<void> showItemDraftDialog(
+  BuildContext context,
+  AppController app,
+) async {
+  final draft = app.itemDraft;
+  if (draft == null || app.editorOverlaySession == draft.sessionId) return;
+  app.editorOverlaySession = draft.sessionId;
+  app.notifyListeners();
+  late GuardedEditorRoute route;
+  bool closing = false;
+  void changed() {
+    if (app.itemDraft?.sessionId != draft.sessionId && !closing) {
+      closing = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (route.isActive) route.navigator?.removeRoute(route);
+      });
+    }
+  }
+
+  route = GuardedEditorRoute(
+    context: context,
+    outside: () async {
+      await app.resolveItemDraft(reason: DraftExitReason.outside, close: true);
+    },
+    back: () async {
+      await app.resolveItemDraft(reason: DraftExitReason.back, close: true);
+    },
+    content: (context) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      constraints: BoxConstraints(
+        maxWidth: draft.isNew ? 500 : 620,
+        maxHeight: 760,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SizedBox(
+          height: constraints.maxHeight,
+          child: ListenableBuilder(
+            listenable: app,
+            builder: (_, _) => ItemEditor(app: app),
+          ),
+        ),
+      ),
+    ),
+  );
+  app.addListener(changed);
+  try {
+    await Navigator.of(context).push(route);
+  } finally {
+    app.removeListener(changed);
+    if (app.editorOverlaySession == draft.sessionId) {
+      app.editorOverlaySession = null;
+    }
+    app.notifyListeners();
+  }
+}
+
+Future<void> showRecoveredItemDrafts(
+  BuildContext context,
+  AppController app,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (context) => ListenableBuilder(
+      listenable: app,
+      builder: (context, _) => AlertDialog(
+        title: const Text('Unfinished drafts'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (app.itemDrafts.unreadableCount > 0)
+                  const Text(
+                    'Some draft files could not be read. Their original files have been retained on this device.',
+                  ),
+                const Text(
+                  'These drafts were retained on this device. They have not automatically replaced saved items.',
+                ),
+                for (final draft in app.recoveredDrafts)
+                  ListTile(
+                    title: Text(
+                      '${draft.values['title']}'.isEmpty
+                          ? 'Untitled ${draft.values['kind']}'
+                          : '${draft.values['title']}',
+                    ),
+                    subtitle: Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: app.busy
+                              ? null
+                              : () async {
+                                  if (await app.restoreItemDraft(draft) &&
+                                      context.mounted) {
+                                    Navigator.pop(context);
+                                  }
+                                },
+                          child: const Text('Restore'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await app.discardRecoveredItemDraft(draft);
+                          },
+                          child: const Text('Discard draft'),
+                        ),
+                        TextButton(
+                          onPressed: () => app.exportItemDraft(draft),
+                          child: const Text('Export draft…'),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (app.error != null)
+                  Text(
+                    app.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class ItemEditor extends StatefulWidget {
   const ItemEditor({super.key, required this.app});
@@ -15,163 +190,83 @@ class ItemEditor extends StatefulWidget {
 }
 
 class _ItemEditorState extends State<ItemEditor> {
-  final title = TextEditingController();
-  final notes = TextEditingController();
-  int? id;
-  String? due;
-  int priority = 0;
-  Set<int> tags = {};
-  Timer? timer;
-  bool dirty = false;
-  int generation = 0;
-  Map<String, dynamic> baseItem = {};
-  String? localError;
-  bool savingDraft = false;
-  Future<bool> _flush() async {
-    await _save();
-    return !dirty;
-  }
-
+  final title = TextEditingController(), notes = TextEditingController();
+  String? session;
+  int formRevision = -1;
+  ItemDraft? get draft => widget.app.itemDraft;
+  Future<DraftExitChoice> _choose(ItemDraft d, DraftExitReason r) => mounted
+      ? chooseItemDraftExit(context, d, r)
+      : Future.value(DraftExitChoice.keepEditing);
   @override
   void initState() {
     super.initState();
+    widget.app.ensureItemDraft();
+    widget.app.chooseDraftExit ??= _choose;
     _load();
-    widget.app.flushDraft = _flush;
+  }
+
+  void _load() {
+    final d = draft;
+    if (d == null) return;
+    session = d.sessionId;
+    formRevision = d.formRevision;
+    if (title.text != d.values['title']) title.text = '${d.values['title']}';
+    if (notes.text != d.values['notes']) notes.text = '${d.values['notes']}';
   }
 
   @override
   void didUpdateWidget(covariant ItemEditor old) {
     super.didUpdateWidget(old);
-    if (id != widget.app.selectedItemId) {
-      if (dirty) _save();
-      _load();
-    } else if (!dirty) {
+    if (session != draft?.sessionId || formRevision != draft?.formRevision) {
       _load();
     }
-  }
-
-  void _load() {
-    id = widget.app.selectedItemId;
-    final item = itemById(widget.app, id ?? -1);
-    baseItem = Map.of(item);
-    title.text = '${item['title'] ?? ''}';
-    notes.text = '${item['notes'] ?? ''}';
-    due = item['due_date'] as String?;
-    priority = intValue(item['priority']);
-    tags = (item['tag_ids'] as List? ?? []).map((e) => intValue(e)).toSet();
-    dirty = false;
-    localError = null;
-  }
-
-  void _change() {
-    generation++;
-    dirty = true;
-    timer?.cancel();
-    timer = Timer(const Duration(milliseconds: 650), _save);
-    setState(() {});
-  }
-
-  Future<void> _save() async {
-    while (savingDraft) {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
-    savingDraft = true;
-    try {
-      await _persist();
-    } finally {
-      savingDraft = false;
-    }
-  }
-
-  Future<void> _persist() async {
-    timer?.cancel();
-    if (!dirty || id == null) return;
-    if (title.text.trim().isEmpty) {
-      if (mounted) {
-        setState(
-          () =>
-              localError = 'Enter a title before saving or leaving this item.',
-        );
-      }
-      return;
-    }
-    final savedId = id;
-    final version = generation;
-    final current = itemById(widget.app, id!);
-    if (current['title'] != baseItem['title'] ||
-        current['notes'] != baseItem['notes'] ||
-        current['due_date'] != baseItem['due_date'] ||
-        current['priority'] != baseItem['priority'] ||
-        '${current['tag_ids']}' != '${baseItem['tag_ids']}') {
-      if (mounted) {
-        setState(
-          () => localError = 'This item changed externally. Load the latest saved values before editing again.',
-        );
-      }
-      return;
-    }
-    final command = {
-      'op': 'edit_item',
-      'id': id,
-      'title': title.text.trim(),
-      'notes': notes.text,
-      'due_date': due,
-      'priority': priority,
-      'tag_ids': tags.toList(),
-      'expected_revision': widget.app.document?['revision'],
-    };
-    final result = await widget.app.dispatch(command);
-    if (!mounted) return;
-    if (id == savedId && result != null) {
-      baseItem = Map.of(itemById(widget.app, id!));
-    }
-    if (id == savedId && generation == version) {
-      setState(() {
-        dirty = result == null;
-        localError = result == null ? widget.app.error : null;
-      });
-    }
-  }
-
-  Future<void> _preference(String key, dynamic value) async {
-    final view = asMap(
-      asMap(widget.app.document?['views'])['${widget.app.selectedViewId}'],
-    );
-    final pref = <String, dynamic>{
-      'hide_completed': null,
-      'inherit_hide_completed': false,
-      'folder_hidden': false,
-      'reappear_on_new': false,
-      ...asMap(asMap(view['preferences'])['$id']),
-      key: value,
-    };
-    await widget.app.dispatch({
-      'op': 'set_preferences',
-      'view_id': widget.app.selectedViewId,
-      'item_id': id,
-      'preferences': pref,
-    });
   }
 
   @override
   void dispose() {
-    timer?.cancel();
-    if (dirty && !savingDraft) _persist();
-    if (widget.app.flushDraft == _flush) widget.app.flushDraft = null;
+    if (widget.app.chooseDraftExit == _choose) {
+      widget.app.chooseDraftExit = null;
+    }
     title.dispose();
     notes.dispose();
     super.dispose();
   }
 
+  Future<void> _preference(String key, dynamic value) async {
+    final d = draft;
+    if (d == null || d.isNew) return;
+    final app = widget.app;
+    final view = asMap(asMap(app.document?['views'])['${d.viewId}']);
+    final pref = <String, dynamic>{
+      'hide_completed': null,
+      'inherit_hide_completed': false,
+      'folder_hidden': false,
+      'reappear_on_new': false,
+      ...asMap(asMap(view['preferences'])['${d.itemId}']),
+      key: value,
+    };
+    await app.dispatch(
+      {
+        'op': 'set_preferences',
+        'view_id': d.viewId,
+        'item_id': d.itemId,
+        'preferences': pref,
+      },
+      expectedDocument: (workingPath: d.ownerPath, documentId: d.documentId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final app = widget.app;
-    final item = itemById(app, id ?? -1);
-    if (item.isEmpty) return const SizedBox.shrink();
-    final folder = item['kind'] == 'folder';
+    final app = widget.app, d = draft;
+    if (d == null) return const SizedBox.shrink();
+    final id = d.itemId, folder = d.values['kind'] == 'folder';
+    final tags = List<int>.from(d.values['tag_ids'] as List);
+    final due = d.values['due_date'] as String?;
+    final priority = intValue(d.values['priority']);
     final info = asMap(app.completion['$id']);
-    final enforcers = (info['enforcing_ancestor_ids'] as List? ?? []);
-    final view = asMap(asMap(app.document?['views'])['${app.selectedViewId}']);
+    final enforcers = info['enforcing_ancestor_ids'] as List? ?? [];
+    final view = asMap(asMap(app.document?['views'])['${d.viewId}']);
     final pref = asMap(asMap(view['preferences'])['$id']);
     final links = (app.document?['links'] as List? ?? []).map(asMap).toList();
     final parents = links
@@ -179,327 +274,464 @@ class _ItemEditorState extends State<ItemEditor> {
         .map((l) => intValue(l['parent']))
         .toList();
     final children = links.where((l) => l['parent'] == id).toList();
-    return Material(
-      color: const Color(0xfff8fafc),
-      child: ListView(
-        padding: const EdgeInsets.all(22),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SelectableText(
-                  '${folder ? 'FOLDER' : 'TASK'}  #$id',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: Color(0xff7b8999),
+    final disabled = app.savingItemDraft || app.discardingItemDraft || app.busy;
+    void change(String key, dynamic value) =>
+        app.changeItemDraft(key, value, sessionId: d.sessionId);
+    return Focus(
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape &&
+            ModalRoute.of(context)?.isCurrent == true) {
+          unawaited(
+            app.resolveItemDraft(reason: DraftExitReason.back, close: true),
+          );
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Material(
+        color: const Color(0xfff8fafc),
+        child: EditorFormLayout(
+          title: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: disabled ? null : () => app.discardItemDraft(),
+                  child: const Text('Cancel'),
+                ),
+                Expanded(
+                  child: Text(
+                    d.isNew
+                        ? 'New ${folder ? 'folder' : 'task'}'
+                        : '${folder ? 'FOLDER' : 'TASK'}  #$id',
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Close details',
-                onPressed: () => app.selectItem(null),
-                icon: const Icon(Icons.close, size: 19),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: title,
-            onChanged: (_) => _change(),
-            onSubmitted: (_) => _save(),
-            decoration: const InputDecoration(labelText: 'Title'),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: notes,
-            onChanged: (_) => _change(),
-            minLines: 3,
-            maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'Notes',
-              alignLabelWithHint: true,
+                if (!d.isNew)
+                  FilledButton(
+                    onPressed: disabled ? null : () => app.saveItemDraft(),
+                    child: const Text('Save'),
+                  )
+                else
+                  const SizedBox(width: 64),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  dirty ? 'Saving changes…' : 'Changes saved automatically',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xff788899),
+              if (d.isNew &&
+                  (d.values['requirements'] as List? ?? []).isNotEmpty)
+                Text((d.values['requirements'] as List).join('\n')),
+              if (app.draftStorageError != null)
+                Text(
+                  app.draftStorageError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              if (d.error != null) ...[
+                Text(
+                  d.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                if (!d.isNew)
+                  TextButton(
+                    onPressed: () async {
+                      if (await confirmAction(
+                        context,
+                        title: 'Discard this draft?',
+                        message: 'Load the latest saved values and discard this unfinished draft?',
+                        action: 'Load latest',
+                      )) {
+                        await app.reloadItemDraft();
+                      }
+                    },
+                    child: const Text('Load latest saved values'),
+                  ),
+              ],
+              TextField(
+                controller: title,
+                autofocus: d.isNew,
+                readOnly:
+                    app.savingItemDraft ||
+                    app.discardingItemDraft ||
+                    app.switchingCollection,
+                onChanged: (v) => change('title', v),
+                onSubmitted: (_) => app.saveItemDraft(),
+                decoration: InputDecoration(
+                  labelText: d.isNew ? 'Title *' : 'Title',
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: 12),
+              if (d.isNew) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: '${d.values['kind']}',
+                  decoration: const InputDecoration(labelText: 'Item type'),
+                  items: const [
+                    DropdownMenuItem(value: 'task', child: Text('Task')),
+                    DropdownMenuItem(value: 'folder', child: Text('Folder')),
+                  ],
+                  onChanged: disabled
+                      ? null
+                      : (v) {
+                          change('kind', v);
+                          if (v == 'folder') {
+                            change('auto_complete', false);
+                            change('completed', false);
+                          }
+                        },
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: notes,
+                readOnly:
+                    app.savingItemDraft ||
+                    app.discardingItemDraft ||
+                    app.switchingCollection,
+                onChanged: (v) => change('notes', v),
+                minLines: 3,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                d.dirty
+                    ? app.retainingItemDraft
+                          ? 'Retaining draft on this device…'
+                          : app.draftStorageError == null
+                          ? 'Unsaved changes — draft retained on this device'
+                          : 'Unsaved changes — draft recovery is unavailable'
+                    : 'No unsaved changes',
+                style: const TextStyle(fontSize: 12, color: Color(0xff788899)),
+              ),
+              const SectionLabel('Details'),
+              OutlinedButton.icon(
+                onPressed: disabled
+                    ? null
+                    : () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate:
+                              DateTime.tryParse(due ?? '') ?? DateTime.now(),
+                          firstDate: DateTime(1900),
+                          lastDate: DateTime(9999),
+                        );
+                        if (date != null &&
+                            mounted &&
+                            identical(d, app.itemDraft)) {
+                          change('due_date', dateText(date));
+                        }
+                      },
+                icon: const Icon(Icons.calendar_today_outlined, size: 17),
+                label: Text(
+                  due ?? (d.isNew ? 'Choose due date' : 'Set due date'),
+                ),
+              ),
+              if (due != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: disabled ? null : () => change('due_date', null),
+                    child: const Text('Clear due date'),
                   ),
                 ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: ValueKey('${d.sessionId}-${d.formRevision}-$priority'),
+                initialValue: priority,
+                decoration: const InputDecoration(labelText: 'Priority'),
+                items: [
+                  for (var p = 0; p < 4; p++)
+                    DropdownMenuItem(value: p, child: Text(priorityNames[p])),
+                ],
+                onChanged: disabled ? null : (v) => change('priority', v ?? 0),
               ),
-              if (dirty)
-                TextButton(onPressed: _save, child: const Text('Save now')),
-            ],
-          ),
-          if (localError != null)
-            Text(
-              localError!,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-                fontSize: 12,
-              ),
-            ),
-          if (localError != null)
-            TextButton(
-              onPressed: () => setState(_load),
-              child: const Text('Load latest saved values'),
-            ),
-          const SectionLabel('Details'),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final value = await showDatePicker(
-                context: context,
-                initialDate: DateTime.tryParse(due ?? '') ?? DateTime.now(),
-                firstDate: DateTime(1900),
-                lastDate: DateTime(9999),
-              );
-              if (value != null && mounted) {
-                due = dateText(value);
-                _change();
-              }
-            },
-            icon: const Icon(Icons.calendar_today_outlined, size: 17),
-            label: Text(due ?? 'Set due date'),
-          ),
-          if (due != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () {
-                  due = null;
-                  _change();
-                },
-                child: const Text('Clear due date'),
-              ),
-            ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: priority,
-            key: ValueKey('priority-$id-$priority'),
-            decoration: const InputDecoration(labelText: 'Priority'),
-            items: [
-              for (var p = 0; p < 4; p++)
-                DropdownMenuItem(value: p, child: Text(priorityNames[p])),
-            ],
-            onChanged: (v) {
-              priority = v ?? 0;
-              _change();
-            },
-          ),
-          SectionLabel(
-            'Tags',
-            trailing: IconButton(
-              tooltip: 'Create tag',
-              onPressed: () async {
-                final tag = await showNewTag(context, app);
-                if (tag != null && mounted) {
-                  tags.add(tag);
-                  _change();
-                }
-              },
-              icon: const Icon(Icons.add, size: 18),
-            ),
-          ),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final tag in documentValues(app, 'tags'))
-                FilterChip(
-                  label: Text('${tag['name']}'),
-                  selected: tags.contains(intValue(tag['id'])),
-                  onSelected: (v) {
-                    if (v) {
-                      tags.add(intValue(tag['id']));
-                    } else {
-                      tags.remove(intValue(tag['id']));
-                    }
-                    _change();
-                  },
-                ),
-            ],
-          ),
-          if (!folder) ...[
-            const SectionLabel('Completion'),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Automatic completion',
-                style: TextStyle(fontSize: 14),
-              ),
-              subtitle: Text(
-                enforcers.isEmpty
-                    ? 'Complete when all descendant tasks finish'
-                    : 'Required by task IDs ${enforcers.join(', ')}',
-                style: const TextStyle(fontSize: 12),
-              ),
-              value: info['effective_auto'] == true,
-              onChanged: (value) => app.dispatch({
-                'op': 'set_auto_complete',
-                'id': id,
-                'enabled': value,
-              }),
-            ),
-            if (enforcers.isNotEmpty)
-              const Text(
-                'Turn it off on every enforcing ancestor before disabling it here.',
-                style: TextStyle(fontSize: 12, color: Color(0xff7b8999)),
-              ),
-          ],
-          const SectionLabel('Visibility in this view'),
-          if (folder) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Hide from unfinished',
-                style: TextStyle(fontSize: 14),
-              ),
-              subtitle: const Text(
-                'Keep this folder in the completed view',
-                style: TextStyle(fontSize: 12),
-              ),
-              value: pref['folder_hidden'] == true,
-              onChanged: (v) => _preference('folder_hidden', v),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Reappear for new subtasks',
-                style: TextStyle(fontSize: 14),
-              ),
-              value: pref['reappear_on_new'] == true,
-              onChanged: (v) => _preference('reappear_on_new', v),
-            ),
-          ],
-          if (children.isNotEmpty) ...[
-            DropdownButtonFormField<String>(
-              key: ValueKey(
-                'hide-$id-${app.selectedViewId}-${pref['hide_completed']}',
-              ),
-              initialValue: pref['hide_completed'] == null
-                  ? 'inherit'
-                  : pref['hide_completed'] == true
-                  ? 'hide'
-                  : 'show',
-              decoration: const InputDecoration(
-                labelText: 'Completed children',
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'inherit',
-                  child: Text('Use inherited/default setting'),
-                ),
-                DropdownMenuItem(
-                  value: 'hide',
-                  child: Text('Hide completed children'),
-                ),
-                DropdownMenuItem(
-                  value: 'show',
-                  child: Text('Keep completed children'),
+              if (d.isNew) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: d.parentId ?? 0,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Parent placement',
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: 0, child: Text('Top level')),
+                    for (final item in documentValues(app, 'items'))
+                      DropdownMenuItem(
+                        value: intValue(item['id']),
+                        child: Text(
+                          '${item['title']} (#${item['id']})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: disabled
+                      ? null
+                      : (v) => change('parent_id', v == 0 ? null : v),
                 ),
               ],
-              onChanged: (v) => _preference(
-                'hide_completed',
-                v == 'inherit' ? null : v == 'hide',
+              SectionLabel(
+                'Tags',
+                trailing: IconButton(
+                  tooltip: 'Create tag',
+                  icon: const Icon(Icons.add, size: 18),
+                  onPressed: disabled
+                      ? null
+                      : () async {
+                          final tag = await showNewTag(
+                            context,
+                            app,
+                            expectedDocument: (
+                              workingPath: d.ownerPath,
+                              documentId: d.documentId,
+                            ),
+                          );
+                          if (tag != null &&
+                              mounted &&
+                              identical(d, app.itemDraft)) {
+                            change(
+                              'tag_ids',
+                              ({...tags, tag}.toList()..sort()),
+                            );
+                          }
+                        },
+                ),
               ),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Let descendants inherit',
-                style: TextStyle(fontSize: 14),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final tag in documentValues(app, 'tags'))
+                    FilterChip(
+                      label: Text('${tag['name']}'),
+                      selected: tags.contains(intValue(tag['id'])),
+                      onSelected: disabled
+                          ? null
+                          : (selected) {
+                              final updated = tags.toSet();
+                              if (selected) {
+                                updated.add(intValue(tag['id']));
+                              } else {
+                                updated.remove(intValue(tag['id']));
+                              }
+                              change('tag_ids', updated.toList()..sort());
+                            },
+                    ),
+                ],
               ),
-              subtitle: const Text(
-                'Their own settings can override this',
-                style: TextStyle(fontSize: 12),
-              ),
-              value: pref['inherit_hide_completed'] == true,
-              onChanged: (v) => _preference('inherit_hide_completed', v),
-            ),
-          ],
-          SectionLabel('Subitems (${children.length})'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => showCreateItem(context, app, parentId: id),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Task'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    showCreateItem(context, app, parentId: id, kind: 'folder'),
-                icon: const Icon(Icons.create_new_folder_outlined, size: 16),
-                label: const Text('Folder'),
-              ),
-              TextButton(
-                onPressed: () => showLinkItem(context, app, id!),
-                child: const Text('Link existing…'),
-              ),
+              if (!folder) ...[
+                const SectionLabel('Completion'),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Automatic completion'),
+                  subtitle: Text(
+                    enforcers.isEmpty
+                        ? 'Complete when all descendant tasks finish'
+                        : 'Required by task IDs ${enforcers.join(', ')}',
+                  ),
+                  value:
+                      d.values['auto_complete'] == true || enforcers.isNotEmpty,
+                  onChanged: disabled || enforcers.isNotEmpty
+                      ? null
+                      : (v) => change('auto_complete', v),
+                ),
+                if (d.isNew)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Create as completed'),
+                    value: d.values['completed'] == true,
+                    onChanged: disabled
+                        ? null
+                        : (v) => change('completed', v ?? false),
+                  ),
+              ],
+              if (!d.isNew) ...[
+                const SectionLabel('Visibility in this view'),
+                if (folder) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Hide from unfinished'),
+                    value: pref['folder_hidden'] == true,
+                    onChanged: disabled
+                        ? null
+                        : (v) => _preference('folder_hidden', v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Reappear for new subtasks'),
+                    value: pref['reappear_on_new'] == true,
+                    onChanged: disabled
+                        ? null
+                        : (v) => _preference('reappear_on_new', v),
+                  ),
+                ],
+                if (children.isNotEmpty) ...[
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'hide-$id-${d.viewId}-${pref['hide_completed']}',
+                    ),
+                    initialValue: pref['hide_completed'] == null
+                        ? 'inherit'
+                        : pref['hide_completed'] == true
+                        ? 'hide'
+                        : 'show',
+                    decoration: const InputDecoration(
+                      labelText: 'Completed children',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'inherit',
+                        child: Text('Use inherited/default setting'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'hide',
+                        child: Text('Hide completed children'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'show',
+                        child: Text('Keep completed children'),
+                      ),
+                    ],
+                    onChanged: disabled
+                        ? null
+                        : (v) => _preference(
+                            'hide_completed',
+                            v == 'inherit' ? null : v == 'hide',
+                          ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Let descendants inherit'),
+                    value: pref['inherit_hide_completed'] == true,
+                    onChanged: disabled
+                        ? null
+                        : (v) => _preference('inherit_hide_completed', v),
+                  ),
+                ],
+                SectionLabel('Subitems (${children.length})'),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: disabled
+                          ? null
+                          : () => showCreateItem(context, app, parentId: id),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Task'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: disabled
+                          ? null
+                          : () => showCreateItem(
+                              context,
+                              app,
+                              parentId: id,
+                              kind: 'folder',
+                            ),
+                      icon: const Icon(
+                        Icons.create_new_folder_outlined,
+                        size: 16,
+                      ),
+                      label: const Text('Folder'),
+                    ),
+                    TextButton(
+                      onPressed: disabled
+                          ? null
+                          : () => showLinkItem(context, app, id!),
+                      child: const Text('Link existing…'),
+                    ),
+                  ],
+                ),
+                SectionLabel(
+                  'Placements (${asMap(app.placements['$id'])['count'] ?? 0})',
+                ),
+                for (final parent in [
+                  if (asMap(app.placements['$id'])['root'] == true) null,
+                  ...parents,
+                ])
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      parent == null
+                          ? 'Top level'
+                          : '${itemById(app, parent)['title']}',
+                    ),
+                    onTap: parent == null ? null : () => app.selectItem(parent),
+                    trailing: TextButton.icon(
+                      key: ValueKey('remove-$id-${parent ?? 'root'}'),
+                      onPressed: disabled
+                          ? null
+                          : () =>
+                                removeItemPlacement(context, app, id!, parent),
+                      icon: Icon(
+                        removalLabel(app, id!) == 'Unlink'
+                            ? Icons.link_off
+                            : Icons.delete_outline,
+                        size: 18,
+                      ),
+                      label: Text(removalLabel(app, id)),
+                    ),
+                  ),
+                OutlinedButton(
+                  onPressed: disabled
+                      ? null
+                      : () async {
+                          if (!await app.finishDraft() || !context.mounted) {
+                            return;
+                          }
+                          if (!await confirmAction(
+                            context,
+                            title: folder
+                                ? 'Convert to task?'
+                                : 'Convert to folder?',
+                            message:
+                                'The ID and all parent/child links stay the same. ${folder ? 'The new task starts unfinished.' : 'Task completion settings are removed.'}',
+                            action: 'Convert',
+                          )) {
+                            return;
+                          }
+                          final result = await app.dispatch(
+                            {
+                              'op': 'convert_kind',
+                              'id': id,
+                              'kind': folder ? 'task' : 'folder',
+                            },
+                            expectedDocument: (
+                              workingPath: d.ownerPath,
+                              documentId: d.documentId,
+                            ),
+                          );
+                          if (result != null) await app.reloadItemDraft();
+                        },
+                  child: Text(
+                    folder
+                        ? 'Convert folder to task'
+                        : 'Convert task to folder',
+                  ),
+                ),
+              ],
             ],
           ),
-          SectionLabel(
-            'Placements (${asMap(app.placements['$id'])['count'] ?? 0})',
-          ),
-          for (final parent in [
-            if (asMap(app.placements['$id'])['root'] == true) null,
-            ...parents,
-          ])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                parent == null
-                    ? 'Top level'
-                    : '${itemById(app, parent)['title']}',
-              ),
-              subtitle: parent == null ? null : Text('#$parent'),
-              onTap: parent == null ? null : () => app.selectItem(parent),
-              trailing: TextButton.icon(
-                key: ValueKey('remove-$id-${parent ?? 'root'}'),
-                onPressed: app.busy
-                    ? null
-                    : () => removeItemPlacement(context, app, id!, parent),
-                icon: Icon(
-                  removalLabel(app, id!) == 'Unlink'
-                      ? Icons.link_off
-                      : Icons.delete_outline,
-                  size: 18,
+          actions: [
+            if (d.isNew)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: disabled ? null : () => app.saveItemDraft(),
+                    child: const Text('Create'),
+                  ),
                 ),
-                label: Text(removalLabel(app, id!)),
               ),
-            ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: () async {
-              if (await confirmAction(
-                context,
-                title: folder ? 'Convert to task?' : 'Convert to folder?',
-                message:
-                    'The ID and all parent/child links stay the same. ${folder ? 'The new task starts unfinished.' : 'Task completion settings are removed.'}',
-                action: 'Convert',
-              )) {
-                await _save();
-                await app.dispatch({
-                  'op': 'convert_kind',
-                  'id': id,
-                  'kind': folder ? 'task' : 'folder',
-                });
-              }
-            },
-            child: Text(
-              folder ? 'Convert folder to task' : 'Convert task to folder',
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -553,6 +785,8 @@ Future<void> showLinkItem(
   AppController app,
   int parent,
 ) async {
+  if (!await app.finishDraft() || !context.mounted) return;
+  final owner = app.editIdentity;
   final query = TextEditingController();
   int? selection;
   final selected = await showDialog<int>(
@@ -619,7 +853,11 @@ Future<void> showLinkItem(
   );
   query.dispose();
   if (selected != null) {
-    await app.dispatch({'op': 'link', 'parent': parent, 'child': selected});
+    await app.dispatch({
+      'op': 'link',
+      'parent': parent,
+      'child': selected,
+    }, expectedDocument: owner);
   }
 }
 
@@ -629,251 +867,16 @@ Future<void> showCreateItem(
   int? parentId,
   String kind = 'task',
 }) async {
+  if (!await app.finishDraft() || !context.mounted) return;
+  final owner = app.editIdentity;
   final defaults = await app.dispatch({
     'op': 'creation_defaults',
     'view_id': app.selectedViewId,
-  });
-  if (defaults == null || !context.mounted) return;
-  await showDialog<void>(
-    context: context,
-    builder: (_) => _CreateDialog(
-      app: app,
-      defaults: defaults,
-      parentId: parentId,
-      kind: kind,
-    ),
-  );
-}
-
-class _CreateDialog extends StatefulWidget {
-  const _CreateDialog({
-    required this.app,
-    required this.defaults,
-    required this.kind,
-    this.parentId,
-  });
-  final AppController app;
-  final Map<String, dynamic> defaults;
-  final String kind;
-  final int? parentId;
-  @override
-  State<_CreateDialog> createState() => _CreateDialogState();
-}
-
-class _CreateDialogState extends State<_CreateDialog> {
-  late final TextEditingController title, notes;
-  late String kind;
-  String? due;
-  int priority = 0;
-  Set<int> tags = {};
-  int? parent;
-  bool saving = false;
-  bool completed = false;
-  String? error;
-  @override
-  void initState() {
-    super.initState();
-    final d = widget.defaults;
-    title = TextEditingController(text: d['title'] as String?);
-    notes = TextEditingController(text: d['notes'] as String?);
-    kind = d['kind'] as String? ?? widget.kind;
-    due = d['due_date'] as String?;
-    priority = intValue(d['priority']);
-    tags = (d['tag_ids'] as List? ?? []).map((v) => intValue(v)).toSet();
-    parent = widget.parentId;
+  }, expectedDocument: owner);
+  if (defaults == null || !context.mounted || app.editIdentity != owner) return;
+  if (!await app.beginCreateDraft(defaults, parentId: parentId, kind: kind) ||
+      !context.mounted) {
+    return;
   }
-
-  @override
-  void dispose() {
-    title.dispose();
-    notes.dispose();
-    super.dispose();
-  }
-
-  Future<void> create() async {
-    if (title.text.trim().isEmpty) {
-      setState(() => error = 'Enter a title.');
-      return;
-    }
-    setState(() => saving = true);
-    final result = await widget.app.dispatch({
-      'op': 'add_item',
-      'view_id': widget.app.selectedViewId,
-      'kind': kind,
-      'title': title.text.trim(),
-      'notes': notes.text,
-      'due_date': due,
-      'priority': priority,
-      'tag_ids': tags.toList(),
-      'parent_id': parent,
-      'completed': completed,
-    });
-    if (!mounted) return;
-    if (result != null) {
-      widget.app.selectItem(intValue(result['id']));
-      Navigator.pop(context);
-    } else {
-      setState(() {
-        saving = false;
-        error = widget.app.error;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => EditorDialog(
-    title: Text(kind == 'folder' ? 'New folder' : 'New task'),
-    maxWidth: 500,
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if ((widget.defaults['requirements'] as List? ?? []).isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              (widget.defaults['requirements'] as List).join('\n'),
-              style: const TextStyle(fontSize: 13, color: Color(0xff536f92)),
-            ),
-          ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        TextField(
-          controller: title,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Title *'),
-          onSubmitted: (_) => create(),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: kind,
-          decoration: const InputDecoration(labelText: 'Item type'),
-          items: const [
-            DropdownMenuItem(value: 'task', child: Text('Task')),
-            DropdownMenuItem(value: 'folder', child: Text('Folder')),
-          ],
-          onChanged: (v) => setState(() => kind = v ?? 'task'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: notes,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(labelText: 'Notes'),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.tryParse(due ?? '') ?? DateTime.now(),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime(9999),
-                  );
-                  if (date != null) setState(() => due = dateText(date));
-                },
-                icon: const Icon(Icons.calendar_today, size: 17),
-                label: Text(due ?? 'Choose due date'),
-              ),
-            ),
-            if (due != null)
-              IconButton(
-                tooltip: 'Clear due date',
-                onPressed: () => setState(() => due = null),
-                icon: const Icon(Icons.clear),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          initialValue: priority,
-          decoration: const InputDecoration(labelText: 'Priority'),
-          items: [
-            for (var p = 0; p < 4; p++)
-              DropdownMenuItem(value: p, child: Text(priorityNames[p])),
-          ],
-          onChanged: (v) => setState(() => priority = v ?? 0),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          initialValue: parent ?? 0,
-          decoration: const InputDecoration(labelText: 'Parent placement'),
-          isExpanded: true,
-          items: [
-            const DropdownMenuItem(value: 0, child: Text('Top level')),
-            for (final item in documentValues(widget.app, 'items'))
-              DropdownMenuItem(
-                value: intValue(item['id']),
-                child: Text(
-                  '${item['title']} (#${item['id']})',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          onChanged: (v) => setState(() => parent = v == 0 ? null : v),
-        ),
-        SectionLabel(
-          'Tags',
-          trailing: IconButton(
-            tooltip: 'Create tag',
-            onPressed: () async {
-              final id = await showNewTag(context, widget.app);
-              if (id != null && mounted) setState(() => tags.add(id));
-            },
-            icon: const Icon(Icons.add),
-          ),
-        ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final tag in documentValues(widget.app, 'tags'))
-              FilterChip(
-                label: Text('${tag['name']}'),
-                selected: tags.contains(intValue(tag['id'])),
-                onSelected: (v) => setState(() {
-                  if (v) {
-                    tags.add(intValue(tag['id']));
-                  } else {
-                    tags.remove(intValue(tag['id']));
-                  }
-                }),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'The item must match this view’s complete filter before it can be created.',
-          style: TextStyle(fontSize: 12, color: Color(0xff7b8999)),
-        ),
-        if (kind == 'task')
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const Text('Create as completed'),
-            value: completed,
-            onChanged: (v) => setState(() => completed = v ?? false),
-          ),
-      ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: saving ? null : () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: saving ? null : create,
-        child: Text(saving ? 'Creating…' : 'Create'),
-      ),
-    ],
-  );
+  await showItemDraftDialog(context, app);
 }

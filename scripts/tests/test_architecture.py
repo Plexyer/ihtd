@@ -11,6 +11,7 @@ class ArchitectureBoundaryTest(unittest.TestCase):
         paths = list((ROOT / 'app/lib/ui').glob('*.dart'))
         paths += [ROOT / 'app/lib/services/document_save_coordinator.dart',
                   ROOT / 'app/lib/services/migration_safety.dart',
+                  ROOT / 'app/lib/services/item_draft.dart',
                   ROOT / 'app/lib/services/app_controller.dart',
                   ROOT / 'app/lib/services/update_coordinator.dart',
                   ROOT / 'app/lib/services/update_catalog.dart']

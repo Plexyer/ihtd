@@ -124,21 +124,26 @@ until step 12. This order is a plan, not completed implementation.
 - [ ] **9 — Medium: new branding across platforms.** Replace the header,
   launcher/application icons and splash branding with a filled blue diagonal
   infinity shape, running top-left to bottom-right, with a white tick in each loop.
-- [ ] **10 — High: coherent editor Save/Cancel controls.** Replace Done with
+- [x] **10 — High: coherent editor Save/Cancel controls.** Replace Done with
   top-right Save, add top-left Cancel, and remove both confusing X controls.
   Save closes the editor; never leave its empty outer window open.
 - [ ] **11 — High: cancellable item drafts and stable text editing.**
-  - [ ] Fix the reported note-cursor jump; stage title/notes/tags/due date/priority
+  - [x] Fix the reported note-cursor jump; stage title/notes/tags/due date/priority
     and automatic completion until Save or a valid existing-editor outside tap.
     Cancel discards the draft. Apply the same policy to task and folder editors.
-  - [ ] With unsaved changes, Back/Escape and desktop item/view/collection
+  - [x] With unsaved changes, Back/Escape and desktop item/view/collection
     switches prompt Save/Discard/Keep editing. New-item outside taps prompt
     Create/Discard/Keep editing. Invalid existing-editor outside saves stay open.
-  - [ ] Retain unfinished drafts separately and offer restore/discard after an
+  - [x] Retain unfinished drafts separately and offer restore/discard after an
     app close/crash. Keep external document save/recovery barriers intact.
-  - [ ] Apply visibility settings immediately. Newly created collection tags
+  - [x] Apply visibility settings immediately. Newly created collection tags
     survive item Cancel, but cancelled assignments do not. Conversion and
     Link/Unlink/Delete are separate operations after resolving unfinished edits.
+  Shared implementation: [item draft behavior and acceptance](item-editor-drafts.md).
+  Controls, atomic Save, private recovery, cursor/composition retention and action
+  guards are implemented. Item 11 remains open for physical device/upgrade
+  acceptance; host checks do not establish that result. The collection format
+  stays schema 2 and needs no data migration for these editor changes.
 - [ ] **12 — Low: move the update indicator.** Put all its states immediately
   left of the top-right three-dot menu; reserve its space while hidden so header
   content does not shift.

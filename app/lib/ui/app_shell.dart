@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/app_controller.dart';
+import '../services/item_draft.dart';
 import 'item_editor.dart';
 import 'item_removal.dart';
 import 'item_drag.dart';
@@ -14,188 +17,197 @@ import 'app_updates.dart';
 import 'app_license.dart';
 import '../services/update_composition.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  bool _escape(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return false;
+    }
+    final app = ref.read(appProvider);
+    if (app.itemDraft == null) return false;
+    unawaited(app.resolveItemDraft(reason: DraftExitReason.back, close: true));
+    return true;
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_escape);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_escape);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final app = ref.watch(appProvider);
     app.confirmDocumentAction = (title, message) => context.mounted
         ? confirmDocumentAction(context, title, message)
         : Future.value(false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1100;
-        final drawer = constraints.maxWidth < 780;
-        final surfaces = AppSurfaces.of(context);
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: surfaceOverlays(top: surfaces.header, bottom: surfaces.canvas),
-          child: Scaffold(
-            drawer: drawer
-                ? AnnotatedRegion<SystemUiOverlayStyle>(
-                    value: surfaceOverlays(
-                      top: surfaces.sidebar,
-                      bottom: surfaces.sidebar,
-                    ),
-                    child: Drawer(
-                      backgroundColor: surfaces.sidebar,
-                      surfaceTintColor: Colors.transparent,
-                      child: SafeArea(child: _Sidebar(app: app)),
-                    ),
-                  )
-                : null,
-            body: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  ColoredBox(
-                    key: const ValueKey('header-surface'),
-                    color: surfaces.header,
-                    child: SafeArea(
-                      bottom: false,
-                      child: _FileBar(app: app, drawer: drawer),
-                    ),
-                  ),
-                  if ((app.document != null ||
-                          app.documentServices.binding != null ||
-                          app.documentServices.migrations.hasIssue) &&
-                      (constraints.maxWidth <= 540 || app.documentIssue))
-                    DocumentStatus(app: app),
-                  if (app.busy) const LinearProgressIndicator(minHeight: 2),
-                  if (app.error != null)
-                    Material(
-                      color: Theme.of(context).colorScheme.errorContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, size: 19),
-                            const SizedBox(width: 12),
-                            Expanded(child: SelectableText(app.error!)),
-                            IconButton(
-                              tooltip: 'Dismiss error',
-                              onPressed: app.clearError,
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
+    app.chooseDraftExit = (draft, reason) => context.mounted
+        ? chooseItemDraftExit(context, draft, reason)
+        : Future.value(DraftExitChoice.keepEditing);
+    if ((app.recoveredDrafts.isNotEmpty ||
+            app.itemDrafts.unreadableCount > 0) &&
+        !app.recoveryOfferShown) {
+      app.recoveryOfferShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) showRecoveredItemDrafts(context, app);
+      });
+    }
+    return PopScope<void>(
+      canPop: app.itemDraft == null,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await app.resolveItemDraft(reason: DraftExitReason.back, close: true);
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 1100;
+          final draft = app.itemDraft;
+          if (!wide && draft != null && !app.editorOverlayVisible) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted &&
+                  identical(app.itemDraft, draft) &&
+                  !app.editorOverlayVisible) {
+                showItemDraftDialog(context, app);
+              }
+            });
+          }
+          final drawer = constraints.maxWidth < 780;
+          final surfaces = AppSurfaces.of(context);
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: surfaceOverlays(
+              top: surfaces.header,
+              bottom: surfaces.canvas,
+            ),
+            child: Scaffold(
+              drawer: drawer
+                  ? AnnotatedRegion<SystemUiOverlayStyle>(
+                      value: surfaceOverlays(
+                        top: surfaces.sidebar,
+                        bottom: surfaces.sidebar,
+                      ),
+                      child: Drawer(
+                        backgroundColor: surfaces.sidebar,
+                        surfaceTintColor: Colors.transparent,
+                        child: SafeArea(child: _Sidebar(app: app)),
+                      ),
+                    )
+                  : null,
+              body: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () async {
+                  if (!app.editorOverlayVisible) {
+                    await app.resolveItemDraft(
+                      reason: DraftExitReason.outside,
+                      close: true,
+                    );
+                  }
+                },
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    children: [
+                      ColoredBox(
+                        key: const ValueKey('header-surface'),
+                        color: surfaces.header,
+                        child: SafeArea(
+                          bottom: false,
+                          child: _FileBar(app: app, drawer: drawer),
                         ),
                       ),
-                    ),
-                  Expanded(
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: Row(
-                        children: [
-                          if (!drawer)
-                            SizedBox(width: 242, child: _Sidebar(app: app)),
-                          Expanded(
-                            child: app.document == null
-                                ? _Welcome(app: app)
-                                : _TaskPane(
-                                    app: app,
-                                    showDetail: (id) async {
-                                      await app.selectItem(id);
-                                      if (!context.mounted ||
-                                          app.selectedItemId != id) {
-                                        return;
-                                      }
-                                      if (!wide) {
-                                        showModalBottomSheet<void>(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          useSafeArea: true,
-                                          isDismissible: false,
-                                          enableDrag: false,
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 620,
-                                          ),
-                                          builder: (context) => Padding(
-                                            padding: EdgeInsets.only(
-                                              bottom: MediaQuery.viewInsetsOf(
-                                                context,
-                                              ).bottom,
-                                            ),
-                                            child: PopScope(
-                                              canPop: false,
-                                              onPopInvokedWithResult:
-                                                  (didPop, result) async {
-                                                    if (!didPop &&
-                                                        await app
-                                                            .finishDraft() &&
-                                                        context.mounted) {
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                    }
-                                                  },
-                                              child: SizedBox(
-                                                height:
-                                                    MediaQuery.sizeOf(context)
-                                                        .height *
-                                                    .88,
-                                                child: Column(
-                                                  children: [
-                                                    Align(
-                                                      alignment:
-                                                          Alignment.centerRight,
-                                                      child: TextButton.icon(
-                                                        onPressed: () async {
-                                                          if (await app
-                                                                  .finishDraft() &&
-                                                              context.mounted) {
-                                                            Navigator.of(
-                                                              context,
-                                                            ).pop();
-                                                          }
-                                                        },
-                                                        icon: const Icon(
-                                                          Icons.close,
-                                                        ),
-                                                        label: const Text(
-                                                          'Done',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Consumer(
-                                                        builder:
-                                                            (
-                                                              context,
-                                                              ref,
-                                                              child,
-                                                            ) => ItemEditor(
-                                                              app: ref.watch(
-                                                                appProvider,
-                                                              ),
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                      if ((app.document != null ||
+                              app.documentServices.binding != null ||
+                              app.documentServices.migrations.hasIssue) &&
+                          (constraints.maxWidth <= 540 || app.documentIssue))
+                        DocumentStatus(app: app),
+                      if (app.recoveredDrafts.isNotEmpty ||
+                          app.itemDrafts.unreadableCount > 0)
+                        Material(
+                          color: const Color(0xffffefbd),
+                          child: ListTile(
+                            title: const Text(
+                              'Unfinished drafts are available on this device',
+                            ),
+                            trailing: TextButton(
+                              onPressed: () =>
+                                  showRecoveredItemDrafts(context, app),
+                              child: const Text('Review drafts…'),
+                            ),
                           ),
-                          if (wide &&
-                              app.document != null &&
-                              app.selectedItemId != null) ...[
-                            const VerticalDivider(width: 1),
-                            SizedBox(width: 360, child: ItemEditor(app: app)),
-                          ],
-                        ],
+                        ),
+                      if (app.busy) const LinearProgressIndicator(minHeight: 2),
+                      if (app.error != null)
+                        Material(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, size: 19),
+                                const SizedBox(width: 12),
+                                Expanded(child: SelectableText(app.error!)),
+                                IconButton(
+                                  tooltip: 'Dismiss error',
+                                  onPressed: app.clearError,
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: MediaQuery.removePadding(
+                          context: context,
+                          removeTop: true,
+                          child: Row(
+                            children: [
+                              if (!drawer)
+                                SizedBox(width: 242, child: _Sidebar(app: app)),
+                              Expanded(
+                                child: app.document == null
+                                    ? _Welcome(app: app)
+                                    : _TaskPane(
+                                        app: app,
+                                        showDetail: (id) async {
+                                          await app.selectItem(id);
+                                        },
+                                      ),
+                              ),
+                              if (wide &&
+                                  app.document != null &&
+                                  app.itemDraft != null &&
+                                  !app.editorOverlayVisible) ...[
+                                const VerticalDivider(width: 1),
+                                SizedBox(
+                                  width: 360,
+                                  child: ItemEditor(app: app),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -412,9 +424,12 @@ class _Sidebar extends StatelessWidget {
                           onPressed: () =>
                               showViewEditor(context, app, existing: view),
                         ),
-                        onTap: () {
-                          app.selectView(intValue(view['id']));
-                          if (Scaffold.of(context).isDrawerOpen) {
+                        onTap: () async {
+                          final id = intValue(view['id']);
+                          await app.selectView(id);
+                          if (context.mounted &&
+                              app.selectedViewId == id &&
+                              Scaffold.of(context).isDrawerOpen) {
                             Navigator.pop(context);
                           }
                         },

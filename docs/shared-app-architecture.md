@@ -69,6 +69,16 @@ access and create-new backups. Publication stays in DocumentSaveCoordinator.
 Read [migration safety](migration-safety.md) before adding a schema or semantic
 conversion; current-format UI work must not invent a migration.
 
+Shared item drafts: `services/item_draft.dart` owns isolated fields, baselines,
+private checkpoint sequencing and recovery records. AppController owns resolution,
+identity guards and Save-intent handling. Rust `item_drafts.rs` validates/prepares
+atomic candidates and receipts; publication remains in DocumentSaveCoordinator.
+`ui/item_editor.dart` and `GuardedEditorRoute` implement one action policy across
+embedded/dialog editors. `EditorFormLayout` shares responsive scrolling and stable
+focus/composing subtrees with view editing. Read [item editor contracts](item-editor-drafts.md)
+before adding fields or navigation; never reinstate live commits from onChanged,
+dispose, keyboard/lifecycle changes or background autosave.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

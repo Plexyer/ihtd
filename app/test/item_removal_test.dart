@@ -299,7 +299,9 @@ void main() {
 
       await ask();
       expect(find.text('Delete “Shared task”?'), findsOneWidget);
-      await tester.runAsync(() => tester.tap(find.text('Cancel')));
+      await tester.runAsync(
+        () => tester.tap(find.widgetWithText(TextButton, 'Cancel').last),
+      );
       await settle(tester);
       expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
       expect(adapter.writes, writes);
@@ -325,7 +327,7 @@ void main() {
     await shell(tester);
     final list = find.descendant(
       of: find.byType(ItemEditor),
-      matching: find.byType(ListView),
+      matching: find.byType(SingleChildScrollView),
     );
     await tester.drag(list, const Offset(0, -1500));
     await settle(tester);
@@ -454,7 +456,9 @@ void main() {
         find.textContaining('Replace it or remove this rule'),
         findsOneWidget,
       );
-      await tester.runAsync(() => tester.tap(find.text('Cancel')));
+      await tester.runAsync(
+        () => tester.tap(find.widgetWithText(TextButton, 'Cancel').last),
+      );
       await settle(tester);
       // Repair metadata from the authoritative backend clears warning everywhere.
       viewIssues['7'] = [];
@@ -468,7 +472,9 @@ void main() {
       await tester.runAsync(() => tester.tap(find.byTooltip('Edit this view')));
       await settle(tester);
       expect(find.textContaining('This container was deleted'), findsNothing);
-      await tester.runAsync(() => tester.tap(find.text('Cancel')));
+      await tester.runAsync(
+        () => tester.tap(find.widgetWithText(TextButton, 'Cancel').last),
+      );
       await settle(tester);
     },
   );
@@ -507,7 +513,9 @@ void main() {
       await tester.runAsync(() => tester.tap(find.text('Remove')));
       await settle(tester);
       await tester.ensureVisible(find.text('Cancel'));
-      await tester.runAsync(() => tester.tap(find.text('Cancel')));
+      await tester.runAsync(
+        () => tester.tap(find.widgetWithText(TextButton, 'Cancel').last),
+      );
       await settle(tester);
       expect(tester.takeException(), isNull);
       expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
@@ -553,10 +561,10 @@ void main() {
       ),
     );
     await settle(tester);
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
     final list = find.descendant(
       of: find.byType(ItemEditor),
-      matching: find.byType(ListView),
+      matching: find.byType(SingleChildScrollView),
     );
     await tester.drag(list, const Offset(0, -1500));
     await settle(tester);
@@ -568,7 +576,7 @@ void main() {
       () => tester.tap(find.widgetWithText(FilledButton, 'Delete')),
     );
     await settle(tester);
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
     expect(app.selectedItemId, isNull);
     expect(tester.takeException(), isNull);
   });

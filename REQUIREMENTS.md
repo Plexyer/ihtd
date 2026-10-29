@@ -131,6 +131,18 @@ Completed displays retain unfinished ancestors for context.
 Folders have a hide switch and an independent reappear-on-new-task switch.
 Hiding a folder does not complete its descendant tasks.
 
+## Item editor drafts (implementation candidate)
+
+Follow [the approved draft/Save/Cancel behavior](docs/item-editor-drafts.md).
+Tasks/folders stage editable fields privately until Save; Cancel discards them.
+Back/Escape and explicit switching with edits prompt Save/Discard/Keep editing;
+existing-editor outside clicks save only if valid, and new-item outside clicks
+prompt Create/Discard/Keep editing. Saving closes the whole editor. Backgrounding
+and private checkpoints do not commit drafts. Visibility and collection-tag
+creation remain immediate separate operations. Unfinished drafts can be restored
+or discarded after restart and stay bound to their working copy, even for
+collections sharing a UUID. Physical acceptance remains open.
+
 ## Fields and files
 
 Title, tags, plain-text notes, date-only due date, and priorities None / Low /
@@ -138,7 +150,8 @@ Medium / High. No custom fields.
 
 One independent .ihtd file is open at a time. Native filesystem open/save
 dialogs support local, removable, and mounted paths. Accepted mutations save
-automatically; text typing is coalesced briefly. External revisions are reported
+automatically after acceptance. Item typing is privately checkpointed until the
+user commits the cancellable draft. External revisions are reported
 for explicit reopening, consistently across platforms; they do not silently
 replace pending work. One editing device at a time, no history or merge in this prototype.
 On desktop, a document path supplied at startup opens through the same
