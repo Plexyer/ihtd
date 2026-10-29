@@ -14,6 +14,7 @@ import 'document_save_coordinator.dart';
 import 'document_adapter.dart';
 import 'document_composition.dart';
 import 'migration_contract.dart';
+import 'item_draft.dart';
 
 final appProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
@@ -28,7 +29,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     Future<String> Function(String)? command,
     Future<Directory> Function()? supportDirectory,
     bool polling = true,
-  }) : _documents =
+    ItemDraftStore? draftStore,
+  }) : itemDrafts = draftStore ?? ItemDraftStore(),
+       _documents =
            documentServices ??
            composeDocumentServices(
              command ?? ((request) => api.command(request: request)),
@@ -94,7 +97,352 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final Set<String> expandedPaths = {'*'};
   int? selectedItemId;
   Future<bool> Function()? flushDraft;
-  Future<bool> finishDraft() async => await flushDraft?.call() ?? true;
+  Future<bool> finishDraft() async {
+    if (savingItemDraft || discardingItemDraft) return false;
+    if (flushDraft != null && !await flushDraft!()) return false;
+    return resolveItemDraft();
+  }
+
+  final ItemDraftStore itemDrafts;
+  ItemDraft? itemDraft;
+  String? editorOverlaySession;
+  bool get editorOverlayVisible =>
+      editorOverlaySession != null &&
+      editorOverlaySession == itemDraft?.sessionId;
+  bool recoveryOfferShown = false;
+  bool savingItemDraft = false;
+  bool discardingItemDraft = false;
+  bool retainingItemDraft = false;
+  bool switchingCollection = false;
+  int _draftGeneration = 0;
+  String? draftStorageError;
+  Future<DraftExitChoice> Function(ItemDraft, DraftExitReason)? chooseDraftExit;
+  bool _resolvingDraft = false;
+  List<ItemDraft> get recoveredDrafts => itemDrafts.recovered.values
+      .where((d) => d.sessionId != itemDraft?.sessionId)
+      .toList();
+
+  ItemDraft? ensureItemDraft() {
+    if (itemDraft != null) return itemDraft;
+    final item = _map(_map(document?['items'])['$selectedItemId']);
+    if (item.isEmpty || _workingPath == null) return null;
+    return itemDraft = ItemDraft(
+      ownerPath: _workingPath!,
+      documentId: '${document!['document_id']}',
+      viewId: selectedViewId,
+      view: cloneMap(_map(_map(document?['views'])['$selectedViewId'])),
+      base: cloneMap(item),
+      values: ItemDraft.editable(item),
+      itemId: selectedItemId,
+    );
+  }
+
+  Future<bool> checkpointItemDraft() async {
+    final draft = itemDraft;
+    if (draft == null || discardingItemDraft) return true;
+    final generation = ++_draftGeneration;
+    retainingItemDraft = true;
+    try {
+      if (!draft.dirty && !draft.isNew && draft.intent == null) {
+        await itemDrafts.remove(draft.sessionId);
+      } else {
+        await itemDrafts.put(draft);
+      }
+      if (generation == _draftGeneration) draftStorageError = null;
+      return true;
+    } catch (_) {
+      draftStorageError = 'The unfinished draft could not be retained on this device. Keep the editor open and check free storage.';
+      return false;
+    } finally {
+      if (generation == _draftGeneration) retainingItemDraft = false;
+      notifyListeners();
+    }
+  }
+
+  void changeItemDraft(String key, dynamic value, {String? sessionId}) {
+    final draft = itemDraft;
+    if (draft == null ||
+        savingItemDraft ||
+        discardingItemDraft ||
+        switchingCollection ||
+        (sessionId != null && sessionId != draft.sessionId)) {
+      return;
+    }
+    draft.values[key] = value;
+    if (key == 'parent_id') draft.parentId = value as int?;
+    draft.error = null;
+    unawaited(checkpointItemDraft());
+    notifyListeners();
+  }
+
+  Future<bool> discardItemDraft({bool close = true}) async {
+    final draft = itemDraft;
+    if (draft == null) return true;
+    if (savingItemDraft || discardingItemDraft) return false;
+    discardingItemDraft = true;
+    notifyListeners();
+    try {
+      await itemDrafts.remove(draft.sessionId);
+      if (close) {
+        itemDraft = null;
+        selectedItemId = null;
+      } else if (!draft.isNew) {
+        draft.rebase(_map(_map(document?['items'])['${draft.itemId}']));
+      } else {
+        draft.values = cloneMap(draft.initial);
+        draft.error = null;
+        draft.intent = null;
+        draft.formRevision++;
+      }
+      return true;
+    } catch (_) {
+      draft.error =
+          'Draft recovery could not be cleared. Check storage before leaving.';
+      return false;
+    } finally {
+      discardingItemDraft = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> resolveItemDraft({
+    DraftExitReason reason = DraftExitReason.navigate,
+    bool close = false,
+  }) async {
+    final draft = itemDraft;
+    if (draft == null) return true;
+    if (savingItemDraft || discardingItemDraft) return false;
+    if (!draft.dirty && !(draft.isNew && reason == DraftExitReason.outside)) {
+      if (close) return discardItemDraft();
+      return true;
+    }
+    if (reason == DraftExitReason.outside && !draft.isNew) {
+      return saveItemDraft(close: close);
+    }
+    if (_resolvingDraft) return false;
+    _resolvingDraft = true;
+    late DraftExitChoice choice;
+    try {
+      choice =
+          await chooseDraftExit?.call(draft, reason) ??
+          DraftExitChoice.keepEditing;
+    } finally {
+      _resolvingDraft = false;
+    }
+    if (!identical(itemDraft, draft)) return false;
+    return switch (choice) {
+      DraftExitChoice.save => saveItemDraft(close: close),
+      DraftExitChoice.discard => discardItemDraft(close: close),
+      DraftExitChoice.keepEditing => false,
+    };
+  }
+
+  Future<bool> saveItemDraft({bool close = true}) async {
+    final draft = itemDraft;
+    if (draft == null || savingItemDraft || discardingItemDraft) {
+      return draft == null;
+    }
+    if (draft.accepted) return discardItemDraft(close: close);
+    if (!draft.isNew && !draft.dirty && draft.intent == null) {
+      return close ? discardItemDraft() : true;
+    }
+    if ('${draft.values['title']}'.trim().isEmpty) {
+      draft.error = 'Enter a title.';
+      notifyListeners();
+      return false;
+    }
+    if (draft.ownerPath != _workingPath ||
+        draft.documentId != document?['document_id']) {
+      draft.error = 'This draft belongs to another working collection. It has not overwritten this collection.';
+      notifyListeners();
+      return false;
+    }
+    savingItemDraft = true;
+    notifyListeners();
+    try {
+      if (draft.isNew && draft.intent != null) {
+        final previous = draft.intent!;
+        final receipt = await dispatch({
+          'op': 'item_draft_status',
+          'digest': previous['digest'],
+        }, expectedDocument: editIdentity);
+        if (receipt?['committed'] == true) {
+          return await _acceptItemDraft(draft, close: close);
+        }
+        if ((document?['next_id'] as int? ?? 0) >
+            (previous['id'] as int? ?? 0)) {
+          draft.error =
+              'This creation may already have been saved as item #${previous['id']}. Review that item or export the draft before creating another.';
+          return false;
+        }
+      }
+      final command = {
+        ...draft.command(),
+        'title': '${draft.values['title']}'.trim(),
+      };
+      final identity = editIdentity;
+      final plan = await dispatch({
+        'op': 'preview_item_draft',
+        ...command,
+      }, expectedDocument: identity);
+      if (plan == null || plan['digest'] is! String) {
+        draft.error = error ?? 'The draft could not be prepared.';
+        return false;
+      }
+      draft.intent = {
+        'digest': plan['digest'],
+        'id': plan['id'],
+        'revision': plan['revision'],
+      };
+      if (!await checkpointItemDraft()) {
+        draft.intent = null; // No model command was submitted.
+        return false;
+      }
+      final result = await dispatch({
+        'op': 'save_item_draft',
+        ...command,
+        'expected_revision': plan['revision'],
+        'expected_digest': plan['digest'],
+      }, expectedDocument: identity);
+      final commitError = error;
+      var accepted = result != null;
+      if (!accepted) {
+        final status = await dispatch({
+          'op': 'item_draft_status',
+          'digest': plan['digest'],
+        }, expectedDocument: identity);
+        accepted = status?['committed'] == true;
+      }
+      if (!accepted) {
+        draft.error =
+            commitError ??
+            error ??
+            'Save was not accepted. Your draft is retained.';
+        return false;
+      }
+      return await _acceptItemDraft(draft, close: close);
+    } finally {
+      savingItemDraft = false;
+      discardingItemDraft = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _acceptItemDraft(ItemDraft draft, {required bool close}) async {
+    draft.accepted = true;
+    discardingItemDraft = true;
+    try {
+      await itemDrafts.remove(draft.sessionId);
+    } catch (_) {
+      error = 'The item was saved, but its private draft cleanup failed. Recovery will check the saved result before restoring it.';
+    }
+    if (close || draft.isNew) {
+      itemDraft = null;
+      selectedItemId = null;
+    } else {
+      draft.rebase(_map(_map(document?['items'])['${draft.itemId}']));
+    }
+    return true;
+  }
+
+  Future<bool> beginCreateDraft(
+    Map<String, dynamic> defaults, {
+    int? parentId,
+    String kind = 'task',
+  }) async {
+    if (!await finishDraft()) return false;
+    if (itemDraft != null && !await discardItemDraft()) return false;
+    if (_workingPath == null || document == null) return false;
+    final values =
+        ItemDraft.editable({...defaults, 'kind': defaults['kind'] ?? kind})
+          ..['parent_id'] = parentId
+          ..['requirements'] = List<String>.from(
+            defaults['requirements'] as List? ?? [],
+          );
+    itemDraft = ItemDraft(
+      ownerPath: _workingPath!,
+      documentId: '${document!['document_id']}',
+      viewId: selectedViewId,
+      view: cloneMap(_map(_map(document?['views'])['$selectedViewId'])),
+      base: {},
+      values: values,
+      parentId: parentId,
+    );
+    selectedItemId = null;
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> reloadItemDraft() async {
+    if (itemDraft?.isNew == false) await discardItemDraft(close: false);
+  }
+
+  Future<bool> restoreItemDraft(ItemDraft draft) async {
+    await ready;
+    if (!await finishDraft()) return false;
+    if (draft.ownerPath != _workingPath ||
+        draft.documentId != document?['document_id']) {
+      final saved = [
+        if (_documents.binding != null) _documents.binding!,
+        ...await _documents.retainedCollections(),
+      ];
+      final matches = saved.where((r) => r['path'] == draft.ownerPath).toList();
+      if (matches.isEmpty) {
+        error = 'Open the retained working collection for this draft first. The draft has been kept separately.';
+        notifyListeners();
+        return false;
+      }
+      await restoreRetained(matches.first);
+      if (draft.ownerPath != _workingPath ||
+          draft.documentId != document?['document_id']) {
+        return false;
+      }
+    }
+    if (draft.intent != null) {
+      final status = await dispatch({
+        'op': 'item_draft_status',
+        'digest': draft.intent!['digest'],
+      }, expectedDocument: editIdentity);
+      if (status?['committed'] == true) {
+        await itemDrafts.remove(draft.sessionId);
+        error = 'This draft was already saved before the interruption.';
+        notifyListeners();
+        return true;
+      }
+      if (draft.isNew &&
+          ((document?['next_id'] as int? ?? 0) >
+              (draft.intent!['id'] as int? ?? 0))) {
+        error =
+            'This creation may already have been saved as item #${draft.intent!['id']}. Review that item or export this draft; IHTD will not create it twice automatically.';
+        notifyListeners();
+        return false;
+      }
+    }
+    itemDraft = draft;
+    selectedItemId = draft.itemId;
+    draft.formRevision++;
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> discardRecoveredItemDraft(ItemDraft draft) async {
+    try {
+      await itemDrafts.remove(draft.sessionId);
+    } catch (_) {
+      error = 'The retained draft could not be discarded. It has been kept on this device.';
+    }
+    notifyListeners();
+  }
+
+  Future<void> exportItemDraft(ItemDraft draft) => _documentAction((
+    storage,
+  ) async {
+    final picked = await storage.pick(suggested: 'IHTD-unfinished-draft.json');
+    if (picked == null) return;
+    final local = storage.freshPath('json');
+    await File(local).writeAsString(jsonEncode(draft.toJson()), flush: true);
+    await storage.copyTo(picked, local);
+  }, flush: false);
 
   /// Installation may terminate the process: flush drafts and durably checkpoint
   /// locally without forcing a disconnected/conflicted external publication.
@@ -140,6 +488,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _initialize() async {
     try {
       final dir = await _supportDirectory();
+      try {
+        await itemDrafts.initialize(dir);
+      } catch (_) {
+        draftStorageError = 'Draft recovery storage is unavailable. Existing drafts have been retained.';
+      }
       await _send({'op': 'initialize', 'recovery_dir': '${dir.path}/recovery'});
       _documents.migrations.recoveryDirectory = '${dir.path}/recovery';
       var previous = await _documents.initialize();
@@ -214,6 +567,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         status = _documents.summary;
       }
       notifyListeners();
+    } finally {
+      // Recovery must be offered even when there is no active collection.
+      notifyListeners();
     }
   }
 
@@ -229,7 +585,25 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         ..add('*');
     }
     document = next;
-    _workingPath = state['path'] as String?;
+    final nextPath = state['path'] as String?;
+    if (itemDraft != null &&
+        (nextPath != itemDraft!.ownerPath ||
+            (itemDraft!.itemId != null &&
+                !_map(next['items']).containsKey('${itemDraft!.itemId}')))) {
+      itemDraft = null;
+    }
+    if (itemDraft != null &&
+        !savingItemDraft &&
+        !itemDraft!.isNew &&
+        !itemDraft!.dirty &&
+        itemDraft!.intent == null) {
+      final current = _map(_map(next['items'])['${itemDraft!.itemId}']);
+      if (current.isNotEmpty &&
+          jsonEncode(current) != jsonEncode(itemDraft!.base)) {
+        itemDraft!.rebase(current);
+      }
+    }
+    _workingPath = nextPath;
     completion = _map(state['completion']);
     placements = _map(state['placements']);
     viewIssues = _map(state['view_issues']);
@@ -302,7 +676,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
     // Check inside the command queue, after waiting. Copies may share a UUID.
     if (expectedDocument != null && expectedDocument != editIdentity) {
-      error = 'The open collection changed. Reopen the view editor for this collection.';
+      error =
+          'The open collection changed. Reopen the editor for this collection.';
       notifyListeners();
       return null;
     }
@@ -318,6 +693,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'query',
       'creation_defaults',
       'preview_removal',
+      'preview_item_draft',
+      'item_draft_status',
       'snapshot',
       'open',
       'new',
@@ -334,6 +711,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         'query',
         'creation_defaults',
         'preview_removal',
+        'preview_item_draft',
+        'item_draft_status',
         'snapshot',
         'open',
         'new',
@@ -481,7 +860,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) poll();
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      finishDraft().then((_) => poll());
+      checkpointItemDraft().then((_) => poll());
     }
   }
 
@@ -509,6 +888,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     busy = true;
+    switchingCollection = {'open', 'new', 'copy'}.contains(action);
     error = null;
     notifyListeners();
     final storage = _documents;
@@ -584,6 +964,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       await refreshRows();
       busy = false;
+      switchingCollection = false;
       notifyListeners();
     }
   }
@@ -600,13 +981,21 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> selectItem(int? id) async {
+    if (itemDraft != null && itemDraft!.itemId == id && id != null) return;
     if (!await finishDraft()) return;
+    if (itemDraft != null &&
+        itemDraft!.itemId != id &&
+        !await discardItemDraft()) {
+      return;
+    }
     selectedItemId = id;
+    if (id != null) ensureItemDraft();
     notifyListeners();
   }
 
   Future<void> selectView(int id) async {
     if (!await finishDraft()) return;
+    if (itemDraft != null && !await discardItemDraft()) return;
     selectedViewId = id;
     selectedItemId = null;
     await refreshRows();

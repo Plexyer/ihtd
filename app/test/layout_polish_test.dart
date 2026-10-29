@@ -61,7 +61,9 @@ void main() {
       return jsonEncode({
         'ok': true,
         'snapshot': {
+          'path': '${directory.path}/working.ihtd',
           'document': {
+            'document_id': 'layout-test',
             'views': {
               '1': {'id': 1, 'name': 'All tasks'},
               '2': _view,

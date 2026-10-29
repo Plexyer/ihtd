@@ -1,5 +1,6 @@
 pub mod export;
 pub mod filesystem;
+pub mod item_drafts;
 pub mod migration;
 pub mod presentation;
 pub mod storage;
@@ -143,6 +144,25 @@ impl Backend {
             .as_mut()
             .ok_or("Open or create a collection first")?;
         match op.as_str() {
+            "item_draft_status" => {
+                return Ok(
+                    json!({"committed":request["digest"].as_str()==Some(item_drafts::digest(&session.document)?.as_str())}),
+                )
+            }
+            "preview_item_draft" => return item_drafts::preview(&session.document, &request),
+            "save_item_draft" => {
+                if request["expected_revision"].as_u64() != Some(session.document.revision) {
+                    return Err("The collection changed while preparing Save. Your draft has been retained; try Save again.".into());
+                }
+                let (candidate, id) = item_drafts::prepare(&session.document, &request)?;
+                if request["expected_digest"].as_str()
+                    != Some(item_drafts::digest(&candidate)?.as_str())
+                {
+                    return Err("The prepared draft changed. Nothing was saved.".into());
+                }
+                session.commit(candidate)?;
+                return Ok(json!({"id":id}));
+            }
             "copy" => {
                 let path = PathBuf::from(string(&request, "path")?);
                 storage::publish(&path, &storage::encode(&session.document)?, false)?;

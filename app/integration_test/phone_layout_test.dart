@@ -16,7 +16,7 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
-    'phone editor flushes on Done and swipes scroll without moving items',
+    'phone editor saves and closes on Save and swipes scroll without moving items',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       tester.view.physicalSize = const Size(390, 844);
@@ -84,14 +84,18 @@ void main() {
         (widget) =>
             widget is TextField && widget.decoration?.labelText == 'Title',
       );
-      await tester.enterText(title, 'Saved on Done');
-      await tester.tap(find.text('Done'));
+      await tester.enterText(title, 'Saved on Save');
+      expect(
+        controller.document!['items']['${controller.selectedItemId}']['title'],
+        'Scroll item 0',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
-      expect(find.text('Saved on Done'), findsOneWidget);
+      expect(find.text('Saved on Save'), findsOneWidget);
       expect(controller.error, isNull);
       final revision = controller.document!['revision'];
       final links = '${controller.document!['links']}';
-      await tester.drag(find.text('Saved on Done'), const Offset(0, -280));
+      await tester.drag(find.text('Saved on Save'), const Offset(0, -280));
       await tester.pumpAndSettle();
       expect(controller.document!['revision'], revision);
       expect('${controller.document!['links']}', links);

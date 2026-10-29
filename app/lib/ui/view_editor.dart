@@ -13,6 +13,7 @@ Future<void> showViewEditor(
   AppController app, {
   Map<String, dynamic>? existing,
 }) async {
+  if (!await app.finishDraft() || !context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (_) => _ViewDialog(app: app, existing: existing),

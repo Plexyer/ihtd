@@ -83,7 +83,7 @@ void main() {
       (w) => w is TextField && w.decoration?.labelText == 'Title',
     );
     await tester.enterText(editTitle, 'Shared task edited');
-    expect(await controller.finishDraft(), true);
+    expect(await controller.saveItemDraft(), true);
     await tester.pumpAndSettle();
     expect(
       controller.document!['items']['$task']['title'],
@@ -304,7 +304,7 @@ void main() {
     expect(find.text('Delete “Removal trip”?'), findsOneWidget);
     expect(find.textContaining('These shared branches remain'), findsOneWidget);
     final beforeCancel = controller.document!;
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel').last);
     await tester.pumpAndSettle();
     expect(controller.document, beforeCancel);
     await openRemovalMenu('$trip', 'Delete');
