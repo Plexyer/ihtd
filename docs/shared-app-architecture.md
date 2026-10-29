@@ -100,6 +100,13 @@ command. Copy/deletion maintain parent sort metadata. Read
 [sorting and drag insertion](sorting-drag-insertion.md) for hidden-slot and
 shared-parent behavior, compatibility and acceptance.
 
+Shared priority artwork: `ui/priority_icon.dart` supplies `PriorityIcon` and
+text-bearing `PriorityChoice` to hierarchy rows and item/view-rule selectors.
+Future summary counters reuse it with an explicit compact size; do not create
+platform-specific icons or duplicate color mappings. See
+[priority icons](priority-icons.md). This presentation change requires no data
+conversion.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

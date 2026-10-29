@@ -12,6 +12,7 @@ import 'guarded_editor_route.dart';
 import 'editor_dialog.dart';
 import 'collection_settings.dart';
 import 'sort_settings.dart';
+import 'priority_icon.dart';
 
 Future<DraftExitChoice> chooseItemDraftExit(
   BuildContext context,
@@ -451,7 +452,10 @@ class _ItemEditorState extends State<ItemEditor> {
                 decoration: const InputDecoration(labelText: 'Priority'),
                 items: [
                   for (var p = 0; p < 4; p++)
-                    DropdownMenuItem(value: p, child: Text(priorityNames[p])),
+                    DropdownMenuItem(
+                      value: p,
+                      child: PriorityChoice(priority: p),
+                    ),
                 ],
                 onChanged: disabled ? null : (v) => change('priority', v ?? 0),
               ),

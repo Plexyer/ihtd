@@ -11,6 +11,7 @@ import 'collection_settings.dart';
 import 'item_removal.dart';
 import 'item_drag.dart';
 import 'sort_settings.dart';
+import 'priority_icon.dart';
 import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
@@ -851,17 +852,8 @@ class _TaskPane extends StatelessWidget {
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
                                         ),
-                                        child: Tooltip(
-                                          message:
-                                              '${priorityLabel(item['priority'])} priority',
-                                          child: Icon(
-                                            Icons.flag_outlined,
-                                            size: 18,
-                                            color:
-                                                intValue(item['priority']) == 3
-                                                ? const Color(0xffc57d49)
-                                                : const Color(0xff91a3b8),
-                                          ),
+                                        child: PriorityIcon(
+                                          priority: intValue(item['priority']),
                                         ),
                                       ),
                                     Column(

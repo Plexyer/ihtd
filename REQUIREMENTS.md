@@ -181,6 +181,13 @@ physical upgrade/device acceptance is pending.
 Title, tags, plain-text notes, date-only due date, and priorities None / Low /
 Medium / High. No custom fields.
 
+Shared [priority icons](docs/priority-icons.md) use no symbol for None, a gray
+exclamation mark for Low, muted amber for Medium, and a red rounded-triangle
+outline with a red exclamation mark for High. Rows and priority selectors share
+the same component, which also supports smaller summary-counter sizes. Text
+labels/tooltips retain meaning independently of color. Stored values are
+unchanged; physical visual/accessibility acceptance remains open.
+
 One independent .ihtd file is open at a time. Native filesystem open/save
 dialogs support local, removable, and mounted paths. Accepted mutations save
 automatically after acceptance. Item typing is privately checkpointed until the

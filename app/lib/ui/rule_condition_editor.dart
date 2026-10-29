@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/app_controller.dart';
 import 'editor_dialog.dart';
 import 'item_editor.dart' show showNewTag;
+import 'priority_icon.dart';
 import 'shared.dart';
 
 const ruleKinds = {
@@ -415,11 +416,19 @@ class _ConditionFields extends StatelessWidget {
               changed: (v) => set('comparison', v),
             ),
             const SizedBox(height: 10),
-            dropdown(
-              value: intValue(rule['value']),
-              label: 'Priority',
-              choices: {for (var i = 0; i < 4; i++) i: priorityNames[i]},
-              changed: (v) => set('value', v),
+            DropdownButtonFormField<int>(
+              key: ValueKey('Priority-${rule['value']}'),
+              initialValue: intValue(rule['value']),
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Priority'),
+              items: [
+                for (var p = 0; p < 4; p++)
+                  DropdownMenuItem(
+                    value: p,
+                    child: PriorityChoice(priority: p),
+                  ),
+              ],
+              onChanged: (v) => set('value', v ?? 0),
             ),
           ],
           if (op == 'kind')
