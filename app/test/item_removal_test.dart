@@ -21,6 +21,7 @@ void main() {
   late ProviderContainer container;
   late Map<String, dynamic> document, placements;
   late Map<String, dynamic> viewIssues;
+  late Map<String, dynamic> appearances;
   late List<Map<String, dynamic>> commands, rows;
   late String working;
 
@@ -29,6 +30,7 @@ void main() {
     'dirty': false,
     'document': document,
     'placements': placements,
+    'appearances': appearances,
     'view_issues': viewIssues,
     'completion': {},
   };
@@ -38,20 +40,43 @@ void main() {
     var data = <String, dynamic>{};
     var ok = true;
     if (op['op'] == 'query') data = {'rows': rows};
-    if (op['op'] == 'preview_removal') {
-      final shared = placements['${op['id']}']['count'] > 1;
+    if (op['op'] == 'preview_item_action') {
+      op['id'] = (op['path'] as List).last;
+      op['parent'] = (op['path'] as List).length > 1
+          ? (op['path'] as List)[(op['path'] as List).length - 2]
+          : null;
+    }
+    if (op['op'] == 'preview_removal' || op['op'] == 'preview_item_action') {
+      final shared = appearances.containsKey('${op['id']}')
+          ? appearances['${op['id']}'] != '1'
+          : placements['${op['id']}']['count'] > 1;
+      final path = op['path'] as List?;
+      final blocking = op['action'] == 'unlink' && path != null
+          ? path
+                .take(path.length - 1)
+                .where(
+                  (id) =>
+                      appearances['$id'] != null && appearances['$id'] != '1',
+                )
+                .firstOrNull
+          : null;
+      final deleting =
+          op['action'] == 'delete' || op['action'] == null && !shared;
       data = {
+        'path': op['path'],
+        'blocking_parent': blocking,
+        'appearances': shared ? '2' : '1',
         'id': op['id'],
         'parent': op['parent'],
-        'action': shared ? 'unlink' : 'delete',
+        'action': deleting ? 'delete' : 'unlink',
         'document_id': document['document_id'],
         'revision': document['revision'],
-        'deleted_ids': shared ? [] : [op['id']],
+        'deleted_ids': deleting ? [op['id']] : [],
         'retained_child_ids': [],
         'affected_view_ids': [],
       };
     }
-    if (op['op'] == 'remove_placement') {
+    if (op['op'] == 'remove_placement' || op['op'] == 'apply_item_action') {
       final preview = op['preview'] as Map;
       if (preview['revision'] != document['revision']) {
         ok = false;
@@ -140,6 +165,7 @@ void main() {
       },
     };
     viewIssues = {};
+    appearances = {};
     rows = [
       {
         'id': 2,
@@ -237,26 +263,35 @@ void main() {
       await tester.runAsync(
         () => tester.tap(
           find.byWidgetPredicate(
-            (w) => w is PopupMenuItem<String> && w.value == 'remove',
+            (w) => w is PopupMenuItem<String> && w.value == 'unlink',
           ),
         ),
       );
       await settle(tester);
       expect(find.textContaining('Delete “'), findsNothing);
       expect(
-        commands.where((c) => c['op'] == 'remove_placement'),
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
         isNotEmpty,
         reason: 'Commands: $commands, error: ${app.error}, busy: ${app.busy}',
       );
-      final removal = commands.lastWhere((c) => c['op'] == 'remove_placement');
+      final removal = commands.lastWhere(
+        (c) =>
+            (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+      );
       expect(removal['preview']['parent'], isNull);
       expect(removal['preview']['action'], 'unlink');
-      expect(removal['confirm_delete'], false);
+      expect(removal['confirmed'], false);
       expect(app.selectedItemId, 3);
       expect(app.expandedPaths, isNot(contains('!3')));
       expect(adapter.writes, writes);
       expect(
-        commands.where((c) => c['op'] == 'remove_placement'),
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
         hasLength(1),
       );
       await tester.runAsync(
@@ -290,7 +325,7 @@ void main() {
         await tester.runAsync(
           () => tester.tap(
             find.byWidgetPredicate(
-              (w) => w is PopupMenuItem<String> && w.value == 'remove',
+              (w) => w is PopupMenuItem<String> && w.value == 'delete',
             ),
           ),
         );
@@ -303,7 +338,13 @@ void main() {
         () => tester.tap(find.widgetWithText(TextButton, 'Cancel').last),
       );
       await settle(tester);
-      expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
+      expect(
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
+        isEmpty,
+      );
       expect(adapter.writes, writes);
       await ask();
       await tester.runAsync(
@@ -314,7 +355,10 @@ void main() {
       expect(app.document!['items']['3'], isNull);
       expect(adapter.writes, writes);
       expect(
-        commands.where((c) => c['op'] == 'remove_placement'),
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
         hasLength(1),
       );
     },
@@ -331,8 +375,9 @@ void main() {
     );
     await tester.drag(list, const Offset(0, -1500));
     await settle(tester);
-    expect(find.byKey(const ValueKey('remove-3-root')), findsOneWidget);
-    expect(find.byKey(const ValueKey('remove-3-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('unlink-item-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('delete-item-3')), findsOneWidget);
+    expect(find.text('Links: 2'), findsWidgets);
   });
 
   testWidgets('stale confirmation never deletes and user can preview again', (
@@ -382,7 +427,13 @@ void main() {
       ),
     );
     expect(removed, false);
-    expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
+    expect(
+      commands.where(
+        (c) =>
+            (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+      ),
+      isEmpty,
+    );
     expect(app.error, contains('collection changed'));
   });
 
@@ -518,7 +569,13 @@ void main() {
       );
       await settle(tester);
       expect(tester.takeException(), isNull);
-      expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
+      expect(
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
+        isEmpty,
+      );
     },
   );
   testWidgets('invalid draft blocks preview and removal', (tester) async {
@@ -531,7 +588,9 @@ void main() {
     );
     expect(
       commands.where(
-        (c) => c['op'] == 'preview_removal' || c['op'] == 'remove_placement',
+        (c) =>
+            c['op'] == 'preview_removal' ||
+            (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
       ),
       isEmpty,
     );
@@ -568,7 +627,7 @@ void main() {
     );
     await tester.drag(list, const Offset(0, -1500));
     await settle(tester);
-    final button = find.byKey(const ValueKey('remove-3-2'));
+    final button = find.byKey(const ValueKey('delete-item-3'));
     await tester.ensureVisible(button);
     await tester.runAsync(() => tester.tap(button));
     await settle(tester);
@@ -601,8 +660,64 @@ void main() {
         ),
       );
       expect(removed, false);
-      expect(commands.where((c) => c['op'] == 'remove_placement'), isEmpty);
+      expect(
+        commands.where(
+          (c) =>
+              (c['op'] == 'remove_placement' || c['op'] == 'apply_item_action'),
+        ),
+        isEmpty,
+      );
       expect(app.error, contains('collection changed'));
+    },
+  );
+  testWidgets(
+    'inherited appearances show Links counter and both actions beneath the row menu',
+    (tester) async {
+      placements['3'] = {
+        'root': false,
+        'parents': [2],
+        'count': 1,
+      };
+      document['root_order'] = [2];
+      rows.removeWhere((r) => r['path'] == '3');
+      appearances = {'2': '2', '3': '2'};
+      await tester.runAsync(() => app.dispatch({'op': 'snapshot'}));
+      await shell(tester);
+      expect(find.text('Links: 2'), findsNWidgets(2));
+      await tester.tap(find.byKey(const ValueKey('menu-2/3')));
+      await settle(tester);
+      expect(find.text('Unlink'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'blocked child Unlink explains linked parent and Cancel changes nothing',
+    (tester) async {
+      placements['3'] = {
+        'root': false,
+        'parents': [2],
+        'count': 1,
+      };
+      document['root_order'] = [2];
+      rows.removeWhere((r) => r['path'] == '3');
+      appearances = {'2': '2', '3': '2'};
+      await tester.runAsync(() => app.dispatch({'op': 'snapshot'}));
+      await shell(tester);
+      await tester.runAsync(
+        () => tester.tap(find.byKey(const ValueKey('menu-2/3'))),
+      );
+      await settle(tester);
+      await tester.runAsync(() => tester.tap(find.text('Unlink')));
+      await settle(tester);
+      expect(
+        find.text('This child belongs to a linked parent'),
+        findsOneWidget,
+      );
+      expect(find.text('Copy parent and remove child'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel').last);
+      await settle(tester);
+      expect(commands.where((c) => c['op'] == 'apply_item_action'), isEmpty);
+      expect(app.document!['items']['3'], isNotNull);
     },
   );
 }

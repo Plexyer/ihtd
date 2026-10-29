@@ -182,8 +182,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                                     ? _Welcome(app: app)
                                     : _TaskPane(
                                         app: app,
-                                        showDetail: (id) async {
-                                          await app.selectItem(id);
+                                        showDetail: (id, path) async {
+                                          await app.selectItem(id, path: path);
                                         },
                                       ),
                               ),
@@ -528,7 +528,7 @@ class _Welcome extends StatelessWidget {
 class _TaskPane extends StatelessWidget {
   const _TaskPane({required this.app, required this.showDetail});
   final AppController app;
-  final ValueChanged<int> showDetail;
+  final void Function(int, String) showDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -738,7 +738,7 @@ class _TaskPane extends StatelessWidget {
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(10),
-                              onTap: () => showDetail(id),
+                              onTap: () => showDetail(id, '${row['path']}'),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(3, 8, 8, 8),
                                 child: Row(
@@ -852,78 +852,102 @@ class _TaskPane extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                    PopupMenuButton<String>(
-                                      key: ValueKey('menu-${row['path']}'),
-                                      tooltip: 'Item actions',
-                                      icon: const Icon(
-                                        Icons.more_horiz,
-                                        size: 19,
-                                      ),
-                                      onSelected: (action) {
-                                        if (action == 'details') showDetail(id);
-                                        if (action == 'remove') {
-                                          removeItemPlacement(
-                                            context,
-                                            app,
-                                            id,
-                                            row['parent_id'] as int?,
-                                          );
-                                        }
-                                        if (action == 'task') {
-                                          showCreateItem(
-                                            context,
-                                            app,
-                                            parentId: id,
-                                          );
-                                        }
-                                        if (action == 'folder') {
-                                          showCreateItem(
-                                            context,
-                                            app,
-                                            parentId: id,
-                                            kind: 'folder',
-                                          );
-                                        }
-                                        if (action == 'link') {
-                                          showLinkItem(context, app, id);
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'details',
-                                          child: Text('Open details'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'task',
-                                          child: Text('Add subtask'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'folder',
-                                          child: Text('Add subfolder'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'link',
-                                          child: Text(
-                                            'Add existing item here…',
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        PopupMenuButton<String>(
+                                          key: ValueKey('menu-${row['path']}'),
+                                          tooltip: 'Item actions',
+                                          icon: const Icon(
+                                            Icons.more_horiz,
+                                            size: 19,
                                           ),
-                                        ),
-                                        const PopupMenuDivider(),
-                                        PopupMenuItem(
-                                          value: 'remove',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                removalLabel(app, id) ==
-                                                        'Unlink'
-                                                    ? Icons.link_off
-                                                    : Icons.delete_outline,
-                                                size: 20,
+                                          onSelected: (action) {
+                                            if (action == 'details') {
+                                              showDetail(id, '${row['path']}');
+                                            }
+                                            if (action == 'remove' ||
+                                                action == 'delete' ||
+                                                action == 'unlink') {
+                                              removeItemPlacement(
+                                                context,
+                                                app,
+                                                id,
+                                                row['parent_id'] as int?,
+                                                path: '${row['path']}',
+                                                action: action == 'remove'
+                                                    ? null
+                                                    : action,
+                                              );
+                                            }
+                                            if (action == 'task') {
+                                              showCreateItem(
+                                                context,
+                                                app,
+                                                parentId: id,
+                                              );
+                                            }
+                                            if (action == 'folder') {
+                                              showCreateItem(
+                                                context,
+                                                app,
+                                                parentId: id,
+                                                kind: 'folder',
+                                              );
+                                            }
+                                            if (action == 'link') {
+                                              showLinkItem(context, app, id);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            PopupMenuItem(
+                                              value: 'details',
+                                              child: Text('Open details'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'task',
+                                              child: Text('Add subtask'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'folder',
+                                              child: Text('Add subfolder'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'link',
+                                              child: Text(
+                                                'Link / copy task to…',
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(removalLabel(app, id)),
-                                            ],
-                                          ),
+                                            ),
+                                            const PopupMenuDivider(),
+                                            if (hasMultipleAppearances(app, id))
+                                              const PopupMenuItem(
+                                                value: 'unlink',
+                                                child: Text('Unlink'),
+                                              ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'),
+                                            ),
+                                          ],
                                         ),
+                                        if (hasMultipleAppearances(app, id))
+                                          SizedBox(
+                                            width: 64,
+                                            child: Tooltip(
+                                              message:
+                                                  'Links: ${appearanceCount(app, id)}',
+                                              child: Text(
+                                                'Links: ${appearanceCount(app, id)}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xff7f8fa1),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ],

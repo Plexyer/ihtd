@@ -82,9 +82,11 @@ until step 12. This order is a plan, not completed implementation.
 - [ ] **2 — Medium: additional top-right Create action.** Show it for new
   tasks/folders in short or keyboard-constrained layouts on any platform, retaining
   the bottom Create action. Make creation possible without scrolling to the end.
-- [ ] **3 — Medium: show linked appearances.** Display `Links: N` on tasks and
-  folders only for N >= 2. Count all collection hierarchy paths, including paths
-  through linked parents, rather than only direct relationships or view renderings.
+- [ ] **3 — Medium: show linked appearances.**
+  - [x] Display compact `Links: N` below the row menu only for N >= 2, counting
+    all collection hierarchy paths, including those through linked parents.
+  - [ ] Verify counters/layout on physical phones and desktop upgrades.
+  Shared candidate: [link/copy/removal behavior and acceptance](link-copy-removal.md).
 - [ ] **4 — Medium: per-view sorting and clear drag insertion targets.**
   - [ ] Offer Manual, Title, Due date and Priority for every parent and the top
     level. Automatic modes support ascending/descending; modes are per view.
@@ -158,26 +160,32 @@ until step 12. This order is a plan, not completed implementation.
   left of the top-right three-dot menu; reserve its space while hidden so header
   content does not shift.
 - [ ] **Additional approved work — revise Unlink/Delete and add Link/Copy.**
-  - [ ] Two or more appearances: offer both Unlink and Delete; one appearance:
+  - [x] Two or more appearances: offer both Unlink and Delete; one appearance:
     Delete only. Delete removes the item everywhere and always confirms. For
     multiple appearances, explain the global effect and direct users to Unlink
     for local removal. Preserve children that have surviving appearances elsewhere.
-  - [ ] Keep linked parents' children shared. Block a child Unlink that would
+  - [x] Keep linked parents' children shared. Block a child Unlink that would
     affect other parent appearances; identify the blocking linked parent and
     offer Cancel or replacement of the selected parent occurrence with a full,
     independent copy. Then delete the selected copied child/descendants, leaving
     originals elsewhere untouched. Force full depth/every appearance independent
     for this special operation; do not leave the removed copied branch at top level.
-  - [ ] Add a searchable Link/Copy destination popup for tasks/folders/Top level.
+  - [x] Add a searchable Link/Copy destination popup for tasks/folders/Top level.
     Default to Link, with copy depth disabled. Bottom actions: Cancel and a single
     mode-dependent Link to/Copy to. Info expands the popup with two explanations.
-  - [ ] Copy defaults to source only, linking its children. Offer available
+  - [x] Copy defaults to source only, linking its children. Offer available
     depths and All descendants. By default copy each unique item once, preserving
     internal links; an unchecked Make every appearance independent option disables
     reuse when checked. Deeper references reuse an item copied within the depth.
-  - [ ] Exclude self/descendants in Link mode. Copying into self/descendants is
+  - [x] Exclude self/descendants in Link mode. Copying into self/descendants is
     allowed only with All descendants: automatically select/lock that depth and
     show an explanation. Preserve acyclicity and original identities elsewhere.
+
+  - [ ] Complete physical upgrade, keyboard/layout and graph-action acceptance
+    on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Implementation candidate: [shared actions and acceptance](link-copy-removal.md).
+  No automatic graph/schema conversion is needed. Host verification is separate
+  from the remaining device/provider checks.
 
 Dependencies: migration safety before any feature that converts existing stored
 data; 7 before 6; 8 before 5; collection/default support from 7 also

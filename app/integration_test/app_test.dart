@@ -290,7 +290,7 @@ void main() {
       await tester.tap(menu);
       await tester.pumpAndSettle();
       final removal = find.byWidgetPredicate(
-        (w) => w is PopupMenuItem<String> && w.value == 'remove',
+        (w) => w is PopupMenuItem<String> && w.value == label.toLowerCase(),
       );
       expect(
         find.descendant(of: removal, matching: find.text(label)),

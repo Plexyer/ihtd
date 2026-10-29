@@ -7,6 +7,7 @@ import '../services/app_controller.dart';
 import '../services/item_draft.dart';
 import 'shared.dart';
 import 'item_removal.dart';
+import 'link_copy.dart';
 import 'guarded_editor_route.dart';
 import 'editor_dialog.dart';
 import 'collection_settings.dart';
@@ -657,13 +658,11 @@ class _ItemEditorState extends State<ItemEditor> {
                       onPressed: disabled
                           ? null
                           : () => showLinkItem(context, app, id!),
-                      child: const Text('Link existing…'),
+                      child: const Text('Link / copy task to…'),
                     ),
                   ],
                 ),
-                SectionLabel(
-                  'Placements (${asMap(app.placements['$id'])['count'] ?? 0})',
-                ),
+                SectionLabel('Parents and top-level placement'),
                 for (final parent in [
                   if (asMap(app.placements['$id'])['root'] == true) null,
                   ...parents,
@@ -676,21 +675,40 @@ class _ItemEditorState extends State<ItemEditor> {
                           : '${itemById(app, parent)['title']}',
                     ),
                     onTap: parent == null ? null : () => app.selectItem(parent),
-                    trailing: TextButton.icon(
-                      key: ValueKey('remove-$id-${parent ?? 'root'}'),
+                  ),
+                if (hasMultipleAppearances(app, id!))
+                  Text('Links: ${appearanceCount(app, id)}'),
+                Text(
+                  'Current place: ${(selectedOccurrence(app, id) ?? []).map((part) => '${itemById(app, part)['title']} (#$part)').join(' › ')}',
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (hasMultipleAppearances(app, id))
+                      TextButton.icon(
+                        key: ValueKey('unlink-item-$id'),
+                        onPressed: disabled
+                            ? null
+                            : () => removeSelectedItem(
+                                context,
+                                app,
+                                id,
+                                'unlink',
+                              ),
+                        icon: const Icon(Icons.link_off),
+                        label: const Text('Unlink'),
+                      ),
+                    TextButton.icon(
+                      key: ValueKey('delete-item-$id'),
                       onPressed: disabled
                           ? null
                           : () =>
-                                removeItemPlacement(context, app, id!, parent),
-                      icon: Icon(
-                        removalLabel(app, id!) == 'Unlink'
-                            ? Icons.link_off
-                            : Icons.delete_outline,
-                        size: 18,
-                      ),
-                      label: Text(removalLabel(app, id)),
+                                removeSelectedItem(context, app, id, 'delete'),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete'),
                     ),
-                  ),
+                  ],
+                ),
                 OutlinedButton(
                   onPressed: disabled
                       ? null
@@ -796,83 +814,8 @@ Future<int?> showNewTag(
 Future<void> showLinkItem(
   BuildContext context,
   AppController app,
-  int parent,
-) async {
-  if (!await app.finishDraft() || !context.mounted) return;
-  final owner = app.editIdentity;
-  final query = TextEditingController();
-  int? selection;
-  final selected = await showDialog<int>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('Link an existing item'),
-        content: SizedBox(
-          width: 440,
-          height: 370,
-          child: Column(
-            children: [
-              TextField(
-                controller: query,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Search title or ID',
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final item in documentValues(app, 'items').where(
-                      (i) =>
-                          i['id'] != parent &&
-                          '${i['title']} #${i['id']}'.toLowerCase().contains(
-                            query.text.toLowerCase(),
-                          ),
-                    ))
-                      ListTile(
-                        selected: selection == item['id'],
-                        title: Text('${item['title']}'),
-                        subtitle: Text('#${item['id']} · ${item['kind']}'),
-                        leading: Icon(
-                          item['kind'] == 'folder'
-                              ? Icons.folder_outlined
-                              : Icons.task_alt,
-                        ),
-                        onTap: () =>
-                            setState(() => selection = intValue(item['id'])),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: selection == null
-                ? null
-                : () => Navigator.pop(context, selection),
-            child: const Text('Link item'),
-          ),
-        ],
-      ),
-    ),
-  );
-  query.dispose();
-  if (selected != null) {
-    await app.dispatch({
-      'op': 'link',
-      'parent': parent,
-      'child': selected,
-    }, expectedDocument: owner);
-  }
-}
+  int source,
+) => showLinkCopy(context, app, source);
 
 Future<void> showCreateItem(
   BuildContext context,

@@ -44,13 +44,15 @@ unchanged. Controller edit-identity/view guards run after command-queue waits;
 UI drafts cannot overwrite a different working copy or a stale saved view.
 See [expression plan](view-expression-editor-plan.md).
 
-Shared removal: `crates/ihtd_core/src/removal.rs` owns actual placement counts,
-revision-bound previews, cascade retention and atomic removal. Rust snapshots
-supply placement metadata and deleted-container rule issues. Flutter's controller
-flushes drafts and guards collection switches; `ui/item_removal.dart` owns the
-common Delete confirmation. Row menus and details use the same action. Save
-adapters are unchanged. Optional deleted-ID metadata retains view references
-without retaining item contents; shared Flutter warns and opens rule editing.
+Shared hierarchy actions: `crates/ihtd_core/src/hierarchy.rs` owns exact derived
+appearance counts, finite-snapshot/depth-aware copy, explicit global Delete,
+local Unlink and independent replacement beneath linked ancestors. Previews bind
+revision, identity, full selected path and consequences. Shared Flutter
+`ui/link_copy.dart` / `ui/item_removal.dart` and controller guards resolve drafts,
+carry occurrence paths and use the same guarded save/publication flow. Snapshots
+supply counts without storing them in user files. Read
+[link/copy/removal contracts](link-copy-removal.md); historical removal helpers
+are retained for compatibility tests, not new product actions.
 
 Shared updates: `update_contract.dart`, `update_catalog.dart` and
 `update_coordinator.dart` own release identity/compatibility, discovery, persisted

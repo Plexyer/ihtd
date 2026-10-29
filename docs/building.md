@@ -267,3 +267,11 @@ with the same desktop target/Xvfb wrapper as the other native tests. Windows and
 Fedora pipelines include it. Frozen schema-2 fixtures check read-only defaults
 and save/reopen preservation; the native test covers private drafts, external
 file disconnection and restart. See [settings acceptance](collection-settings.md).
+
+## Hierarchy action verification
+
+Run the Rust/Flutter suites plus native `integration_test/hierarchy_actions_test.dart`
+with the same desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It covers the new copy/removal commands, selected-path replacement, retained shared
+children/rules and file barriers across restart. Follow the separate physical
+[link/copy/removal acceptance](link-copy-removal.md).

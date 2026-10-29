@@ -4,70 +4,186 @@ import '../services/app_controller.dart';
 import 'editor_dialog.dart';
 import 'shared.dart';
 
+String appearanceCount(AppController app, int id) =>
+    '${app.appearances['$id'] ?? asMap(app.placements['$id'])['count'] ?? 1}';
+bool hasMultipleAppearances(AppController app, int id) =>
+    appearanceCount(app, id) != '1' && appearanceCount(app, id) != '0';
 String removalLabel(AppController app, int id) =>
-    intValue(asMap(app.placements['$id'])['count']) > 1 ? 'Unlink' : 'Delete';
+    hasMultipleAppearances(app, id) ? 'Unlink' : 'Delete';
+
+/// Resolve a concrete hierarchy occurrence, preferring the one actually opened.
+/// Details reached programmatically use a canonical path, shown in the controls.
+List<int>? itemOccurrence(
+  AppController app,
+  int id,
+  int? parent, {
+  String? path,
+}) {
+  final supplied =
+      path ?? (app.selectedItemId == id ? app.selectedItemPath : null);
+  if (supplied != null) {
+    final parts = supplied.split('/').map(int.tryParse).toList();
+    if (parts.every((id) => id != null) &&
+        parts.last == id &&
+        (parts.length == 1
+            ? parent == null
+            : parts[parts.length - 2] == parent)) {
+      return parts.cast<int>();
+    }
+  }
+  if (parent == null && asMap(app.placements['$id'])['root'] == true) {
+    return [id];
+  }
+  final target = parent ?? id;
+  final children = <int, List<int>>{};
+  final placed = <int>{};
+  for (final raw in app.document?['links'] as List? ?? []) {
+    final edge = asMap(raw),
+        p = intValue(edge['parent']),
+        c = intValue(edge['child']);
+    (children[p] ??= []).add(c);
+    placed.add(c);
+  }
+  final roots = <int>{
+    ...((app.document?['root_order'] as List? ?? []).cast<int>()),
+    ...documentValues(
+      app,
+      'items',
+    ).map((i) => intValue(i['id'])).where((i) => !placed.contains(i)),
+  };
+  final previous = <int, int?>{for (final root in roots) root: null};
+  final queue = roots.toList();
+  for (var i = 0; i < queue.length; i++) {
+    final node = queue[i];
+    if (node == target) {
+      final result = <int>[node];
+      int? p = previous[node];
+      while (p != null) {
+        result.add(p);
+        p = previous[p];
+      }
+      final found = result.reversed.toList();
+      if (parent != null) {
+        if (!(children[parent] ?? []).contains(id)) return null;
+        found.add(id);
+      }
+      return found;
+    }
+    for (final c in children[node] ?? <int>[]) {
+      if (!previous.containsKey(c)) {
+        previous[c] = node;
+        queue.add(c);
+      }
+    }
+  }
+  return null;
+}
+
+List<int>? selectedOccurrence(AppController app, int id) {
+  if (app.selectedItemId == id && app.selectedItemPath != null) {
+    final path = app.selectedItemPath!.split('/').map(int.tryParse).toList();
+    if (path.isNotEmpty && path.every((id) => id != null) && path.last == id) {
+      return path.cast<int>();
+    }
+  }
+  return itemOccurrence(app, id, null);
+}
+
+Future<void> removeSelectedItem(
+  BuildContext context,
+  AppController app,
+  int id,
+  String action,
+) async {
+  final path = selectedOccurrence(app, id);
+  if (path == null) return;
+  await removeItemPlacement(
+    context,
+    app,
+    id,
+    path.length > 1 ? path[path.length - 2] : null,
+    path: path.join('/'),
+    action: action,
+  );
+}
 
 Future<void> removeItemPlacement(
   BuildContext context,
   AppController app,
   int id,
-  int? parent,
-) async {
-  final removed = await app.removePlacement(
-    id,
-    parent,
-    confirmDelete: (preview) async {
+  int? parent, {
+  String? path,
+  String? action,
+}) async {
+  final occurrence = itemOccurrence(app, id, parent, path: path);
+  if (occurrence == null) return;
+  final chosen =
+      action ?? (hasMultipleAppearances(app, id) ? 'unlink' : 'delete');
+  await app.performItemAction(
+    occurrence,
+    chosen,
+    confirm: (preview) async {
       if (!context.mounted) return false;
-      final deleted = (preview['deleted_ids'] as List)
-          .map((id) => intValue(id))
-          .toList();
-      final retained = (preview['retained_child_ids'] as List)
-          .map((id) => intValue(id))
-          .toList();
-      final views = (preview['affected_view_ids'] as List)
-          .map((id) => asMap(asMap(app.document?['views'])['$id'])['name'])
-          .toList();
-      List<Widget> names(List<int> ids) => [
-        for (final itemId in ids.take(6))
-          Text('• ${itemById(app, itemId)['title']} (#$itemId)'),
-        if (ids.length > 6) Text('… and ${ids.length - 6} more'),
-      ];
+      final blocking = preview['blocking_parent'] as int?;
+      final deleted = (preview['deleted_ids'] as List? ?? []).cast<int>();
+      final retained = (preview['retained_child_ids'] as List? ?? [])
+          .cast<int>();
+      final views = (preview['affected_view_ids'] as List? ?? []).cast<int>();
+      final shared = '${preview['appearances']}' != '1';
       return await showDialog<bool>(
             context: context,
             builder: (dialogContext) => EditorDialog(
-              maxWidth: 480,
-              title: Text('Delete “${itemById(app, id)['title']}”?'),
+              maxWidth: 520,
+              title: Text(
+                blocking != null
+                    ? 'This child belongs to a linked parent'
+                    : 'Delete “${itemById(app, id)['title']}”?',
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    deleted.length == 1
-                        ? 'This will permanently delete this item.'
-                        : 'This will permanently delete ${deleted.length} items, including children with no remaining placement.',
-                  ),
-                  const SizedBox(height: 8),
-                  ...names(deleted),
-                  if (retained.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      'These shared branches remain in their other places:',
-                    ),
-                    ...names(retained),
-                  ],
-                  if (parent != null &&
-                      intValue(asMap(app.placements['$parent'])['count']) >
-                          1) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      'The parent is linked in multiple places. Its children are shared, so this removal affects every appearance.',
-                    ),
-                  ],
-                  if (views.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                  if (blocking != null) ...[
                     Text(
-                      'Views needing rule review: ${views.join(', ')}. The views will be kept.',
+                      '“${itemById(app, blocking)['title']}” (#$blocking) is linked in multiple places. Unlinking this child directly would change those other appearances.',
                     ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Create a full independent copy of this parent and all its children at the selected location, then delete the selected copied child and its copied descendants? Originals in other places stay untouched.',
+                    ),
+                  ] else ...[
+                    if (shared)
+                      const Text(
+                        'Delete removes this task or folder everywhere. To remove it only from this place, cancel and choose Unlink instead.',
+                      ),
+                    Text(
+                      deleted.length == 1
+                          ? 'This will permanently delete this item.'
+                          : 'This will permanently delete ${deleted.length} items, including children with no remaining appearance.',
+                    ),
+                    const SizedBox(height: 8),
+                    for (final child in deleted.take(6))
+                      Text('• ${itemById(app, child)['title']}  (#$child)'),
+                    if (deleted.length > 6)
+                      Text('… and ${deleted.length - 6} more'),
+                    if (retained.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text(
+                          'These shared branches remain in their other places:',
+                        ),
+                      ),
+                    for (final child in retained.take(6))
+                      Text('• ${itemById(app, child)['title']}  (#$child)'),
+                    if (retained.length > 6)
+                      Text('… and ${retained.length - 6} more'),
+                    if (views.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          'Views needing rule review: ${views.join(', ')}. The views will be kept.',
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -76,16 +192,13 @@ Future<void> removeItemPlacement(
                   onPressed: () => Navigator.pop(dialogContext, false),
                   child: const Text('Cancel'),
                 ),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(dialogContext).colorScheme.error,
-                    foregroundColor: Theme.of(dialogContext)
-                        .colorScheme
-                        .onError,
-                  ),
+                FilledButton(
                   onPressed: () => Navigator.pop(dialogContext, true),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete'),
+                  child: Text(
+                    blocking != null
+                        ? 'Copy parent and remove child'
+                        : 'Delete',
+                  ),
                 ),
               ],
             ),
@@ -93,11 +206,4 @@ Future<void> removeItemPlacement(
           false;
     },
   );
-  if (removed &&
-      context.mounted &&
-      app.selectedItemId == null &&
-      itemById(app, id).isEmpty &&
-      ModalRoute.of(context) is ModalBottomSheetRoute) {
-    Navigator.of(context).pop();
-  }
 }

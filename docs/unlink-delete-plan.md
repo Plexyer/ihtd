@@ -1,5 +1,9 @@
 # Placement-aware Unlink/Delete implementation plan
 
+Historical baseline: the later [link/copy/removal contract](link-copy-removal.md)
+supersedes the either-Unlink-or-Delete actions and direct-placement counter here.
+Use its explicit global Delete, appearance counts and blocked-Unlink safeguards.
+
 Created 2026-10-14. Shared implementation and automated/native verification are complete; physical acceptance remains pending. Based on merged
 `development`. Read `AGENTS.md`, `REQUIREMENTS.md`, shared architecture and the
 feature checklist before implementing. Implement once for Android, Windows

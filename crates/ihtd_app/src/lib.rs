@@ -7,6 +7,7 @@ pub mod storage;
 
 use ihtd_core::{
     graph::ItemId,
+    hierarchy::{ActionPreview, ItemAction},
     model::{ContainerPreferences, ItemKind},
     removal::RemovalPreview,
     settings::{CollectionSettings, IndicatorOverrides},
@@ -87,7 +88,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
+                json!({"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"appearances":s.document.appearance_counts(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
             }
         }
     }
@@ -193,6 +194,20 @@ impl Backend {
                     json!({"rows":presentation::outline(&session.document,number(&request,"view_id")?,flag(&request,"completed_only"),&expanded)?}),
                 );
             }
+            "copy_options" => {
+                let (descendants, max_depth) =
+                    session.document.copy_options(number(&request, "id")?)?;
+                return Ok(
+                    json!({"descendants":descendants,"max_depth":max_depth,"revision":session.document.revision}),
+                );
+            }
+            "preview_item_action" => {
+                return serde_json::to_value(session.document.preview_item_action(
+                    decode::<Vec<i64>>(&request["path"])?,
+                    decode::<ItemAction>(&request["action"])?,
+                )?)
+                .map_err(|e| e.to_string());
+            }
             "preview_removal" => {
                 return serde_json::to_value(session.document.preview_removal(
                     number(&request, "id")?,
@@ -296,6 +311,39 @@ impl Backend {
                     request["source_parent"].as_i64(),
                     request["destination_parent"].as_i64(),
                     request["before"].as_i64(),
+                )?;
+                json!({})
+            }
+            "link_or_copy" => {
+                let depth = match request.get("depth") {
+                    Some(Value::Null) => None,
+                    Some(v) => Some(
+                        v.as_u64()
+                            .and_then(|n| u32::try_from(n).ok())
+                            .ok_or("Invalid copy depth")?,
+                    ),
+                    None => return Err("Missing copy depth".into()),
+                };
+                let mode = string(&request, "mode")?;
+                if mode != "link" && mode != "copy" {
+                    return Err("Invalid operation mode".into());
+                }
+                let id = document.link_or_copy(
+                    number(&request, "source")?,
+                    optional_number(&request, "destination")?,
+                    mode == "copy",
+                    depth,
+                    flag(&request, "independent"),
+                    request["expected_revision"]
+                        .as_u64()
+                        .ok_or("Missing revision")?,
+                )?;
+                json!({"id":id})
+            }
+            "apply_item_action" => {
+                document.apply_item_action(
+                    &decode::<ActionPreview>(&request["preview"])?,
+                    flag(&request, "confirmed"),
                 )?;
                 json!({})
             }
