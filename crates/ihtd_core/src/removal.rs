@@ -157,6 +157,7 @@ impl Document {
                     });
                     document.root_order.retain(|id| !deleted.contains(id));
                     for view in document.views.values_mut() {
+                        view.sorting.retain(|id, _| !deleted.contains(id));
                         view.preferences.retain(|id, _| !deleted.contains(id));
                     }
                 }

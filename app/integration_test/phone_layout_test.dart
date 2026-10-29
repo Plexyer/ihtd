@@ -144,6 +144,17 @@ void main() {
       await gesture.moveTo(end);
       await tester.pump();
       await gesture.up();
+      // The drop now plans and commits asynchronously; wait for the observed
+      // hierarchy change rather than treating frame settling as an IO barrier.
+      for (
+        var i = 0;
+        i < 250 &&
+            !(controller.document!['root_order'] as List).contains(branch);
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
       await tester.pumpAndSettle();
       expect(controller.error, isNull);
       expect(controller.document!['root_order'], [branch]);

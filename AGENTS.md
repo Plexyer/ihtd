@@ -65,6 +65,13 @@ of cross-platform completion. Follow the implemented
   removal helpers describe the old baseline; do not use them in new product UI.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
+- Read [sorting and drag insertion](docs/sorting-drag-insertion.md). Core sorting
+  owns per-view/parent modes and the single shared manual sequence. Product drag
+  UI must use `AppController.moveOccurrence` and revision/path-bound planned
+  moves, not the historical raw `move_item` command. Keep hidden manual slots,
+  block moves out of shared parents, and preserve queued owner/view/tab guards.
+  Sorting preferences are separate from item drafts; optional metadata requires
+  no schema-2 conversion. Physical acceptance remains pending.
 - App model sessions edit private working copies on all platforms. External
   reads/writes go through `DocumentSaveCoordinator` and typed adapters. Shared
   registry schema 3 migrates legacy Android metadata without deleting its

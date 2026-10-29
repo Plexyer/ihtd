@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-28. This records the implemented prototype and the user's
+Updated 2026-10-29. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Approved changes awaiting implementation
@@ -45,7 +45,22 @@ shared state: this detaches them from every placement of the moved item, while
 preserving their other parent links. Existing promoted placements coalesce.
 Root and sibling order persist, and moving onto an existing placement coalesces
 the links. Moves are
-atomic, reject cycles, and recompute completion. Ordering is document-wide.
+atomic, reject cycles, and recompute completion. Manual ordering is document-wide.
+Moving a child out of a shared parent (including inherited appearances) is
+blocked with an explanation that an independent copy is needed first;
+reordering within the same shared parent remains allowed.
+
+## Sorting (implementation candidate)
+
+Follow [sorting and drag insertion](docs/sorting-drag-insertion.md). Every view
+has independent Manual/Title/Due date/Priority choices per parent and at top
+level. Automatic sorts support both directions, keep folders first, missing
+dates/None priority last, and break ties by title then shared manual order.
+An insertion drop seeds from displayed order, preserves hidden manual slots,
+and switches only the destination/current view to Manual atomically with the
+move. Container drops retain the active sort. Shared controls preserve private
+item drafts, stale/identity guards and external-save barriers. Optional metadata
+requires no schema-2 conversion or rewrite on open; physical acceptance is open.
 
 ## Removing tasks and folders
 

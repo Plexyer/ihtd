@@ -5,8 +5,18 @@ import '../services/app_controller.dart';
 import 'shared.dart';
 
 class ItemPlacement {
-  const ItemPlacement(this.documentId, this.id, this.parent);
-  final String documentId;
+  const ItemPlacement(
+    this.owner,
+    this.view,
+    this.completed,
+    this.path,
+    this.id,
+    this.parent,
+  );
+  final DocumentEditIdentity owner;
+  final int view;
+  final bool completed;
+  final String path;
   final int id;
   final int? parent;
 
@@ -43,10 +53,21 @@ class ItemDragSource extends StatelessWidget {
       child: drag(
         key: ValueKey('drag-${row['path']}'),
         data: ItemPlacement(
-          '${app.document?['document_id']}',
+          app.editIdentity,
+          app.selectedViewId,
+          app.completedOnly,
+          '${row['path']}',
           id,
           ItemPlacement.parentFromPath('${row['path']}'),
         ),
+        onDragStarted: () {
+          app.draggingItem = true;
+          app.notifyListeners();
+        },
+        onDragEnd: (_) {
+          app.draggingItem = false;
+          app.notifyListeners();
+        },
         maxSimultaneousDrags: app.busy ? 0 : 1,
         allowedButtonsFilter: (buttons) => buttons == kPrimaryButton,
         feedback: Material(
@@ -116,7 +137,9 @@ class ItemDropTarget extends StatelessWidget {
 
   bool accepts(ItemPlacement source) {
     if (app.busy ||
-        source.documentId != app.document?['document_id'] ||
+        source.owner != app.editIdentity ||
+        source.view != app.selectedViewId ||
+        source.completed != app.completedOnly ||
         source.id == parent ||
         source.id == before) {
       return false;
@@ -125,16 +148,17 @@ class ItemDropTarget extends StatelessWidget {
   }
 
   Future<void> move(ItemPlacement source) async {
-    if (!await app.finishDraft() || !accepts(source)) return;
-    final result = await app.dispatch({
-      'op': 'move_item',
-      'id': source.id,
-      'source_parent': source.parent,
-      'destination_parent': parent,
-      'before': before,
-      'expected_revision': app.document?['revision'],
-    });
-    if (result != null && targetPath != null) {
+    if (!accepts(source)) return;
+    final result = await app.moveOccurrence(
+      owner: source.owner,
+      view: source.view,
+      completed: source.completed,
+      sourcePath: source.path,
+      destinationPath: targetPath ?? '',
+      before: before,
+      reorder: reorder,
+    );
+    if (result && !reorder && targetPath != null && targetPath!.isNotEmpty) {
       app.expandedPaths.remove('!$targetPath');
       app.expandedPaths.add(targetPath!);
       await app.refreshRows();
@@ -146,16 +170,67 @@ class ItemDropTarget extends StatelessWidget {
   Widget build(BuildContext context) => DragTarget<ItemPlacement>(
     onWillAcceptWithDetails: (details) => accepts(details.data),
     onAcceptWithDetails: (details) => move(details.data),
-    builder: (context, candidates, rejected) => Container(
-      decoration: candidates.isEmpty
-          ? null
-          : BoxDecoration(
-              color: const Color(0xffd7e7ff),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xff2763a5), width: 2),
+    builder: (context, candidates, rejected) {
+      final active = candidates.isNotEmpty;
+      if (reorder) {
+        return Semantics(
+          label: before == null
+              ? 'Insert at end of this level'
+              : 'Insert before this item',
+          child: SizedBox(
+            height: 18,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left:
+                    ((targetPath ?? '').isEmpty
+                            ? 0
+                            : (targetPath!.split('/').length * 22.0))
+                        .clamp(
+                          0,
+                          MediaQuery.sizeOf(context).width < 540 ? 72 : 220,
+                        )
+                        .toDouble(),
+              ),
+              child: Opacity(
+                opacity: active
+                    ? 1
+                    : app.draggingItem
+                    ? .55
+                    : 0,
+                child: Row(
+                  children: [
+                    Container(
+                      width: active ? 8 : 5,
+                      height: active ? 8 : 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xff2763a5),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: active ? 3 : 1,
+                        color: const Color(0xff2763a5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-      child: child,
-    ),
+          ),
+        );
+      }
+      return Container(
+        decoration: !active
+            ? null
+            : BoxDecoration(
+                color: const Color(0xffd7e7ff),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xff2763a5), width: 2),
+              ),
+        child: child,
+      );
+    },
   );
 }
 
@@ -165,10 +240,12 @@ class PlacementRow extends StatelessWidget {
     required this.app,
     required this.row,
     required this.child,
+    this.endPaths = const [],
   });
   final AppController app;
   final Map<String, dynamic> row;
   final Widget child;
+  final List<String> endPaths;
   @override
   Widget build(BuildContext context) {
     final path = '${row['path']}';
@@ -180,6 +257,9 @@ class PlacementRow extends StatelessWidget {
           app: app,
           parent: parent,
           before: intValue(row['id']),
+          targetPath: path.contains('/')
+              ? path.substring(0, path.lastIndexOf('/'))
+              : '',
           reorder: true,
           child: const SizedBox(height: 10, width: double.infinity),
         ),
@@ -194,6 +274,15 @@ class PlacementRow extends StatelessWidget {
             child: Padding(padding: const EdgeInsets.all(2), child: child),
           ),
         ),
+        for (final end in endPaths)
+          ItemDropTarget(
+            key: ValueKey('after-${end.isEmpty ? 'root' : end}'),
+            app: app,
+            parent: end.isEmpty ? null : int.parse(end.split('/').last),
+            targetPath: end,
+            reorder: true,
+            child: const SizedBox.shrink(),
+          ),
       ],
     );
   }

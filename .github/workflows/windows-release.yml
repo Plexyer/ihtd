@@ -55,6 +55,7 @@ jobs:
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/item_draft_test.dart', '-d', 'windows') -LogName 'draft-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/collection_settings_test.dart', '-d', 'windows') -LogName 'settings-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/hierarchy_actions_test.dart', '-d', 'windows') -LogName 'hierarchy-test.log'
+          Invoke-IhtdTest -TestArguments @('test', 'integration_test/sorting_drag_test.dart', '-d', 'windows') -LogName 'sorting-test.log'
           Invoke-IhtdTest -TestArguments @('test', 'integration_test/phone_layout_test.dart', '-d', 'windows') -LogName 'phone-test.log'
       - name: Verify release launch and package
         shell: pwsh

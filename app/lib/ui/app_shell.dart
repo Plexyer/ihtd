@@ -10,6 +10,7 @@ import 'item_editor.dart';
 import 'collection_settings.dart';
 import 'item_removal.dart';
 import 'item_drag.dart';
+import 'sort_settings.dart';
 import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
@@ -618,13 +619,13 @@ class _TaskPane extends StatelessWidget {
                 icon: const Icon(Icons.create_new_folder_outlined, size: 20),
                 label: const Text('Folder'),
               ),
+              SortControl(app: app),
             ],
           ),
           const SizedBox(height: 12),
           ItemDropTarget(
             key: const ValueKey('top-level-drop'),
             app: app,
-            reorder: true,
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Row(
@@ -716,6 +717,17 @@ class _TaskPane extends StatelessWidget {
                       return PlacementRow(
                         app: app,
                         row: row,
+                        endPaths: [
+                          for (
+                            var level = depth;
+                            level >
+                                (index + 1 < app.rows.length
+                                    ? intValue(app.rows[index + 1]['depth'])
+                                    : -1);
+                            level--
+                          )
+                            '${row['path']}'.split('/').take(level).join('/'),
+                        ],
                         child: Padding(
                           padding: EdgeInsets.only(
                             left: (depth * 22.0).clamp(
@@ -863,6 +875,13 @@ class _TaskPane extends StatelessWidget {
                                             size: 19,
                                           ),
                                           onSelected: (action) {
+                                            if (action == 'sort') {
+                                              showSortSettings(
+                                                context,
+                                                app,
+                                                parent: id,
+                                              );
+                                            }
                                             if (action == 'details') {
                                               showDetail(id, '${row['path']}');
                                             }
@@ -900,6 +919,10 @@ class _TaskPane extends StatelessWidget {
                                             }
                                           },
                                           itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'sort',
+                                              child: Text('Sort children…'),
+                                            ),
                                             PopupMenuItem(
                                               value: 'details',
                                               child: Text('Open details'),

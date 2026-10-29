@@ -87,6 +87,14 @@ fn clone_node(source: &Document, target: &mut Document, id: i64) -> Result<i64, 
         target.parent_indicator_defaults.insert(new, p.clone());
     }
     for (&view, saved) in &source.views {
+        if let Some(sort) = saved.sorting.get(&id) {
+            target
+                .views
+                .get_mut(&view)
+                .unwrap()
+                .sorting
+                .insert(new, *sort);
+        }
         if let Some(pref) = saved.preferences.get(&id) {
             target
                 .views
@@ -182,6 +190,7 @@ fn prune(doc: &mut Document, deleted: &BTreeSet<i64>) {
         .retain(|id, _| !deleted.contains(id));
     for view in doc.views.values_mut() {
         view.preferences.retain(|id, _| !deleted.contains(id));
+        view.sorting.retain(|id, _| !deleted.contains(id));
     }
 }
 impl Document {

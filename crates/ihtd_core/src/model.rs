@@ -293,6 +293,8 @@ pub struct ContainerPreferences {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct View {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sorting: BTreeMap<i64, crate::sorting::SortSpec>,
     pub id: i64,
     pub name: String,
     pub filter: FilterExpr,
@@ -343,6 +345,7 @@ impl Document {
                     name: "All tasks".into(),
                     filter: FilterExpr::All,
                     preferences: BTreeMap::new(),
+                    sorting: BTreeMap::new(),
                 },
             )]),
         }
@@ -351,6 +354,7 @@ impl Document {
     /// Validate data from disk before it can replace the open document.
     pub fn validate(&self) -> Result<(), String> {
         self.validate_settings()?;
+        self.validate_sorting()?;
         if self.schema_version != SCHEMA_VERSION {
             return Err(format!(
                 "Unsupported document schema {}",
@@ -727,6 +731,7 @@ impl Document {
                     name,
                     filter,
                     preferences: BTreeMap::new(),
+                    sorting: BTreeMap::new(),
                 },
             );
             Ok(id)

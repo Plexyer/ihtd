@@ -669,3 +669,47 @@ mod settings_tests {
         assert!(decode(&fs::read(file.path()).unwrap()).is_err());
     }
 }
+
+#[cfg(test)]
+mod sorting_preservation_tests {
+    use super::*;
+    use ihtd_core::sorting::{SortMode, SortSpec};
+    #[test]
+    fn distributed_files_default_to_manual_without_rewrite_and_new_choices_roundtrip() {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("Original.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        assert_eq!(fs::read(path).unwrap(), bytes);
+        let mut d = session.document.clone();
+        let before = d.clone();
+        assert!(d.views.values().all(|v| v.sorting.is_empty()));
+        d.set_sort(
+            1,
+            None,
+            SortSpec::default(),
+            SortSpec {
+                mode: SortMode::DueDate,
+                descending: true,
+            },
+        )
+        .unwrap();
+        let parent = *d.items.keys().next().unwrap();
+        d.set_sort(
+            1,
+            Some(parent),
+            SortSpec::default(),
+            SortSpec {
+                mode: SortMode::Priority,
+                descending: true,
+            },
+        )
+        .unwrap();
+        let mut reopened = decode_preserving(&encode(&d).unwrap()).unwrap();
+        assert_eq!(reopened, d);
+        reopened.views.get_mut(&1).unwrap().sorting.clear();
+        reopened.revision = before.revision;
+        assert_eq!(reopened, before);
+    }
+}

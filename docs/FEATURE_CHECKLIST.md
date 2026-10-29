@@ -88,15 +88,23 @@ until step 12. This order is a plan, not completed implementation.
   - [ ] Verify counters/layout on physical phones and desktop upgrades.
   Shared candidate: [link/copy/removal behavior and acceptance](link-copy-removal.md).
 - [ ] **4 — Medium: per-view sorting and clear drag insertion targets.**
-  - [ ] Offer Manual, Title, Due date and Priority for every parent and the top
+  - [x] Offer Manual, Title, Due date and Priority for every parent and the top
     level. Automatic modes support ascending/descending; modes are per view.
-  - [ ] Keep one shared manual order. A between-sibling drop while automatically
+  - [x] Keep one shared manual order. A between-sibling drop while automatically
     sorted switches that parent/current view to Manual, uses the displayed order
     as its starting point, applies the drop and saves the shared manual order.
-  - [ ] In automatic sorts, keep folders first and sort each kind separately.
+  - [x] In automatic sorts, keep folders first and sort each kind separately.
     Undated and None-priority items stay last in either direction. Break ties by
     title, then manual order for identical titles.
-  - [ ] Show between-item insertion indicators as well as inside-parent targets.
+  - [x] Show between-item insertion indicators as well as inside-parent targets.
+  - [x] Preserve hidden siblings' manual slots during filtered reordering.
+  - [x] Block moving a child out of a shared parent, including inherited sharing;
+    explain that an independent copy is needed first. Allow shared reordering.
+  - [ ] Verify upgrades, physical phone gestures/layout, native desktop behavior
+    and cross-platform collection transfer.
+  Shared candidate: [sorting, drag insertion and acceptance](sorting-drag-insertion.md).
+  Optional metadata needs no schema-2 conversion or rewrite on open. Host tests
+  and native Linux integration pass; physical acceptance keeps the parent open.
 - [ ] **5 — Medium: compact direct-child summary indicators.**
   - [ ] Default Total and High-priority count on; Low/Medium counts and next due
     date off. Allow an optional ratio replacing the plain count: `Total: 2 / 5`.
