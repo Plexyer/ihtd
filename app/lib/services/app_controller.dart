@@ -93,6 +93,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, dynamic> placements = {};
   Map<String, dynamic> appearances = {};
   String? selectedItemPath;
+  bool draggingItem = false;
   Map<String, dynamic> viewIssues = {};
   List<Map<String, dynamic>> rows = [];
   int selectedViewId = 1;
@@ -660,6 +661,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, dynamic> command, {
     DocumentEditIdentity? expectedDocument,
     Map<String, dynamic>? expectedView,
+    ({int viewId, bool completed})? expectedOutline,
   }) async {
     // Programmatic open/new use the same private staging and publication path
     // as native pickers. Model commands never receive an external destination.
@@ -686,6 +688,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return null;
     }
+    if (expectedOutline != null &&
+        (expectedOutline.viewId != selectedViewId ||
+            expectedOutline.completed != completedOnly)) {
+      error =
+          'The active view or completion tab changed. Start the move again.';
+      notifyListeners();
+      return null;
+    }
     if (expectedView != null &&
         jsonEncode(_map(document?['views'])['${expectedView['id']}']) !=
             jsonEncode(expectedView)) {
@@ -699,6 +709,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'creation_defaults',
       'preview_removal',
       'preview_item_action',
+      'preview_sorted_move',
       'copy_options',
       'preview_item_draft',
       'item_draft_status',
@@ -719,6 +730,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         'creation_defaults',
         'preview_removal',
         'preview_item_action',
+        'preview_sorted_move',
         'copy_options',
         'preview_item_draft',
         'item_draft_status',
@@ -821,6 +833,53 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           'preview': preview,
           'confirmed': needsConfirmation,
         }, expectedDocument: owner) !=
+        null;
+  }
+
+  Future<bool> moveOccurrence({
+    required DocumentEditIdentity owner,
+    required int view,
+    required bool completed,
+    required String sourcePath,
+    required String destinationPath,
+    int? before,
+    required bool reorder,
+  }) async {
+    if (owner != editIdentity ||
+        view != selectedViewId ||
+        completed != completedOnly) {
+      return false;
+    }
+    if (!await finishDraft() ||
+        owner != editIdentity ||
+        view != selectedViewId ||
+        completed != completedOnly) {
+      return false;
+    }
+    final preview = await dispatch(
+      {
+        'op': 'preview_sorted_move',
+        'request': {
+          'view_id': view,
+          'source_path': sourcePath.split('/').map(int.parse).toList(),
+          'destination_path': destinationPath.isEmpty
+              ? <int>[]
+              : destinationPath.split('/').map(int.parse).toList(),
+          'before': before,
+          'reorder': reorder,
+          'completed': completed,
+          'expanded': expandedPaths.toList(),
+        },
+      },
+      expectedDocument: owner,
+      expectedOutline: (viewId: view, completed: completed),
+    );
+    if (preview == null || view != selectedViewId) return false;
+    return await dispatch(
+          {'op': 'apply_sorted_move', 'plan': preview},
+          expectedDocument: owner,
+          expectedOutline: (viewId: view, completed: completed),
+        ) !=
         null;
   }
 

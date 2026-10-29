@@ -90,6 +90,16 @@ shared resolved settings and avoid disabled calculations; tag popularity uses
 the stored count/half-life without replacing device update preferences.
 See [collection settings](collection-settings.md) for compatibility and acceptance.
 
+Shared sorting: `crates/ihtd_core/src/sorting.rs` owns per-view/per-parent
+choices, comparison, shared manual order and atomic moves. Application
+`sorting.rs` computes revision/digest-bound plans from actual projected full
+paths; `AppController.moveOccurrence` supplies queued owner/view/tab guards.
+`ui/sort_settings.dart` and `ui/item_drag.dart` expose common controls. New product
+drag actions must use this planned API, not the historical structural `move_item`
+command. Copy/deletion maintain parent sort metadata. Read
+[sorting and drag insertion](sorting-drag-insertion.md) for hidden-slot and
+shared-parent behavior, compatibility and acceptance.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

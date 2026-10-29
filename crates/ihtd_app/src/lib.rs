@@ -3,6 +3,7 @@ pub mod filesystem;
 pub mod item_drafts;
 pub mod migration;
 pub mod presentation;
+pub mod sorting;
 pub mod storage;
 
 use ihtd_core::{
@@ -11,6 +12,7 @@ use ihtd_core::{
     model::{ContainerPreferences, ItemKind},
     removal::RemovalPreview,
     settings::{CollectionSettings, IndicatorOverrides},
+    sorting::SortSpec,
 };
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -193,6 +195,21 @@ impl Backend {
                 return Ok(
                     json!({"rows":presentation::outline(&session.document,number(&request,"view_id")?,flag(&request,"completed_only"),&expanded)?}),
                 );
+            }
+            "preview_sorted_move" => {
+                return serde_json::to_value(sorting::preview(
+                    &session.document,
+                    decode::<sorting::MoveRequest>(&request["request"])?,
+                )?)
+                .map_err(|e| e.to_string());
+            }
+            "apply_sorted_move" => {
+                let candidate = sorting::accepted_candidate(
+                    &session.document,
+                    &decode::<sorting::MovePlan>(&request["plan"])?,
+                )?;
+                session.commit(candidate)?;
+                return Ok(json!({}));
             }
             "copy_options" => {
                 let (descendants, max_depth) =
@@ -403,6 +420,15 @@ impl Backend {
             }
             "remove_view" => {
                 document.remove_view(number(&request, "id")?)?;
+                json!({})
+            }
+            "set_sort" => {
+                document.set_sort(
+                    number(&request, "view_id")?,
+                    optional_number(&request, "parent")?,
+                    decode::<SortSpec>(&request["expected_sort"])?,
+                    decode::<SortSpec>(&request["sort"])?,
+                )?;
                 json!({})
             }
             "set_collection_settings" => {

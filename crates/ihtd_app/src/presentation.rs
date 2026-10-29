@@ -36,7 +36,10 @@ pub fn outline(
         children.entry(link.parent).or_default().push(link.child);
         placed.insert(link.child);
     }
-    let roots = document.roots();
+    for (&parent, ids) in &mut children {
+        document.order_siblings(view_id, Some(parent), ids)?;
+    }
+    let roots = document.sorted_siblings(view_id, None)?;
     let placements = document.placements();
     let mut stack: Vec<_> = roots
         .into_iter()

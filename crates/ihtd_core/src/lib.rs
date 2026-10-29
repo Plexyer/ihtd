@@ -7,3 +7,4 @@ pub mod hierarchy;
 pub mod model;
 pub mod removal;
 pub mod settings;
+pub mod sorting;

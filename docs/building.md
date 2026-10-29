@@ -103,6 +103,14 @@ Descendant-move checks cover promotion to the former parent/top level, shared
 placements, sibling order, stale targets and completion. The phone integration
 test exercises a long-press drop into a nested descendant through the UI.
 
+Run `flutter test integration_test/sorting_drag_test.dart -d windows` (or
+`-d linux`) for real per-view sorting, filtered insertion/end targets, shared
+manual ordering, blocked shared-parent moves and rename-barrier/restart
+preservation. Windows and Fedora pipelines include this scenario. Rust tests
+cover comparator/scope/path and frozen-file preservation; Flutter widget tests
+cover Save/Cancel, private drafts, queued view changes and narrow/large-text
+controls. See [sorting acceptance](sorting-drag-insertion.md).
+
 Unlink/Delete tests cover actual root/parent placements, shared cascades,
 stale/cancelled confirmation, deleted-container view rules and pending external
 publication. `test/item_removal_test.dart` checks shared interaction and warning
