@@ -49,22 +49,26 @@ atomic, reject cycles, and recompute completion. Ordering is document-wide.
 
 ## Removing tasks and folders
 
-Owner confirmed 2026-10-14. Count actual incoming parent links plus one
-existing root placement, including explicit shared roots. Multiple filtered
-views or paths through shared ancestors do not count as additional placements.
+The later owner-approved [link/copy/removal contract](docs/link-copy-removal.md)
+is implemented as a candidate. Count all collection hierarchy appearances,
+including inherited paths. Multiple appearances offer both Unlink and Delete;
+a single appearance offers Delete. Delete always confirms and removes the item
+everywhere, recursively deleting only children losing all surviving placements.
 
-With two or more placements, show **Unlink** and immediately remove only the
-selected root or parent-child relationship without confirmation. Preserve the
-item, its attributes, children and other placements. With exactly one placement,
-show **Delete** and require confirmation describing the affected items. Delete
-the item and recursively delete descendants with no surviving placement;
-preserve descendants linked outside the removed branch or at the top level,
-and their surviving children. Do not promote children or add Undo/trash.
+Unlink removes the selected occurrence. Linked parents share their child lists;
+a blocked child Unlink offers full independent replacement of the earliest
+shared ancestor on that selected path, then prunes the chosen copied child and
+its copied descendants, leaving originals elsewhere untouched. All actions are
+atomic, revision/path-bound and pass through document-save safeguards.
 
-Linked tasks/folders have the same children everywhere. Removing a child from
-a shared parent affects every appearance of that relationship. Execute removal
-atomically, reject stale confirmations, preserve surviving IDs and order, and
-use the existing shared saving/recovery flow on all platforms.
+Link / copy task to searches destinations including Top level. Link preserves
+existing placements and rejects cycles. Copy defaults to source-only with linked
+children; selectable depth and optional independent appearances control sharing.
+Default copying preserves links among unique copied items, including reuse at
+partial-depth boundaries. Self/descendant destinations force full-depth copying
+from a finite snapshot. Copies retain fields and preferences with fresh IDs.
+These explicit operations need no stored-data conversion; physical acceptance
+remains open. See the contract for the exact controls, limits and checks.
 
 A saved view referring to a deleted task/folder keeps its rule and its Boolean
 scope. That container rule matches nothing. Affected views receive a yellow

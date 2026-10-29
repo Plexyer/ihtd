@@ -55,11 +55,14 @@ of cross-platform completion. Follow the implemented
   Follow `docs/view-expression-editor-plan.md`; preserve matching AND creation
   hints when displaying flattened AND/OR chains. Shared implementation is complete;
   physical acceptance remains pending. Use `docs/view-expression-editor-acceptance.md`.
-- Shared removal is in `crates/ihtd_core/src/removal.rs`. Count actual parent/root
-  placements; use revision-bound previews for confirmed Delete and immediate
-  Unlink. Cascade only into nodes losing all surviving placements. Retain
-  deleted IDs (not contents) for view-rule warnings; never reuse them. See
-  `docs/unlink-delete-plan.md` and `docs/unlink-delete-acceptance.md`.
+- Shared linking/copying/removal is in `crates/ihtd_core/src/hierarchy.rs`.
+  Read `docs/link-copy-removal.md` and the later owner specification: count full
+  hierarchy appearances, offer explicit global Delete and local Unlink, and use
+  revision/path-bound previews. A linked ancestor blocks direct child Unlink;
+  only the confirmed full independent replacement can isolate that occurrence.
+  Copy from a frozen source, honor depth/reuse boundaries, preserve settings and
+  deleted IDs, and use the shared controller/file-save safeguards. The historical
+  removal helpers describe the old baseline; do not use them in new product UI.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
 - App model sessions edit private working copies on all platforms. External

@@ -91,6 +91,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, dynamic> completion = {};
   Map<String, dynamic> collectionSettings = {};
   Map<String, dynamic> placements = {};
+  Map<String, dynamic> appearances = {};
+  String? selectedItemPath;
   Map<String, dynamic> viewIssues = {};
   List<Map<String, dynamic>> rows = [];
   int selectedViewId = 1;
@@ -608,6 +610,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     collectionSettings = _map(state['collection_settings']);
     completion = _map(state['completion']);
     placements = _map(state['placements']);
+    appearances = _map(state['appearances']);
     viewIssues = _map(state['view_issues']);
     _pruneExpandedPaths();
     _localDirty = state['dirty'] == true;
@@ -695,6 +698,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'query',
       'creation_defaults',
       'preview_removal',
+      'preview_item_action',
+      'copy_options',
       'preview_item_draft',
       'item_draft_status',
       'snapshot',
@@ -713,6 +718,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         'query',
         'creation_defaults',
         'preview_removal',
+        'preview_item_action',
+        'copy_options',
         'preview_item_draft',
         'item_draft_status',
         'snapshot',
@@ -793,6 +800,30 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         null;
   }
 
+  Future<bool> performItemAction(
+    List<int> path,
+    String action, {
+    required Future<bool> Function(Map<String, dynamic>) confirm,
+  }) async {
+    final owner = editIdentity;
+    if (!await finishDraft() || owner != editIdentity) return false;
+    final preview = await dispatch({
+      'op': 'preview_item_action',
+      'path': path,
+      'action': action,
+    }, expectedDocument: owner);
+    if (preview == null) return false;
+    final needsConfirmation =
+        action == 'delete' || preview['blocking_parent'] != null;
+    if (needsConfirmation && !await confirm(preview)) return false;
+    return await dispatch({
+          'op': 'apply_item_action',
+          'preview': preview,
+          'confirmed': needsConfirmation,
+        }, expectedDocument: owner) !=
+        null;
+  }
+
   void _pruneExpandedPaths() {
     final links = (document?['links'] as List? ?? []).map(_map).toList();
     final edges = {
@@ -809,6 +840,18 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       }
       return false;
     });
+    final selectedPath = selectedItemPath;
+    if (selectedPath != null) {
+      final parts = selectedPath.split('/');
+      if (parts.last != '$selectedItemId' ||
+          _map(placements[parts.first])['root'] != true ||
+          List.generate(
+            parts.length - 1,
+            (i) => '${parts[i]}/${parts[i + 1]}',
+          ).any((edge) => !edges.contains(edge))) {
+        selectedItemPath = null;
+      }
+    }
   }
 
   List<Map<String, dynamic>> issuesForView(int id) =>
@@ -982,8 +1025,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  Future<void> selectItem(int? id) async {
-    if (itemDraft != null && itemDraft!.itemId == id && id != null) return;
+  Future<void> selectItem(int? id, {String? path}) async {
+    if (itemDraft != null && itemDraft!.itemId == id && id != null) {
+      if (path != null) selectedItemPath = path;
+      notifyListeners();
+      return;
+    }
     if (!await finishDraft()) return;
     if (itemDraft != null &&
         itemDraft!.itemId != id &&
@@ -991,6 +1038,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     selectedItemId = id;
+    selectedItemPath = path;
     if (id != null) ensureItemDraft();
     notifyListeners();
   }

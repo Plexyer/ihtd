@@ -90,7 +90,22 @@ void main() {
         'Scroll item 0',
       );
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      // pumpAndSettle alone does not await filesystem/journal futures. Start
+      // the swipe assertion only after the asynchronous Save closes the editor.
+      for (
+        var i = 0;
+        i < 250 &&
+            (controller.itemDraft != null ||
+                controller.savingItemDraft ||
+                controller.busy);
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
       await tester.pumpAndSettle();
+      expect(controller.itemDraft, isNull, reason: controller.error);
+      expect(controller.savingItemDraft, false);
       expect(find.text('Saved on Save'), findsOneWidget);
       expect(controller.error, isNull);
       final revision = controller.document!['revision'];

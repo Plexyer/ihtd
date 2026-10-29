@@ -1,5 +1,9 @@
 # Unlink/Delete acceptance
 
+Historical baseline: the later [link/copy/removal contract](link-copy-removal.md)
+supersedes the either-Unlink-or-Delete actions and direct-placement counter here.
+Use its explicit global Delete, appearance counts and blocked-Unlink safeguards.
+
 Use a disposable test collection on Pixel 9 Pro / GrapheneOS, Windows 11 and
 Fedora. Implementation is shared; physical checks remain pending. Build 10
 contains these changes. Install the signed build 10 over the existing permanently

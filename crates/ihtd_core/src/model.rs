@@ -823,13 +823,13 @@ impl Document {
         Ok(result)
     }
 
-    fn allocate_id(&mut self) -> Result<i64, String> {
+    pub(crate) fn allocate_id(&mut self) -> Result<i64, String> {
         let id = self.next_id;
         self.next_id = id.checked_add(1).ok_or("Document ID space exhausted")?;
         Ok(id)
     }
 
-    fn reveal_new_tasks(&mut self, id: i64) -> Result<(), String> {
+    pub(crate) fn reveal_new_tasks(&mut self, id: i64) -> Result<(), String> {
         let graph = self.build_graph()?;
         let node = item_id(id)?;
         let contains_task = self.item(id)?.kind == ItemKind::Task
