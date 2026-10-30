@@ -95,6 +95,17 @@ void main() {
       await tester.pumpAndSettle();
       final card = find.byKey(const ValueKey('into-2'));
       final height = tester.getSize(card).height;
+      final menuPosition = tester.getTopLeft(
+        find.byKey(const ValueKey('menu-2')),
+      );
+      row['summary'] = {'next_due_date': null};
+      h.app.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(find.byType(SummaryIndicators), findsNothing);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('menu-2'))),
+        menuPosition,
+      );
       row['summary'] = {
         'total': 5,
         'completed': 2,
@@ -154,7 +165,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.text('Next: —'), findsOneWidget);
+        expect(find.textContaining('Next:'), findsNothing);
         expect(
           find.bySemanticsLabel(
             RegExp('Direct child tasks.*Total: 123 / 12345.*Low priority: 4'),

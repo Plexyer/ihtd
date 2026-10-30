@@ -8,13 +8,20 @@ class SummaryIndicators extends StatelessWidget {
   const SummaryIndicators({super.key, required this.summary});
   final Map<String, dynamic> summary;
 
+  static bool hasVisibleMetrics(Map<String, dynamic> summary) => const [
+    'total',
+    'high_priority',
+    'medium_priority',
+    'low_priority',
+    'next_due_date',
+  ].any((key) => summary[key] != null);
+
   @override
   Widget build(BuildContext context) {
     final labels = <String>[
       if (summary['total'] != null)
         'Total: ${summary['completed'] != null ? '${summary['completed']} / ' : ''}${summary['total']}',
-      if (summary.containsKey('next_due_date'))
-        'Next: ${summary['next_due_date'] ?? '—'}',
+      if (summary['next_due_date'] != null) 'Next: ${summary['next_due_date']}',
     ];
     final priorities = <(int, String, String)>[
       if (summary['high_priority'] != null)

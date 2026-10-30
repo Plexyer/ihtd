@@ -186,8 +186,9 @@ Visibility/context and expansion do not expand metric membership. Enabled
 counters show zero. Next date ignores overdue dates and uses the local calendar
 day, refreshing read-only on rollover/resume. Flutter shares the compact priority
 stack, labels, narrow/large-text adaptation and accessible descriptions across
-all platforms. Derived results require no stored-data migration. Empty-item and
-missing-date presentation preferences and physical acceptance remain open.
+all platforms. Show summaries only on tasks/folders having children, and hide
+next date when none qualifies. Derived results require no stored-data migration;
+physical acceptance remains open.
 
 ## Fields and files
 

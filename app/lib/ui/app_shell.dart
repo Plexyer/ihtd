@@ -849,7 +849,9 @@ class _TaskPane extends StatelessWidget {
                                         ],
                                       ),
                                     ),
-                                    if (asMap(row['summary']).isNotEmpty)
+                                    if (SummaryIndicators.hasVisibleMetrics(
+                                      asMap(row['summary']),
+                                    ))
                                       Flexible(
                                         flex: 2,
                                         child: SummaryIndicators(

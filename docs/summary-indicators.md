@@ -31,13 +31,13 @@ parent overrides, then parent/view overrides. Total and High default on; ratio,
 Medium, Low and next date default off. Resetting one override resumes live
 inheritance; changing one view does not freeze other settings or views.
 
-Current presentation choices awaiting owner preference:
+Owner-confirmed presentation (2026-10-30):
 
-- With next date enabled and no eligible date, display `Next: —` (provisional).
-- Show summaries only on items currently having children. The owner has been
-  asked whether empty folders and/or leaf tasks should also show enabled zeros.
-  Changing this eligibility choice needs no collection-file conversion or
-  change to the approved direct-child counting rules.
+- With next date enabled and no eligible date, show nothing for that indicator;
+  do not reserve space for an empty summary panel.
+- Show summaries only on items currently having children, equally for tasks
+  and folders. Empty folders and leaf tasks have no summary. Parents whose
+  children are all excluded by the view/tab still show enabled zero counters.
 
 ## Shared calculation and rendering
 
@@ -91,5 +91,5 @@ Host verification passed: 104 Rust tests, 190 Flutter unit/widget tests,
 17 Python checks, Flutter analysis and native Linux summary/desktop/phone-layout
 integration. A rendered preview was reviewed at normal and enlarged text sizes.
 The ARM64 release APK built and passed native ELF LOAD and APK ZIP 16 KB
-alignment checks. These checks do not establish physical acceptance or settle
-the two pending presentation preferences above.
+alignment checks. The final display choices were verified with targeted widget
+and core checks. These checks do not establish physical acceptance.

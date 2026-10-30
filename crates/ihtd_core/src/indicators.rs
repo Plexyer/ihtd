@@ -242,6 +242,7 @@ mod tests {
         let mut d = Document::new("none".into());
         let p = d.add_item(ItemKind::Task, "Parent".into(), None).unwrap();
         let t = task(&mut d, p, "Child", 0, true, Some("2026-10-29"));
+        let empty_folder = d.add_item(ItemKind::Folder, "Empty".into(), None).unwrap();
         let s = summary(&d, 1, p, false);
         assert_eq!(
             serde_json::to_value(s).unwrap(),
@@ -251,6 +252,7 @@ mod tests {
         assert_eq!(summary(&d, 1, p, true).next_due_date, Some(None));
         let mut q = IndicatorQuery::new(&d, 1, true, "2026-10-30").unwrap();
         assert!(q.for_parent(t).unwrap().is_none());
+        assert!(q.for_parent(empty_folder).unwrap().is_none());
         assert!(IndicatorQuery::new(&d, 1, false, "2026-02-30").is_err());
         assert!(IndicatorQuery::new(&d, 1, false, "2026-1-1").is_err());
     }

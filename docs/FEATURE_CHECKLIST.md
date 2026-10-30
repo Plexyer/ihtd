@@ -116,8 +116,8 @@ until step 12. This order is a plan, not completed implementation.
   - [x] Inherit each indicator independently: collection defaults, optional
     parent defaults, then parent/view overrides. Only non-overridden settings
     follow later default changes. Skip disabled indicators' metric computation.
-  - [ ] Resolve presentation preference for enabled next date without a date,
-    and whether empty folders/leaf tasks also display summaries.
+  - [x] Hide next date when none qualifies; show summaries only on tasks or
+    folders currently having children. Empty folders and leaf tasks show none.
   - [ ] Verify physical phone/desktop layouts, accessibility, date rollover,
     provider recovery, upgrades and cross-platform transfer.
   Shared candidate: [summary calculation, layout and acceptance](summary-indicators.md).
