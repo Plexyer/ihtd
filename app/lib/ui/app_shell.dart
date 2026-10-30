@@ -12,6 +12,7 @@ import 'item_removal.dart';
 import 'item_drag.dart';
 import 'sort_settings.dart';
 import 'priority_icon.dart';
+import 'summary_indicators.dart';
 import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
@@ -802,6 +803,7 @@ class _TaskPane extends StatelessWidget {
                                               ),
                                       ),
                                     Expanded(
+                                      flex: 3,
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -847,6 +849,13 @@ class _TaskPane extends StatelessWidget {
                                         ],
                                       ),
                                     ),
+                                    if (asMap(row['summary']).isNotEmpty)
+                                      Flexible(
+                                        flex: 2,
+                                        child: SummaryIndicators(
+                                          summary: asMap(row['summary']),
+                                        ),
+                                      ),
                                     if (intValue(item['priority']) > 0)
                                       Padding(
                                         padding: const EdgeInsets.symmetric(

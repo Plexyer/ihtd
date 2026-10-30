@@ -192,9 +192,22 @@ impl Backend {
             }
             "query" => {
                 let expanded: BTreeSet<String> = decode(&request["expanded"])?;
-                return Ok(
-                    json!({"rows":presentation::outline(&session.document,number(&request,"view_id")?,flag(&request,"completed_only"),&expanded)?}),
-                );
+                let view = number(&request, "view_id")?;
+                let completed = flag(&request, "completed_only");
+                // Older/internal outline consumers may omit the local date.
+                // Product UI always supplies it to request shared summaries.
+                let rows = if request.get("today").is_some() {
+                    presentation::outline_with_summaries(
+                        &session.document,
+                        view,
+                        completed,
+                        &expanded,
+                        &string(&request, "today")?,
+                    )?
+                } else {
+                    presentation::outline(&session.document, view, completed, &expanded)?
+                };
+                return Ok(json!({"rows": rows}));
             }
             "preview_sorted_move" => {
                 return serde_json::to_value(sorting::preview(

@@ -12,6 +12,8 @@ pub struct Row {
     pub has_children: bool,
     pub context_only: bool,
     pub expanded: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<ihtd_core::indicators::ChildSummary>,
 }
 struct Entry {
     row: Row,
@@ -79,6 +81,7 @@ pub fn outline(
                 has_children: false,
                 context_only: !matches,
                 expanded: opened,
+                summary: None,
             },
             parent,
             matches,
@@ -129,6 +132,24 @@ pub fn outline(
         .collect())
 }
 
+/// Only the user-facing query requests summaries; move planning keeps the
+/// projection lightweight. Collapsed parents still summarize direct children.
+pub fn outline_with_summaries(
+    document: &Document,
+    view_id: i64,
+    completed: bool,
+    expanded: &BTreeSet<String>,
+    today: &str,
+) -> Result<Vec<Row>, String> {
+    let mut rows = outline(document, view_id, completed, expanded)?;
+    let mut metrics =
+        ihtd_core::indicators::IndicatorQuery::new(document, view_id, completed, today)?;
+    for row in &mut rows {
+        row.summary = metrics.for_parent(row.id)?;
+    }
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +177,52 @@ mod tests {
         .unwrap();
         assert_eq!(outline(&doc, 1, false, &expanded).unwrap().len(), 1);
         assert_eq!(outline(&doc, v, false, &expanded).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn summaries_ignore_context_descendants_and_expansion_and_use_strict_tab_membership() {
+        let mut doc = Document::new("summaries".into());
+        let p = doc
+            .add_item(ItemKind::Folder, "Parent".into(), None)
+            .unwrap();
+        let context = doc
+            .add_item(ItemKind::Task, "Context".into(), Some(p))
+            .unwrap();
+        doc.add_item(ItemKind::Task, "Match deep".into(), Some(context))
+            .unwrap();
+        let direct = doc
+            .add_item(ItemKind::Task, "Match direct".into(), Some(p))
+            .unwrap();
+        doc.set_completed(direct, true, false).unwrap();
+        doc.set_container_preferences(
+            1,
+            p,
+            ContainerPreferences {
+                hide_completed: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        doc.views.get_mut(&1).unwrap().filter = serde_json::from_value(serde_json::json!({
+            "op":"text", "field":"title", "comparison":"contains", "value":"Match", "case_sensitive":false
+        })).unwrap();
+        let before = doc.clone();
+        let open =
+            outline_with_summaries(&doc, 1, false, &BTreeSet::from(["*".into()]), "2026-10-30")
+                .unwrap();
+        assert!(open.iter().any(|r| r.id == direct)); // visibility allows it
+        let parent = open.iter().find(|r| r.id == p).unwrap();
+        assert!(parent.context_only);
+        assert_eq!(parent.summary.as_ref().unwrap().total, Some(0)); // but tab doesn't count it
+        let collapsed =
+            outline_with_summaries(&doc, 1, false, &BTreeSet::new(), "2026-10-30").unwrap();
+        assert_eq!(collapsed.len(), 1);
+        assert_eq!(collapsed[0].summary, parent.summary);
+        let done = outline_with_summaries(&doc, 1, true, &BTreeSet::new(), "2026-10-30").unwrap();
+        assert_eq!(done[0].summary.as_ref().unwrap().total, Some(1));
+        assert_eq!(doc, before);
+        assert!(outline(&doc, 1, false, &BTreeSet::new()).unwrap()[0]
+            .summary
+            .is_none());
     }
 }

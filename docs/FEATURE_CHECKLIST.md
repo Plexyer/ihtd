@@ -106,16 +106,22 @@ until step 12. This order is a plan, not completed implementation.
   Optional metadata needs no schema-2 conversion or rewrite on open. Host tests
   and native Linux integration pass; physical acceptance keeps the parent open.
 - [ ] **5 — Medium: compact direct-child summary indicators.**
-  - [ ] Default Total and High-priority count on; Low/Medium counts and next due
+  - [x] Default Total and High-priority count on; Low/Medium counts and next due
     date off. Allow an optional ratio replacing the plain count: `Total: 2 / 5`.
-  - [ ] Count direct child tasks only, included by the view rules/current tab.
+  - [x] Count direct child tasks only, included by the view rules/current tab.
     The ratio is the exception: include both completion states matching the view
     rules regardless of tab. Next due means earliest date today or later.
-  - [ ] Show zero for enabled counters. Stack enabled priority icon/count pairs
+  - [x] Show zero for enabled counters. Stack enabled priority icon/count pairs
     compactly without increasing card height; keep icons readable.
-  - [ ] Inherit each indicator independently: collection defaults, optional
+  - [x] Inherit each indicator independently: collection defaults, optional
     parent defaults, then parent/view overrides. Only non-overridden settings
     follow later default changes. Skip disabled indicators' metric computation.
+  - [ ] Resolve presentation preference for enabled next date without a date,
+    and whether empty folders/leaf tasks also display summaries.
+  - [ ] Verify physical phone/desktop layouts, accessibility, date rollover,
+    provider recovery, upgrades and cross-platform transfer.
+  Shared candidate: [summary calculation, layout and acceptance](summary-indicators.md).
+  Queries are read-only derived data; no stored-data conversion is needed.
 - [ ] **6 — Medium: clear selected tags and a bounded suggestion list.**
   - [ ] Show all selected tags above a light divider; below show up to N popular
     unselected tags plus Select other. N defaults to 5 and is a collection setting.

@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-29. This records the implemented prototype and the user's
+Updated 2026-10-30. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Approved changes awaiting implementation
@@ -173,8 +173,21 @@ each indicator; resetting one field resumes inheritance. Settings forms stage
 choices until Save, reject stale or different-copy saves and preserve external
 publication barriers. Separate indicator preferences do not commit item drafts.
 Optional schema-2 metadata preserves existing data without conversion or a
-rewrite on open. Actual summary metrics and tag suggestions remain later tasks;
+rewrite on open. Tag suggestions remain a later task;
 physical upgrade/device acceptance is pending.
+
+## Summary indicators (implementation candidate)
+
+Follow [direct-child summaries](docs/summary-indicators.md). Rust calculates
+enabled metrics once per parent/query using resolved settings. Only matching
+direct child tasks contribute; ordinary counts and next date follow the current
+tab, while the completed/total ratio includes both states matching the filter.
+Visibility/context and expansion do not expand metric membership. Enabled
+counters show zero. Next date ignores overdue dates and uses the local calendar
+day, refreshing read-only on rollover/resume. Flutter shares the compact priority
+stack, labels, narrow/large-text adaptation and accessible descriptions across
+all platforms. Derived results require no stored-data migration. Empty-item and
+missing-date presentation preferences and physical acceptance remain open.
 
 ## Fields and files
 

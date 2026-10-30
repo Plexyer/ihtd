@@ -283,3 +283,12 @@ with the same desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
 It covers the new copy/removal commands, selected-path replacement, retained shared
 children/rules and file barriers across restart. Follow the separate physical
 [link/copy/removal acceptance](link-copy-removal.md).
+
+## Summary indicator verification
+
+Run the Rust/Flutter suites and native `integration_test/summary_indicators_test.dart`
+with the usual desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It checks frozen schema-2 files, read-only metrics, actual settings/tab results,
+local day rollover, private drafts and disconnected-file restart. Widget tests
+check normal card height, zero/ratio display, narrow scrolling, large text and
+accessible descriptions. See [summary behavior/acceptance](summary-indicators.md).

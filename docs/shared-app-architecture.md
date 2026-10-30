@@ -107,6 +107,14 @@ platform-specific icons or duplicate color mappings. See
 [priority icons](priority-icons.md). This presentation change requires no data
 conversion.
 
+Shared summary metrics: `crates/ihtd_core/src/indicators.rs` owns per-view/tab
+direct-child calculations using `resolved_indicators`. Application presentation
+decorates projected rows and caches shared parents; structural projections stay
+lightweight. The controller supplies the local day and read-only rollover
+refresh; `ui/summary_indicators.dart` only renders derived fields with the shared
+priority artwork. Never duplicate matching/default logic in Flutter or store
+these summaries in collection files. See [summary indicators](summary-indicators.md).
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and
