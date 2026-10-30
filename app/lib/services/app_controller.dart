@@ -30,7 +30,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     Future<Directory> Function()? supportDirectory,
     bool polling = true,
     ItemDraftStore? draftStore,
+    DateTime Function()? now,
   }) : itemDrafts = draftStore ?? ItemDraftStore(),
+       _now = now ?? DateTime.now,
        _documents =
            documentServices ??
            composeDocumentServices(
@@ -56,6 +58,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final DocumentSaveCoordinator _documents;
   final Future<String> Function(String) _command;
   final Future<Directory> Function() _supportDirectory;
+  final DateTime Function() _now;
+  String? _rowsDay;
+  String get _localDay {
+    final date = _now().toLocal();
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
   bool _localDirty = false;
   bool _localPersistenceFailed = false;
   String? _recoveryPath;
@@ -922,13 +931,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     try {
+      final day = _localDay;
       final result = await _send({
         'op': 'query',
         'view_id': selectedViewId,
         'completed_only': completedOnly,
         'expanded': expandedPaths.toList(),
+        'today': day,
       });
       rows = (result['rows'] as List? ?? []).map(_map).toList();
+      _rowsDay = day;
     } catch (e) {
       error = '$e';
     }
@@ -946,6 +958,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         await refreshRows();
         status = 'Reloaded newer file';
         notifyListeners();
+      } else if (_rowsDay != _localDay) {
+        // Calendar-only refresh is read-only, including after resume/timezone
+        // changes. Never commit an unfinished item draft to refresh a summary.
+        await refreshRows();
       }
       notifyListeners();
     } catch (e) {

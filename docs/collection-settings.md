@@ -5,6 +5,9 @@ The [approved specification](changes-2026-10-28.md#7-collection-settings) is the
 contract. This step provides the stored settings and shared controls needed by
 the later tag-picker and summary-indicator tasks; it does not implement those
 consumers, their metrics, tag-usage history or the priority-icon redesign.
+The later [summary-indicator candidate](summary-indicators.md) now consumes these
+settings and the shared [priority artwork](priority-icons.md). Tag suggestions
+remain a separate pending task.
 
 ## Controls and ownership
 
@@ -47,7 +50,7 @@ Visibility preferences retain their existing, separate inheritance rules.
 ## Shared implementation and save safeguards
 
 `crates/ihtd_core/src/settings.rs` defines settings, defaults, validation, atomic
-updates and `Document.resolved_indicators`. Future summary metrics must use that
+updates and `Document.resolved_indicators`. Shared `indicators.rs` uses that
 resolution rather than inventing defaults or computing disabled metrics.
 `ui/collection_settings.dart` supplies shared, responsive forms on Android,
 Windows and Linux; it overlays staged values only to preview inheritance.
