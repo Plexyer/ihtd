@@ -182,9 +182,12 @@ Follow [direct-child summaries](docs/summary-indicators.md). Rust calculates
 enabled metrics once per parent/query using resolved settings. Only matching
 direct child tasks contribute; ordinary counts and next date follow the current
 tab, while the completed/total ratio includes both states matching the filter.
-Visibility/context and expansion do not expand metric membership. Enabled
-counters show zero. Next date ignores overdue dates and uses the local calendar
-day, refreshing read-only on rollover/resume. Flutter shares the compact priority
+Visibility/context and expansion do not expand metric membership. Enabled Total
+can show zero; priority pairs appear only for enabled, nonzero counts and are
+stacked vertically in High/Medium/Low order, centered in the card. Total and
+Next date share one bottom footer line, Total first. Next date ignores overdue
+dates and uses the local calendar day, refreshing read-only on rollover/resume.
+Flutter shares the compact priority
 stack, labels, narrow/large-text adaptation and accessible descriptions across
 all platforms. Show summaries only on tasks/folders having children, and hide
 next date when none qualifies. Derived results require no stored-data migration;

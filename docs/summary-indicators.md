@@ -24,7 +24,9 @@ Completion filtering is strict even if visibility preferences retain completed
 children in the Unfinished outline. Context-only children do not contribute
 just because a matching descendant makes them visible. Collapsing a parent
 does not change its summary. Overdue dates are ignored; today's date qualifies.
-Enabled counters display zero. None-priority tasks still count toward Total.
+Enabled Total can display zero. Priority pairs are shown only for enabled,
+nonzero counts. None-priority tasks still count toward Total. The later owner
+layout revision below supersedes the initial request to show zero priority pairs.
 
 Each indicator independently resolves collection defaults, optional shared
 parent overrides, then parent/view overrides. Total and High default on; ratio,
@@ -37,7 +39,12 @@ Owner-confirmed presentation (2026-10-30):
   do not reserve space for an empty summary panel.
 - Show summaries only on items currently having children, equally for tasks
   and folders. Empty folders and leaf tasks have no summary. Parents whose
-  children are all excluded by the view/tab still show enabled zero counters.
+  children are all excluded by the view/tab can still show an enabled Total of
+  zero; zero priority counts are hidden.
+- Total and Next date occupy the bottom of the card on the same line, with
+  Total first and Next date to its right.
+- Show only enabled nonzero priority pairs, in High/Medium/Low order. Center
+  that vertical stack in the card, including when only one or two pairs remain.
 
 ## Shared calculation and rendering
 
@@ -54,15 +61,19 @@ for structural move planning. Product `query` supplies the local `today` date;
 legacy/internal queries omitting it retain their old lightweight response.
 Invalid dates fail without mutation. No host adapter defines metric policy.
 
-Shared Flutter `SummaryIndicators` renders the Rust response without recalculating
-defaults, filtering or counts. Reuse `PriorityIcon` at 14 pixels. Normal layouts
-stack priority icon/count pairs within the existing row control height, keeping
-card height unchanged. Counters precede the date so a long date cannot hide
-their numbers; date/total labels can ellipsize with the full tooltip available.
-Very narrow/deep cards use a horizontally scrollable summary region. Enlarged
-text uses a horizontal run instead of shrinking text or adding a tall counter
-stack. The full summary has one accessible description, independent of scrolling,
-color or ellipsis. Existing row actions and the parent's own priority remain.
+Shared Flutter `SummaryIndicators` renders only the Total/date footer, without
+recalculating defaults, filtering or counts. `SummaryItemContent` places it below
+the title/metadata at the bottom of the card. The footer keeps Total and Next
+date on one line and scrolls horizontally when a narrow card or enlarged text
+needs more room. Each full value remains available in a tooltip/accessible label.
+
+`SummaryPriorityCounts` hides zeroes from the derived response and reuses
+`PriorityIcon` at 14 pixels. The card stretches its content to one common height
+and centers the nonzero priority stack vertically. At ordinary text size three
+pairs fit within the existing 48-pixel control height. Large text or more title/
+metadata content can grow the card to keep everything readable; no text is
+shrunk or vertically clipped. Footer and priority stack have separate accessible
+descriptions. Existing row actions and the parent's own priority remain.
 
 `AppController` supplies the device's local calendar date and refreshes read-only
 summaries when polling/resuming observes a new date or timezone day. Queries do
@@ -87,9 +98,12 @@ Windows and Fedora native pipelines include that scenario.
 - [ ] Verify full accessibility descriptions and large-text/deep-hierarchy
   layouts, retaining usable titles, own priority and action menus.
 
-Host verification passed: 104 Rust tests, 190 Flutter unit/widget tests,
+Initial implementation verification passed: 104 Rust tests, 190 Flutter unit/widget tests,
 17 Python checks, Flutter analysis and native Linux summary/desktop/phone-layout
 integration. A rendered preview was reviewed at normal and enlarged text sizes.
 The ARM64 release APK built and passed native ELF LOAD and APK ZIP 16 KB
 alignment checks. The final display choices were verified with targeted widget
-and core checks. These checks do not establish physical acceptance.
+and core checks. The later footer/priority layout was verified with the 190-test
+Flutter suite, analysis, 17 Python checks, native Linux integrations and rendered
+previews of one/two/three priorities and enlarged text. These checks do not
+establish physical acceptance.

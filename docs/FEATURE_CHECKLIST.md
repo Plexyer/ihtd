@@ -111,8 +111,9 @@ until step 12. This order is a plan, not completed implementation.
   - [x] Count direct child tasks only, included by the view rules/current tab.
     The ratio is the exception: include both completion states matching the view
     rules regardless of tab. Next due means earliest date today or later.
-  - [x] Show zero for enabled counters. Stack enabled priority icon/count pairs
-    compactly without increasing card height; keep icons readable.
+  - [x] Put Total (including zero) and Next date on one bottom footer line,
+    Total first. Show enabled priority icon/count pairs only for nonzero counts;
+    vertically center the remaining one/two/three-pair stack in the card.
   - [x] Inherit each indicator independently: collection defaults, optional
     parent defaults, then parent/view overrides. Only non-overridden settings
     follow later default changes. Skip disabled indicators' metric computation.

@@ -2,6 +2,7 @@ import 'package:app/services/app_controller.dart';
 import 'package:app/ui/app_shell.dart';
 import 'package:app/ui/app_theme.dart';
 import 'package:app/ui/summary_indicators.dart';
+import 'package:app/ui/priority_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,7 +70,7 @@ void main() {
   );
 
   testWidgets(
-    'real parent card keeps its normal height with all priority counts and ratio',
+    'footer is bottom aligned and inline; nonzero priority stacks stay centered',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -98,7 +99,7 @@ void main() {
       final menuPosition = tester.getTopLeft(
         find.byKey(const ValueKey('menu-2')),
       );
-      row['summary'] = {'next_due_date': null};
+      row['summary'] = <String, dynamic>{'next_due_date': null};
       h.app.notifyListeners();
       await tester.pumpAndSettle();
       expect(find.byType(SummaryIndicators), findsNothing);
@@ -106,7 +107,7 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('menu-2'))),
         menuPosition,
       );
-      row['summary'] = {
+      row['summary'] = <String, dynamic>{
         'total': 5,
         'completed': 2,
         'high_priority': 0,
@@ -121,11 +122,68 @@ void main() {
       expect(find.text('Next: 2026-12-01'), findsOneWidget);
       expect(find.byType(SummaryIndicators), findsOneWidget);
       expect(
-        find.bySemanticsLabel(
-          RegExp('Direct child tasks.*High priority: 0.*Medium priority: 2'),
-        ),
-        findsOneWidget,
+        tester.getTopLeft(find.text('Total: 2 / 5')).dy,
+        tester.getTopLeft(find.text('Next: 2026-12-01')).dy,
       );
+      expect(
+        tester.getTopLeft(find.text('Total: 2 / 5')).dx,
+        lessThan(tester.getTopLeft(find.text('Next: 2026-12-01')).dx),
+      );
+      expect(
+        tester.getTopLeft(find.text('Total: 2 / 5')).dy,
+        greaterThan(
+          tester
+              .getBottomLeft(
+                find.descendant(of: card, matching: find.text('Folder')),
+              )
+              .dy,
+        ),
+      );
+      final body = find.descendant(
+        of: card,
+        matching: find.byType(IntrinsicHeight),
+      );
+      expect(
+        tester.getBottomLeft(find.text('Total: 2 / 5')).dy,
+        closeTo(tester.getBottomLeft(body).dy, .1),
+      );
+      for (final counts in [(1, 0, 0), (1, 0, 2), (1, 2, 3), (0, 0, 0)]) {
+        final summary = row['summary'] as Map<String, dynamic>;
+        summary.addAll({
+          'high_priority': counts.$1,
+          'medium_priority': counts.$2,
+          'low_priority': counts.$3,
+        });
+        h.app.notifyListeners();
+        await tester.pumpAndSettle();
+        final visible = [
+          counts.$1,
+          counts.$2,
+          counts.$3,
+        ].where((n) => n > 0).length;
+        final icons = find.descendant(
+          of: find.byType(SummaryPriorityCounts),
+          matching: find.byType(PriorityIcon),
+        );
+        expect(icons, findsNWidgets(visible));
+        if (visible > 0) {
+          final stack = find.descendant(
+            of: find.byType(SummaryPriorityCounts),
+            matching: find.byType(Column),
+          );
+          expect(
+            tester.getCenter(stack).dy,
+            closeTo(tester.getCenter(body).dy, .1),
+          );
+        } else {
+          expect(find.byType(SummaryPriorityCounts), findsNothing);
+        }
+      }
+      row['summary'] = <String, dynamic>{'total': 0, 'high_priority': 0};
+      h.app.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(find.text('Total: 0'), findsOneWidget);
+      expect(find.byType(SummaryPriorityCounts), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       containerDisposedApp = true;
@@ -147,15 +205,33 @@ void main() {
                   alignment: Alignment.topLeft,
                   child: SizedBox(
                     width: 72,
-                    child: SummaryIndicators(
-                      summary: const {
-                        'total': 12345,
-                        'completed': 123,
-                        'high_priority': 0,
-                        'medium_priority': 12,
-                        'low_priority': 4,
-                        'next_due_date': null,
-                      },
+                    child: IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SummaryItemContent(
+                              summary: const {
+                                'total': 12345,
+                                'completed': 123,
+                                'next_due_date': null,
+                              },
+                              child: const Text(
+                                'Parent',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          const SummaryPriorityCounts(
+                            summary: {
+                              'high_priority': 0,
+                              'medium_priority': 12,
+                              'low_priority': 4,
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -168,7 +244,7 @@ void main() {
         expect(find.textContaining('Next:'), findsNothing);
         expect(
           find.bySemanticsLabel(
-            RegExp('Direct child tasks.*Total: 123 / 12345.*Low priority: 4'),
+            RegExp('Direct child tasks.*Total: 123 / 12345'),
           ),
           findsOneWidget,
         );
