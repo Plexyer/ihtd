@@ -760,53 +760,64 @@ class _TaskPane extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      SizedBox(
-                                        width: 30,
-                                        child: row['has_children'] == true
-                                            ? IconButton(
-                                                tooltip: row['expanded'] == true
-                                                    ? 'Collapse children'
-                                                    : 'Expand children',
-                                                padding: EdgeInsets.zero,
-                                                icon: Icon(
-                                                  row['expanded'] == true
-                                                      ? Icons
-                                                            .keyboard_arrow_down
-                                                      : Icons
-                                                            .keyboard_arrow_right,
-                                                  size: 21,
+                                      SummaryBodyControls(
+                                        summary: asMap(row['summary']),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 30,
+                                              child: row['has_children'] == true
+                                                  ? IconButton(
+                                                      tooltip:
+                                                          row['expanded'] ==
+                                                              true
+                                                          ? 'Collapse children'
+                                                          : 'Expand children',
+                                                      padding: EdgeInsets.zero,
+                                                      icon: Icon(
+                                                        row['expanded'] == true
+                                                            ? Icons
+                                                                  .keyboard_arrow_down
+                                                            : Icons
+                                                                  .keyboard_arrow_right,
+                                                        size: 21,
+                                                      ),
+                                                      onPressed: () =>
+                                                          app.toggleExpand(
+                                                            '${row['path']}',
+                                                          ),
+                                                    )
+                                                  : null,
+                                            ),
+                                            if (folder)
+                                              const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 12,
                                                 ),
-                                                onPressed: () =>
-                                                    app.toggleExpand(
-                                                      '${row['path']}',
-                                                    ),
+                                                child: Icon(
+                                                  Icons.folder_outlined,
+                                                  color: Color(0xffa68755),
+                                                  size: 23,
+                                                ),
                                               )
-                                            : null,
-                                      ),
-                                      if (folder)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                          child: Icon(
-                                            Icons.folder_outlined,
-                                            color: Color(0xffa68755),
-                                            size: 23,
-                                          ),
-                                        )
-                                      else
-                                        Checkbox(
-                                          value: completed,
-                                          shape: const CircleBorder(),
-                                          onChanged: app.busy
-                                              ? null
-                                              : (value) => changeCompletion(
-                                                  context,
-                                                  app,
-                                                  id,
-                                                  value!,
-                                                ),
+                                            else
+                                              Checkbox(
+                                                value: completed,
+                                                shape: const CircleBorder(),
+                                                onChanged: app.busy
+                                                    ? null
+                                                    : (value) =>
+                                                          changeCompletion(
+                                                            context,
+                                                            app,
+                                                            id,
+                                                            value!,
+                                                          ),
+                                              ),
+                                          ],
                                         ),
+                                      ),
                                       Expanded(
                                         child: SummaryItemContent(
                                           summary: asMap(row['summary']),
@@ -874,136 +885,165 @@ class _TaskPane extends StatelessWidget {
                                             summary: asMap(row['summary']),
                                           ),
                                         ),
-                                      if (intValue(item['priority']) > 0)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                          ),
-                                          child: PriorityIcon(
-                                            priority: intValue(
-                                              item['priority'],
-                                            ),
-                                          ),
-                                        ),
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          PopupMenuButton<String>(
-                                            key: ValueKey(
-                                              'menu-${row['path']}',
-                                            ),
-                                            tooltip: 'Item actions',
-                                            icon: const Icon(
-                                              Icons.more_horiz,
-                                              size: 19,
-                                            ),
-                                            onSelected: (action) {
-                                              if (action == 'sort') {
-                                                showSortSettings(
-                                                  context,
-                                                  app,
-                                                  parent: id,
-                                                );
-                                              }
-                                              if (action == 'details') {
-                                                showDetail(
-                                                  id,
-                                                  '${row['path']}',
-                                                );
-                                              }
-                                              if (action == 'remove' ||
-                                                  action == 'delete' ||
-                                                  action == 'unlink') {
-                                                removeItemPlacement(
-                                                  context,
-                                                  app,
-                                                  id,
-                                                  row['parent_id'] as int?,
-                                                  path: '${row['path']}',
-                                                  action: action == 'remove'
-                                                      ? null
-                                                      : action,
-                                                );
-                                              }
-                                              if (action == 'task') {
-                                                showCreateItem(
-                                                  context,
-                                                  app,
-                                                  parentId: id,
-                                                );
-                                              }
-                                              if (action == 'folder') {
-                                                showCreateItem(
-                                                  context,
-                                                  app,
-                                                  parentId: id,
-                                                  kind: 'folder',
-                                                );
-                                              }
-                                              if (action == 'link') {
-                                                showLinkItem(context, app, id);
-                                              }
-                                            },
-                                            itemBuilder: (context) => [
-                                              const PopupMenuItem(
-                                                value: 'sort',
-                                                child: Text('Sort children…'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'details',
-                                                child: Text('Open details'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'task',
-                                                child: Text('Add subtask'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'folder',
-                                                child: Text('Add subfolder'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'link',
-                                                child: Text(
-                                                  'Link / copy task to…',
-                                                ),
-                                              ),
-                                              const PopupMenuDivider(),
-                                              if (hasMultipleAppearances(
-                                                app,
-                                                id,
-                                              ))
-                                                const PopupMenuItem(
-                                                  value: 'unlink',
-                                                  child: Text('Unlink'),
-                                                ),
-                                              const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text('Delete'),
-                                              ),
-                                            ],
-                                          ),
-                                          if (hasMultipleAppearances(app, id))
-                                            SizedBox(
-                                              width: 64,
-                                              child: Tooltip(
-                                                message:
-                                                    'Links: ${appearanceCount(app, id)}',
-                                                child: Text(
-                                                  'Links: ${appearanceCount(app, id)}',
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Color(0xff7f8fa1),
+                                      SummaryBodyControls(
+                                        summary: asMap(row['summary']),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (intValue(item['priority']) > 0)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                    ),
+                                                child: PriorityIcon(
+                                                  priority: intValue(
+                                                    item['priority'],
                                                   ),
                                                 ),
                                               ),
+                                            Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                PopupMenuButton<String>(
+                                                  key: ValueKey(
+                                                    'menu-${row['path']}',
+                                                  ),
+                                                  tooltip: 'Item actions',
+                                                  icon: const Icon(
+                                                    Icons.more_horiz,
+                                                    size: 19,
+                                                  ),
+                                                  onSelected: (action) {
+                                                    if (action == 'sort') {
+                                                      showSortSettings(
+                                                        context,
+                                                        app,
+                                                        parent: id,
+                                                      );
+                                                    }
+                                                    if (action == 'details') {
+                                                      showDetail(
+                                                        id,
+                                                        '${row['path']}',
+                                                      );
+                                                    }
+                                                    if (action == 'remove' ||
+                                                        action == 'delete' ||
+                                                        action == 'unlink') {
+                                                      removeItemPlacement(
+                                                        context,
+                                                        app,
+                                                        id,
+                                                        row['parent_id']
+                                                            as int?,
+                                                        path: '${row['path']}',
+                                                        action:
+                                                            action == 'remove'
+                                                            ? null
+                                                            : action,
+                                                      );
+                                                    }
+                                                    if (action == 'task') {
+                                                      showCreateItem(
+                                                        context,
+                                                        app,
+                                                        parentId: id,
+                                                      );
+                                                    }
+                                                    if (action == 'folder') {
+                                                      showCreateItem(
+                                                        context,
+                                                        app,
+                                                        parentId: id,
+                                                        kind: 'folder',
+                                                      );
+                                                    }
+                                                    if (action == 'link') {
+                                                      showLinkItem(
+                                                        context,
+                                                        app,
+                                                        id,
+                                                      );
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'sort',
+                                                      child: Text(
+                                                        'Sort children…',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'details',
+                                                      child: Text(
+                                                        'Open details',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'task',
+                                                      child: Text(
+                                                        'Add subtask',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'folder',
+                                                      child: Text(
+                                                        'Add subfolder',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'link',
+                                                      child: Text(
+                                                        'Link / copy task to…',
+                                                      ),
+                                                    ),
+                                                    const PopupMenuDivider(),
+                                                    if (hasMultipleAppearances(
+                                                      app,
+                                                      id,
+                                                    ))
+                                                      const PopupMenuItem(
+                                                        value: 'unlink',
+                                                        child: Text('Unlink'),
+                                                      ),
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Text('Delete'),
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (hasMultipleAppearances(
+                                                  app,
+                                                  id,
+                                                ))
+                                                  SizedBox(
+                                                    width: 64,
+                                                    child: Tooltip(
+                                                      message:
+                                                          'Links: ${appearanceCount(app, id)}',
+                                                      child: Text(
+                                                        'Links: ${appearanceCount(app, id)}',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: Color(
+                                                            0xff7f8fa1,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),

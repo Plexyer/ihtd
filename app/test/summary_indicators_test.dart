@@ -95,7 +95,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       final card = find.byKey(const ValueKey('into-2'));
-      final height = tester.getSize(card).height;
+      final mainRow = find
+          .descendant(
+            of: find.byType(SummaryBodyControls).first,
+            matching: find.byType(Row),
+          )
+          .first;
+      final mainBodyHeight = tester.getSize(mainRow).height;
       final menuPosition = tester.getTopLeft(
         find.byKey(const ValueKey('menu-2')),
       );
@@ -117,7 +123,16 @@ void main() {
       };
       h.app.notifyListeners();
       await tester.pumpAndSettle();
-      expect(tester.getSize(card).height, height);
+      expect(tester.getSize(mainRow).height, mainBodyHeight);
+      final title = find.descendant(of: card, matching: find.text('Folder'));
+      expect(
+        tester.getCenter(title).dy,
+        closeTo(tester.getCenter(mainRow).dy, .1),
+      );
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('menu-2'))).dy,
+        closeTo(tester.getCenter(mainRow).dy, .1),
+      );
       expect(find.text('Total: 2 / 5'), findsOneWidget);
       expect(find.text('Next: 2026-12-01'), findsOneWidget);
       expect(find.byType(SummaryIndicators), findsOneWidget);
@@ -142,6 +157,10 @@ void main() {
       final body = find.descendant(
         of: card,
         matching: find.byType(IntrinsicHeight),
+      );
+      expect(
+        tester.getCenter(body).dy,
+        greaterThan(tester.getCenter(title).dy),
       );
       expect(
         tester.getBottomLeft(find.text('Total: 2 / 5')).dy,
@@ -204,11 +223,20 @@ void main() {
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: SizedBox(
-                    width: 72,
+                    // Preserve the 72px summary area plus the added 16px control.
+                    width: 88,
                     child: IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const SummaryBodyControls(
+                            summary: {'total': 12345, 'completed': 123},
+                            child: SizedBox(
+                              width: 16,
+                              height: 48,
+                              child: Icon(Icons.more_horiz, size: 14),
+                            ),
+                          ),
                           Expanded(
                             child: SummaryItemContent(
                               summary: const {
@@ -241,6 +269,24 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        final control = find
+            .descendant(
+              of: find.byType(SummaryBodyControls),
+              matching: find.byType(SizedBox),
+            )
+            .first;
+        expect(
+          tester.getCenter(find.text('Parent')).dy,
+          closeTo(tester.getCenter(control).dy, .1),
+        );
+        final stack = find.descendant(
+          of: find.byType(SummaryPriorityCounts),
+          matching: find.byType(Column),
+        );
+        expect(
+          tester.getCenter(stack).dy,
+          closeTo(tester.getCenter(find.byType(IntrinsicHeight)).dy, .1),
+        );
         expect(find.textContaining('Next:'), findsNothing);
         expect(
           find.bySemanticsLabel(

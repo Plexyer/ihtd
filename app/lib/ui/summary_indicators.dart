@@ -8,8 +8,7 @@ const _summaryStyle = TextStyle(
   color: Color(0xff526478),
 );
 
-/// Keeps the title/metadata above a bottom-aligned summary footer. The parent
-/// row stretches this content to the same height as its centered controls.
+/// Centers the title/metadata in the main body, above a separate bottom footer.
 class SummaryItemContent extends StatelessWidget {
   const SummaryItemContent({
     super.key,
@@ -22,13 +21,16 @@ class SummaryItemContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SummaryIndicators.hasFooter(summary)
       ? ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
+          constraints: BoxConstraints(
+            minHeight: 48 + SummaryIndicators.footerExtent(context, summary),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              child,
+              Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: child),
+              ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: SummaryIndicators(summary: summary),
@@ -39,6 +41,27 @@ class SummaryItemContent extends StatelessWidget {
       : Align(alignment: Alignment.centerLeft, child: child);
 }
 
+/// Folder/checkbox/expand controls and the action menu share the title body's
+/// centerline. Priority counts remain outside this footer reservation so they
+/// center against the entire card instead.
+class SummaryBodyControls extends StatelessWidget {
+  const SummaryBodyControls({
+    super.key,
+    required this.summary,
+    required this.child,
+  });
+  final Map<String, dynamic> summary;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(
+      bottom: SummaryIndicators.footerExtent(context, summary),
+    ),
+    child: child,
+  );
+}
+
 /// Rust's total/ratio and next date, in that order on one footer line.
 class SummaryIndicators extends StatelessWidget {
   const SummaryIndicators({super.key, required this.summary});
@@ -46,6 +69,28 @@ class SummaryIndicators extends StatelessWidget {
 
   static bool hasFooter(Map<String, dynamic> summary) =>
       summary['total'] != null || summary['next_due_date'] != null;
+
+  static double footerExtent(
+    BuildContext context,
+    Map<String, dynamic> summary,
+  ) {
+    if (!hasFooter(summary)) return 0;
+    // Match the actual footer line metrics at the user's font/text scale; a
+    // fixed pixel offset would drift at large text or with a different font.
+    final painter = TextPainter(
+      text: TextSpan(
+        text: 'Total: 0',
+        style: DefaultTextStyle.of(context).style.merge(_summaryStyle),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+    )..layout();
+    final height = painter.height;
+    painter.dispose();
+    return height + 4;
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -45,6 +45,10 @@ Owner-confirmed presentation (2026-10-30):
   Total first and Next date to its right.
 - Show only enabled nonzero priority pairs, in High/Medium/Low order. Center
   that vertical stack in the card, including when only one or two pairs remain.
+- Approved mockup refinement: keep the title/metadata, folder/checkbox, expand
+  control and menu centered in the main body above the footer. The priority
+  stack uses the full card height including the footer, so its centerline sits
+  slightly below the main body's. Do not pin the title to the top of the card.
 
 ## Shared calculation and rendering
 
@@ -62,16 +66,20 @@ legacy/internal queries omitting it retain their old lightweight response.
 Invalid dates fail without mutation. No host adapter defines metric policy.
 
 Shared Flutter `SummaryIndicators` renders only the Total/date footer, without
-recalculating defaults, filtering or counts. `SummaryItemContent` places it below
-the title/metadata at the bottom of the card. The footer keeps Total and Next
-date on one line and scrolls horizontally when a narrow card or enlarged text
+recalculating defaults, filtering or counts. `SummaryItemContent` centers the
+title/metadata in the main body and places the footer at the bottom of the card.
+`SummaryBodyControls` reserves the same measured footer extent beneath leading
+controls and the menu, preserving their alignment with the title. Footer metrics
+follow the actual font and text scale, rather than a guessed fixed offset.
+The footer keeps Total and Next date on one line and scrolls horizontally when a narrow card or enlarged text
 needs more room. Each full value remains available in a tooltip/accessible label.
 
 `SummaryPriorityCounts` hides zeroes from the derived response and reuses
 `PriorityIcon` at 14 pixels. The card stretches its content to one common height
 and centers the nonzero priority stack vertically. At ordinary text size three
-pairs fit within the existing 48-pixel control height. Large text or more title/
-metadata content can grow the card to keep everything readable; no text is
+pairs fit within the existing 48-pixel main body; the footer has its own space
+below it. Large text or more title/metadata content can grow the card to keep
+everything readable; no text is
 shrunk or vertically clipped. Footer and priority stack have separate accessible
 descriptions. Existing row actions and the parent's own priority remain.
 

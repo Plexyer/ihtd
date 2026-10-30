@@ -187,6 +187,8 @@ can show zero; priority pairs appear only for enabled, nonzero counts and are
 stacked vertically in High/Medium/Low order, centered in the card. Total and
 Next date share one bottom footer line, Total first. Next date ignores overdue
 dates and uses the local calendar day, refreshing read-only on rollover/resume.
+Keep the title/metadata and controls centered in the main body above the footer;
+priority stacks center against the full card including that footer.
 Flutter shares the compact priority
 stack, labels, narrow/large-text adaptation and accessible descriptions across
 all platforms. Show summaries only on tasks/folders having children, and hide

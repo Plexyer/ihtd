@@ -114,6 +114,9 @@ until step 12. This order is a plan, not completed implementation.
   - [x] Put Total (including zero) and Next date on one bottom footer line,
     Total first. Show enabled priority icon/count pairs only for nonzero counts;
     vertically center the remaining one/two/three-pair stack in the card.
+  - [x] Match the approved mockup: title/metadata and ordinary controls center
+    within the main body; priority stacks center across the full card including
+    its footer. Preserve these alignments with enlarged text.
   - [x] Inherit each indicator independently: collection defaults, optional
     parent defaults, then parent/view overrides. Only non-overridden settings
     follow later default changes. Skip disabled indicators' metric computation.

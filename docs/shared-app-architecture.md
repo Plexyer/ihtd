@@ -113,7 +113,10 @@ decorates projected rows and caches shared parents; structural projections stay
 lightweight. The controller supplies the local day and read-only rollover
 refresh; `ui/summary_indicators.dart` only renders derived fields with the shared
 priority artwork, a bottom Total/date footer and a centered nonzero-priority
-stack. Never duplicate matching/default logic in Flutter or store
+stack. Title and ordinary controls align within the main body; priority stacks
+align across body plus footer. Shared measured footer space preserves these
+centers at different font/text scales. Never duplicate matching/default logic in
+Flutter or store
 these summaries in collection files. See [summary indicators](summary-indicators.md).
 
 ## Rules for future changes
