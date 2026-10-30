@@ -141,6 +141,14 @@ until step 12. This order is a plan, not completed implementation.
 - [ ] **8 — Medium: consistent priority icons.** None: no icon; Low: gray `!`;
   Medium: soft yellow leaning orange; High: red rounded-triangle outline with
   red `!`. Use the same designs at smaller sizes in the summary counters.
+  - [x] Replace row flags with a reusable shared icon and use the same designs
+    in item/view-rule priority selectors, retaining accessible labels/tooltips.
+    Provide an explicit size for the upcoming compact counters.
+  - [ ] Verify physical-device legibility, large text and accessibility across
+    Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [priority icon design and acceptance](priority-icons.md).
+  This is presentation-only and needs no stored-data migration. Summary counter
+  integration remains in item 5.
 - [ ] **9 — Medium: new branding across platforms.** Replace the header,
   launcher/application icons and splash branding with a filled blue diagonal
   infinity shape, running top-left to bottom-right, with a white tick in each loop.
