@@ -222,7 +222,8 @@ void main() {
         greaterThanOrEqualTo(tester.getRect(titleScroll).top),
       );
       await tester.enterText(newTitle, 'Created with keyboard');
-      await tester.tap(find.text('Create'));
+      expect(find.byKey(const ValueKey('item-create-bottom')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('item-create-top')));
       await tester.pumpAndSettle();
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();

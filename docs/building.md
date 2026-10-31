@@ -314,3 +314,14 @@ backend protection, editable sorting/display preferences, retained pending files
 and explicit unfinished-draft restoration without automatic publication.
 `integration_test/sorting_drag_test.dart` now uses a custom filtered view; it must
 not edit the protected built-in. See [protected-view acceptance](protected-all-tasks.md).
+
+## Constrained Create action verification
+
+Run `flutter analyze` and the normal Flutter suite. Focused coverage is in
+`test/create_action_test.dart`, `test/layout_polish_test.dart`, and
+`test/item_draft_ui_test.dart`. Native `integration_test/phone_layout_test.dart` verifies top Create above
+the keyboard; `integration_test/app_test.dart` retains normal desktop creation.
+Use the existing native desktop target/Xvfb wrapper, sequentially in one checkout.
+Both native tests are already included in Windows/Fedora pipelines. No storage
+conversion or version change is required. See
+[creation behavior and physical acceptance](item-editor-drafts.md#constrained-creation-actions).

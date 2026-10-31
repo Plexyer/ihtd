@@ -408,7 +408,7 @@ void main() {
           greaterThanOrEqualTo(tester.getRect(scroll).top),
         );
         await capture(tester, 'folder-${scenario.name}-top');
-        final create = find.widgetWithText(FilledButton, 'Create');
+        final create = find.byKey(const ValueKey('item-create-bottom'));
         if (find
             .ancestor(of: create, matching: find.byType(SingleChildScrollView))
             .evaluate()
