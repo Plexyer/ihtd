@@ -6,6 +6,52 @@ requirements. Optional suggestions still require discussion. Implementation and 
 requirement is not automatically complete. The migration foundation below is an
 implementation candidate; physical acceptance remains open.
 
+## Approved follow-up: sorting labels, hidden children and editor polish
+
+Agreed 2026-10-31 after the owner's v0.3.0 phone test. These tasks are specified
+and **not implemented**. The owner will review this checklist and separately
+approve starting the first task. Implement general behavior/UI once for Android,
+Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
+
+1. [ ] **Rename sorting Title to Alphabetic.** Use “Alphabetic” consistently in
+   user-facing sorting options/descriptions. Preserve the existing sorting
+   algorithm, ascending/descending behavior, stored values and preferences.
+2. [ ] **Explain children hidden by view rules.**
+   - Keep the existing filtered Total/completed-total semantics. Add a compact
+     hidden-items icon plus count for direct child tasks excluded by the view's
+     rules; distinguish rule exclusion from the Unfinished/Completed tab and
+     other visibility settings. Do not count deeper descendants in this summary.
+   - Show it whenever such hidden children exist, even if Total is disabled;
+     omit it at zero. Provide an accessible label explaining the icon/count.
+   - Keep the established centered title, bottom footer with Total followed by
+     next date, and priority stack centered against the whole card including
+     its footer. Use footer space carefully, minimize displacement and avoid
+     clipping/overflow on narrow layouts or enlarged text.
+   - Tapping the indicator opens an explanation such as “3 direct children
+     hidden by view rules” and offers to open this parent in All tasks. Preserve
+     existing unfinished-draft navigation safeguards and protected-view identity.
+     Do not silently change the current view's rules or counting semantics.
+3. [ ] **Restyle the full task/folder editor to the approved mockup.**
+   - Adopt its overall visual treatment: spacing, fields, switches and section
+     dividers, while retaining every existing applicable function and setting.
+   - Section titles interrupt a thin horizontal line near the left edge: a short
+     leading rule, title, then a longer rule extending across the remaining width.
+   - Preserve Save/Cancel, validation, draft/recovery behavior, independent
+     operations and responsive keyboard/short-window controls. Adapt the design
+     to available space on phone and desktop; retain readable labels and touch
+     targets. Hierarchy card restyling is outside this editor task.
+   - The mockup is a styling reference, not a replacement functional specification:
+     its illustrative field values and helper copy do not override agreed behavior.
+4. [ ] **Hide empty settings sections.** For both tasks and folders, render a
+   section's heading/divider/spacing only when it contains applicable controls.
+   In particular, omit the empty “Visibility in this view” section on leaf tasks.
+   A childless folder may still have valid folder-visibility controls: retain
+   sections with applicable controls rather than hiding all sections on leaf items.
+
+Approved visual reference: [task/folder editor mockup](images/item-editor-approved-mockup.png).
+Task 3 supplies the section styling used by task 4; implement and verify those
+coherently. Other existing checklist items and physical acceptance remain open.
+
 ## Owner-clarified Changes.docx backlog
 
 Source: all 12 requests and 13 screenshots in Changes.docx, plus the owner's
