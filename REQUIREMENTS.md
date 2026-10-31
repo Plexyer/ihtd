@@ -339,7 +339,11 @@ Task/folder creation and view editing use one responsive Flutter dialog layout
 on Android, Windows and Linux. Forms scroll with inner paint space for floating
 labels and rule outlines. Normal layouts keep actions outside the form scroll;
 short windows or large text include the title and actions in the scroll so they
-remain reachable. Keyboard insets are applied once by Dialog, and partial rows
+remain reachable. New task/folder creation additionally uses a pinned top-right
+Create action in constrained layouts, retaining bottom Create and the same draft
+validation/Save. Only extreme heights scroll the entire creation form, including
+controls. Normal layouts and existing-item Save stay unchanged. Keyboard insets
+are applied once by Dialog, and partial rows
 during scrolling can be brought fully into view at either scroll limit.
 
 Header, canvas and sidebar are shared theme surface roles. The top safe inset
