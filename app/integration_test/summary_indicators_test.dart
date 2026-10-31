@@ -55,6 +55,14 @@ void main() {
         'total': 1,
         'high_priority': 1,
       }); // shared child counted once per parent
+      app.selectedViewId = 7; // Travel-tagged children inside Trip.
+      await app.refreshRows();
+      expect(metrics(2), {
+        'total': 1,
+        'high_priority': 1,
+        'hidden_by_rules': 1,
+      });
+      app.selectedViewId = 1;
       await app.refreshRows();
       expect(await source.readAsBytes(), distributed);
       expect(await working.readAsBytes(), privateBytes);

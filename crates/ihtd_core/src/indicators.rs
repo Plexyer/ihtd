@@ -3,10 +3,12 @@
 use crate::model::{Document, ItemKind};
 use chrono::NaiveDate;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ChildSummary {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden_by_rules: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +31,8 @@ pub struct IndicatorQuery<'a> {
     today: String,
     children: BTreeMap<i64, Vec<i64>>,
     cache: BTreeMap<i64, Option<ChildSummary>>,
+    matching: BTreeSet<i64>,
+    rule_visible: BTreeSet<i64>,
 }
 impl<'a> IndicatorQuery<'a> {
     pub fn new(
@@ -49,6 +53,25 @@ impl<'a> IndicatorQuery<'a> {
         for link in &document.links {
             children.entry(link.parent).or_default().push(link.child);
         }
+        let matching: BTreeSet<i64> = document
+            .items
+            .values()
+            .filter(|item| document.views[&view].filter.matches(item, document))
+            .map(|item| item.id)
+            .collect();
+        let mut parents: BTreeMap<i64, Vec<i64>> = BTreeMap::new();
+        for link in &document.links {
+            parents.entry(link.child).or_default().push(link.parent);
+        }
+        let mut rule_visible = matching.clone();
+        let mut pending: Vec<i64> = matching.iter().copied().collect();
+        while let Some(id) = pending.pop() {
+            for parent in parents.get(&id).into_iter().flatten() {
+                if rule_visible.insert(*parent) {
+                    pending.push(*parent);
+                }
+            }
+        }
         Ok(Self {
             document,
             view,
@@ -56,6 +79,8 @@ impl<'a> IndicatorQuery<'a> {
             today: today.into(),
             children,
             cache: BTreeMap::new(),
+            matching,
+            rule_visible,
         })
     }
     pub fn for_parent(&mut self, parent: i64) -> Result<Option<ChildSummary>, String> {
@@ -65,6 +90,7 @@ impl<'a> IndicatorQuery<'a> {
         let settings = self.document.resolved_indicators(parent, self.view)?;
         let summary = if let Some(children) = self.children.get(&parent) {
             let mut summary = ChildSummary {
+                hidden_by_rules: None,
                 total: settings.total.then_some(0),
                 completed: (settings.total && settings.completed_ratio).then_some(0),
                 high_priority: settings.high_priority.then_some(0),
@@ -72,52 +98,50 @@ impl<'a> IndicatorQuery<'a> {
                 low_priority: settings.low_priority.then_some(0),
                 next_due_date: settings.next_due_date.then_some(None),
             };
-            if summary == ChildSummary::default() {
-                // No matching, counting or date work when all consumers are off.
-                None
-            } else {
-                for id in children {
-                    let item = &self.document.items[id];
-                    if item.kind != ItemKind::Task
-                        || !self.document.views[&self.view]
-                            .filter
-                            .matches(item, self.document)
-                    {
-                        continue;
+            for id in children {
+                let item = &self.document.items[id];
+                if item.kind != ItemKind::Task {
+                    continue;
+                }
+                if !self.matching.contains(id) {
+                    // A nonmatching task may still be shown as ancestor context.
+                    if !self.rule_visible.contains(id) {
+                        *summary.hidden_by_rules.get_or_insert(0) += 1;
                     }
-                    let in_tab = item.completed == self.completed;
-                    if let Some(total) = &mut summary.total {
-                        if settings.completed_ratio || in_tab {
-                            *total += 1;
-                        }
+                    continue;
+                }
+                let in_tab = item.completed == self.completed;
+                if let Some(total) = &mut summary.total {
+                    if settings.completed_ratio || in_tab {
+                        *total += 1;
                     }
-                    if let Some(done) = &mut summary.completed {
-                        *done += usize::from(item.completed);
+                }
+                if let Some(done) = &mut summary.completed {
+                    *done += usize::from(item.completed);
+                }
+                if !in_tab {
+                    continue;
+                }
+                if settings.high_priority || settings.medium_priority || settings.low_priority {
+                    let counter = match item.priority {
+                        3 => &mut summary.high_priority,
+                        2 => &mut summary.medium_priority,
+                        1 => &mut summary.low_priority,
+                        _ => &mut None,
+                    };
+                    if let Some(value) = counter {
+                        *value += 1;
                     }
-                    if !in_tab {
-                        continue;
-                    }
-                    if settings.high_priority || settings.medium_priority || settings.low_priority {
-                        let counter = match item.priority {
-                            3 => &mut summary.high_priority,
-                            2 => &mut summary.medium_priority,
-                            1 => &mut summary.low_priority,
-                            _ => &mut None,
-                        };
-                        if let Some(value) = counter {
-                            *value += 1;
-                        }
-                    }
-                    if let Some(next) = &mut summary.next_due_date {
-                        if let Some(date) = &item.due_date {
-                            if date >= &self.today && next.as_ref().is_none_or(|old| date < old) {
-                                *next = Some(date.clone());
-                            }
+                }
+                if let Some(next) = &mut summary.next_due_date {
+                    if let Some(date) = &item.due_date {
+                        if date >= &self.today && next.as_ref().is_none_or(|old| date < old) {
+                            *next = Some(date.clone());
                         }
                     }
                 }
-                Some(summary)
             }
+            (summary != ChildSummary::default()).then_some(summary)
         } else {
             None
         };
@@ -200,6 +224,42 @@ mod tests {
         d.collection_settings.indicators.completed_ratio = true;
         assert_eq!(d, before); // Queries never change stored data/revision.
     }
+    #[test]
+    fn hidden_counts_ignore_tabs_and_settings_but_not_kinds_or_depth() {
+        let mut d = Document::new("hidden".into());
+        let p = d.add_item(ItemKind::Folder, "Parent".into(), None).unwrap();
+        task(&mut d, p, "match", 0, true, None);
+        task(&mut d, p, "excluded", 0, false, None);
+        task(&mut d, p, "excluded", 0, true, None);
+        let f = d
+            .add_item(ItemKind::Folder, "excluded".into(), Some(p))
+            .unwrap();
+        task(&mut d, f, "excluded", 0, false, None);
+        d.views.get_mut(&1).unwrap().filter = serde_json::from_value(serde_json::json!({"op":"text","field":"title","comparison":"equals","value":"match","case_sensitive":false})).unwrap();
+        let context = task(&mut d, p, "excluded context", 0, false, None);
+        task(&mut d, context, "match", 0, false, None);
+        let before = d.clone();
+        for tab in [false, true] {
+            let result = summary(&d, 1, p, tab);
+            assert_eq!(result.hidden_by_rules, Some(2));
+            assert_eq!(result.total, Some(usize::from(tab)));
+        }
+        assert_eq!(d, before);
+        d.collection_settings.indicators.total = false;
+        d.collection_settings.indicators.high_priority = false;
+        let result = summary(&d, 1, p, false);
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            serde_json::json!({"hidden_by_rules":2})
+        );
+        d.views.get_mut(&1).unwrap().filter = FilterExpr::All;
+        assert!(IndicatorQuery::new(&d, 1, false, "2026-10-30")
+            .unwrap()
+            .for_parent(p)
+            .unwrap()
+            .is_none());
+    }
+
     #[test]
     fn shared_paths_count_each_direct_link_once_and_resolve_each_view_independently() {
         let mut d = Document::new("shared".into());

@@ -370,3 +370,15 @@ to SHA256SUMS. It contains synthetic data/docs/provenance only. Follow
 [physical upgrade testing](upgrade-acceptance.md), recording actual results in
 [the result sheet](upgrade-acceptance-results.md). Branch test APKs cannot
 replace permanent-key phone installations; reviewed tag signing is required.
+
+The rule-hidden footer uses shared core query fields and Flutter UI on all hosts.
+Verify with the indicator Rust tests, `test/summary_indicators_test.dart`,
+`test/sorting_test.dart`, and native `integration_test/summary_indicators_test.dart`
+and `integration_test/sorting_drag_test.dart`. No bridge regeneration is needed
+for additive JSON query fields. Physical touch/layout acceptance remains separate.
+
+Item-editor styling/applicability checks live in `test/item_editor_style_test.dart`.
+Run them with existing `item_draft_ui_test.dart`, `create_action_test.dart` and
+`layout_polish_test.dart`; native `phone_layout_test.dart` and
+`item_draft_test.dart` cover actual editor constraints and draft/restart safety.
+Styling is shared across hosts; physical visual/keyboard acceptance remains open.

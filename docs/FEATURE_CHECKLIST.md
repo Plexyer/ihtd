@@ -6,6 +6,67 @@ requirements. Optional suggestions still require discussion. Implementation and 
 requirement is not automatically complete. The migration foundation below is an
 implementation candidate; physical acceptance remains open.
 
+## Release 0.3.1 preparation
+
+The owner requested **0.3.1+16 as stable Latest** to test the update button from
+manually installed 0.3.0+15. This supersedes the 0.3.0 prerelease-only publication
+plan for this release; keep all old tags/assets and signing identities intact.
+See [release notes and update-button steps](release-0.3.1.md).
+
+- [x] Align Flutter/Android and Fedora versions; document changes and publication intent.
+- [ ] Merge reviewed version/notes and release PRs; pass full platform validation.
+- [ ] Tag reviewed master, verify production signing and complete assets, publish stable Latest.
+- [ ] Record physical discovery/download/verification/OS-install/data-retention results.
+
+## Approved follow-up: sorting labels, hidden children and editor polish
+
+Agreed 2026-10-31 after the owner's v0.3.0 phone test. Tasks 1–4 are
+implemented candidates; physical acceptance remains open. Implement general behavior/UI once for Android,
+Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
+
+1. [x] **Rename sorting Title to Alphabetic.** Use “Alphabetic” consistently in
+   user-facing sorting options/descriptions. Preserve the existing sorting
+   algorithm, ascending/descending behavior, stored values and preferences.
+2. [x] **Explain children hidden by view rules.**
+   - Keep the existing filtered Total/completed-total semantics. Add a compact
+     hidden-items icon plus count for direct child tasks excluded by the view's
+     rules; distinguish rule exclusion from the Unfinished/Completed tab and
+     other visibility settings. Do not count deeper descendants or label tasks
+     still visible as ancestor context as hidden.
+   - Show it whenever such hidden children exist, even if Total is disabled;
+     omit it at zero. Provide an accessible label explaining the icon/count.
+   - Keep the established centered title, bottom footer with Total followed by
+     next date, and priority stack centered against the whole card including
+     its footer. Use footer space carefully, minimize displacement and avoid
+     clipping/overflow on narrow layouts or enlarged text.
+   - Tapping the indicator opens an explanation such as “3 direct children
+     hidden by view rules” and offers to open this parent in All tasks. Preserve
+     existing unfinished-draft navigation safeguards and protected-view identity.
+     Do not silently change the current view's rules or counting semantics.
+3. [x] **Restyle the full task/folder editor to the approved mockup.**
+   - Adopt its overall visual treatment: spacing, fields, switches and section
+     dividers, while retaining every existing applicable function and setting.
+   - Section titles interrupt a thin horizontal line near the left edge: a short
+     leading rule, title, then a longer rule extending across the remaining width.
+   - Preserve Save/Cancel, validation, draft/recovery behavior, independent
+     operations and responsive keyboard/short-window controls. Adapt the design
+     to available space on phone and desktop; retain readable labels and touch
+     targets. Hierarchy card restyling is outside this editor task.
+   - The mockup is a styling reference, not a replacement functional specification:
+     its illustrative field values and helper copy do not override agreed behavior.
+4. [x] **Hide empty settings sections.** For both tasks and folders, render a
+   section's heading/divider/spacing only when it contains applicable controls.
+   In particular, omit the empty “Visibility in this view” section on leaf tasks.
+   A childless folder may still have valid folder-visibility controls: retain
+   sections with applicable controls rather than hiding all sections on leaf items.
+
+Approved visual reference: [task/folder editor mockup](images/item-editor-approved-mockup.png).
+Tasks 3 and 4 use shared item-editor styling and applicability guards. Date and
+priority fields share a row when measured label/font space permits and stack
+otherwise. Existing fields/actions and draft/save behavior remain. Physical
+Pixel/Samsung and desktop visual, keyboard and text-scaling acceptance is open.
+See [editor styling and acceptance](item-editor-drafts.md#editor-appearance-and-section-applicability). Other existing checklist items and physical acceptance remain open.
+
 ## Owner-clarified Changes.docx backlog
 
 Source: all 12 requests and 13 screenshots in Changes.docx, plus the owner's

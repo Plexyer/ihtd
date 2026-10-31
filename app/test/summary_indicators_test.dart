@@ -1,4 +1,5 @@
 import 'package:app/services/app_controller.dart';
+import 'package:app/services/item_draft.dart';
 import 'package:app/ui/app_shell.dart';
 import 'package:app/ui/app_theme.dart';
 import 'package:app/ui/summary_indicators.dart';
@@ -34,6 +35,119 @@ void main() {
       await h.directory.delete(recursive: true);
     }
   });
+
+  testWidgets(
+    'hidden-only footer is accessible, explains rules and opens protected All tasks',
+    (tester) async {
+      h.doc['views']['2'] = {
+        'id': 2,
+        'name': 'Filtered',
+        'filter': {'op': 'all'},
+        'preferences': {},
+      };
+      h.doc['all_tasks_view_id'] = 9;
+      h.doc['views']['9'] = {
+        'id': 9,
+        'name': 'All tasks',
+        'filter': {'op': 'all'},
+        'preferences': {},
+      };
+      await tester.runAsync(() => h.app.poll());
+      h.app.selectedViewId = 2;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SummaryIndicators(
+              summary: const {'hidden_by_rules': 3},
+              onHiddenTap: () => showHiddenChildren(
+                tester.element(find.byType(SummaryIndicators)),
+                h.app,
+                parent: 2,
+                path: '2',
+                count: 3,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Total: 0'), findsNothing);
+      expect(
+        find.byTooltip('3 direct child tasks hidden by view rules'),
+        findsOneWidget,
+      );
+      await tester.runAsync(
+        () => tester.tap(find.byIcon(Icons.visibility_off_outlined)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('do not match this view'), findsOneWidget);
+      await tester.runAsync(() => tester.tap(find.text('Open in All tasks')));
+      // Navigation reads the working document but never publishes it.
+      for (var i = 0; i < 100 && h.app.selectedItemId != 2; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      await tester.runAsync(() => h.app.refreshRows());
+      await tester.pumpAndSettle();
+      expect(h.app.selectedViewId, 9);
+      expect(h.app.selectedItemId, 2);
+      expect(h.adapter.writes, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  test(
+    'All tasks navigation respects Keep editing and stale ownership',
+    () async {
+      h.doc['views']['2'] = {
+        'id': 2,
+        'name': 'Filtered',
+        'filter': {'op': 'all'},
+        'preferences': {},
+      };
+      await h.app.poll();
+      h.app.selectedViewId = 2;
+      await h.app.selectItem(3);
+      h.app.changeItemDraft('notes', 'private');
+      h.app.chooseDraftExit = (_, _) async => DraftExitChoice.keepEditing;
+      final owner = h.app.editIdentity;
+      expect(
+        await h.app.openParentInAllTasks(
+          owner: owner,
+          view: 2,
+          parent: 2,
+          path: '2',
+        ),
+        false,
+      );
+      expect(h.app.selectedViewId, 2);
+      expect(h.app.itemDraft!.values['notes'], 'private');
+      await h.app.discardItemDraft();
+      h.app.busy = true;
+      final queued = h.app.openParentInAllTasks(
+        owner: owner,
+        view: 2,
+        parent: 2,
+        path: '2',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      h.app.selectedViewId = 1;
+      h.app.busy = false;
+      expect(await queued, false);
+      expect(h.app.selectedViewId, 1);
+
+      expect(
+        await h.app.openParentInAllTasks(
+          owner: (workingPath: 'other', documentId: owner.documentId),
+          view: 2,
+          parent: 2,
+          path: '2',
+        ),
+        false,
+      );
+    },
+  );
 
   test(
     'local day refresh is read-only and retains unfinished item fields',
@@ -230,7 +344,11 @@ void main() {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const SummaryBodyControls(
-                            summary: {'total': 12345, 'completed': 123},
+                            summary: {
+                              'total': 12345,
+                              'completed': 123,
+                              'hidden_by_rules': 3,
+                            },
                             child: SizedBox(
                               width: 16,
                               height: 48,
@@ -243,6 +361,7 @@ void main() {
                                 'total': 12345,
                                 'completed': 123,
                                 'next_due_date': null,
+                                'hidden_by_rules': 3,
                               },
                               child: const Text(
                                 'Parent',

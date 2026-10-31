@@ -100,7 +100,7 @@ void main() {
           .onChanged,
       isNull,
     );
-    await selectMode(tester, 'Priority');
+    await selectMode(tester, 'Alphabetic');
     await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
     await tester.pumpAndSettle();
     expect(h.commands.where((c) => c['op'] == 'set_sort'), isEmpty);

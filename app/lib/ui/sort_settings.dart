@@ -6,7 +6,7 @@ import 'shared.dart';
 
 const sortNames = {
   'manual': 'Manual',
-  'title': 'Title',
+  'title': 'Alphabetic',
   'due_date': 'Due date',
   'priority': 'Priority',
 };

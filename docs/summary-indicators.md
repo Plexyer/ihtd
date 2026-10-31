@@ -54,8 +54,8 @@ Owner-confirmed presentation (2026-10-30):
 
 `crates/ihtd_core/src/indicators.rs` owns direct-child calculation. A read-only
 `IndicatorQuery` indexes direct links once and caches each parent's summary for
-the query. Resolve settings before filtering children; if all effective metrics
-are disabled, skip filtering/count/date work. Disabled fields are omitted;
+the query. Resolve settings before filtering children. Rule-hidden direct child tasks are
+counted even when every configurable metric is disabled. Disabled fields are omitted;
 enabled counters serialize zero, and an enabled missing date serializes null.
 Ratio work runs only when both Total and Completed / total are enabled.
 
@@ -115,3 +115,30 @@ and core checks. The later footer/priority layout was verified with the 190-test
 Flutter suite, analysis, 17 Python checks, native Linux integrations and rendered
 previews of one/two/three priorities and enlarged text. These checks do not
 establish physical acceptance.
+
+## Rule-hidden children (2026-10-31)
+
+The derived `hidden_by_rules` field is present only for a positive count of
+**direct child tasks** failing the current view filter. It ignores completion-tab
+selection, collapse and visibility preferences; folders and deeper descendants
+are excluded. Nonmatching tasks still visible as ancestor context for a rule-matching
+descendant are not labeled hidden. It does not change existing Total/ratio/priority/date calculations.
+It remains available with Total/all configurable metrics off; no settings or
+collection migration is introduced.
+
+The footer appends a compact hidden-items icon/count after Total and Next date.
+It has a tooltip/accessibility label, scrolls with the existing footer at narrow
+widths, and reserves only a 24px line minimum when present. The title/main controls
+stay centered above the measured footer; priorities stay centered against the
+whole card. No zero-count icon appears.
+
+Tapping explains rule filtering and offers Open in All tasks. The controller
+checks file/view ownership and item existence before/after resolving drafts,
+uses the protected view ID, selects the parent’s completion tab, expands the
+selected path and opens that parent. Existing completion/visibility preferences
+still apply. Keep editing cancels navigation; stale file/view dialogs cannot
+navigate another collection. This is read-only navigation, never a rule rewrite.
+
+Physical phone/desktop acceptance: check hidden-only footers, long values, large
+text/deep indentation, icon touch/tooltip access and Save/Discard/Keep editing on
+navigation. Shared unit/native verification is recorded in the task PR.
