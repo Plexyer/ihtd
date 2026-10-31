@@ -139,6 +139,7 @@ void main() {
       late DocumentSaveCoordinator storage;
       String? engineFailure;
       int preparations = 0;
+      bool semantic = false;
       Future<String> engine(String request) async {
         final command = jsonDecode(request) as Map;
         final bytes = await File(command['source'] as String).readAsBytes();
@@ -147,7 +148,8 @@ void main() {
           return jsonEncode({
             'ok': true,
             'data': {
-              'needed': version != 2,
+              'needed': version != 2 || (semantic && bytes[99] == 0),
+              'plan': semantic ? 'protected-all-tasks' : 'schema-1-to-2',
               'from': version,
               'target': 2,
               'hash': digest(bytes),
@@ -164,6 +166,7 @@ void main() {
         }
         final candidate = Uint8List.fromList(bytes);
         ByteData.sublistView(candidate).setUint32(60, 2);
+        if (semantic) candidate[99] = 1;
         await File(command['candidate'] as String)
             .writeAsBytes(candidate, flush: true);
         return jsonEncode({
@@ -181,6 +184,7 @@ void main() {
         adapter = MigrationAdapter(kind);
         engineFailure = null;
         preparations = 0;
+        semantic = false;
         storage = DocumentSaveCoordinator(
           adapter: adapter,
           supportDirectory: () async => temp,
@@ -216,6 +220,67 @@ void main() {
           original,
         );
       });
+      test('same-schema semantic upgrades require verified backups and preserve draft-owner evidence', () async {
+        semantic = true;
+        adapter.remote = documentBytes(2);
+        final original = Uint8List.fromList(adapter.remote);
+        final prepared = await stage();
+        expect(preparations, 1);
+        expect(
+          adapter.events.indexOf('verifyBackup'),
+          lessThan(adapter.events.indexOf('prepare')),
+        );
+        expect(adapter.backups.values.single, original);
+        final job = (await storage.migrations.recoveryAttempts()).single;
+        expect(job['from'], 2);
+        expect(job['target'], 2);
+        final old = (job['original'] as Map)['path'] as String;
+        final current = prepared['path'] as String;
+        expect(
+          await storage.migrations.preservesDraftOwner(old, current),
+          true,
+        );
+        expect(
+          await storage.migrations.preservesDraftOwner(
+            '$old-unrelated',
+            current,
+          ),
+          false,
+        );
+        expect(
+          await storage.migrations.preservesDraftOwner(old, '$current-copy'),
+          false,
+        );
+        await storage.attach(prepared);
+        await storage.publish();
+        expect(adapter.remote[99], 1);
+        expect(adapter.backups.values.single, original);
+        await File(old).writeAsBytes(documentBytes(2, 'changed'));
+        expect(
+          await storage.migrations.preservesDraftOwner(old, current),
+          false,
+        );
+      });
+      for (final failure in ['denied', 'corrupt', 'candidate']) {
+        test(
+          'semantic upgrade $failure preserves source and records failure',
+          () async {
+            semantic = true;
+            adapter.remote = documentBytes(2);
+            adapter.denyBackup = failure == 'denied';
+            adapter.corruptBackup = failure == 'corrupt';
+            engineFailure = failure == 'candidate' ? 'validation_failed' : null;
+            final original = Uint8List.fromList(adapter.remote);
+            await expectLater(stage(), throwsA(isA<MigrationFailure>()));
+            expect(adapter.remote, original);
+            expect(adapter.publications, 0);
+            expect(preparations, failure == 'candidate' ? 1 : 0);
+            final log = jsonDecode(await storage.migrations.exportLog());
+            expect(log['sourceFormat'], 2);
+            expect(log['plans'], ['protected-all-tasks']);
+          },
+        );
+      }
       test('current distributed format makes no migration, backup or authorization request', () async {
         adapter.remote = documentBytes(2);
         final prepared = await stage();

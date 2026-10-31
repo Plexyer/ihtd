@@ -94,6 +94,14 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
             .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
             .map_err(err)?;
     }
+    if let Some(id) = document.all_tasks_view_id {
+        transaction
+            .execute(
+                "INSERT INTO metadata VALUES ('all_tasks_view_id',?1)",
+                [id.to_string()],
+            )
+            .map_err(err)?;
+    }
     if !document.tag_usage.is_empty() {
         transaction
             .execute(
@@ -220,6 +228,9 @@ pub fn decode_preserving(bytes: &[u8]) -> Result<Document, String> {
             .map_err(err)
     };
     let mut document = Document {
+        all_tasks_view_id: optional_json("all_tasks_view_id")?
+            .map(|s| s.parse::<i64>().map_err(err))
+            .transpose()?,
         tag_usage: optional_json("tag_usage")?
             .map(|s| serde_json::from_str(&s).map_err(err))
             .transpose()?

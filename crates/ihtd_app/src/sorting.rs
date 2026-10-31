@@ -134,14 +134,15 @@ mod tests {
         let h2 = add(&mut d, "Hidden middle", None, 0);
         let b = add(&mut d, "B", None, 1);
         let a = add(&mut d, "A", None, 1);
-        d.edit_view(
-            1,
-            "Visible".into(),
-            serde_json::from_value(json!({"op":"priority","comparison":"ge","value":1})).unwrap(),
-        )
-        .unwrap();
+        let view_id = d
+            .add_view(
+                "Visible".into(),
+                serde_json::from_value(json!({"op":"priority","comparison":"ge","value":1}))
+                    .unwrap(),
+            )
+            .unwrap();
         d.set_sort(
-            1,
+            view_id,
             None,
             SortSpec::default(),
             SortSpec {
@@ -151,7 +152,9 @@ mod tests {
         )
         .unwrap();
         let old = d.clone();
-        let plan = preview(&d, request(vec![z], vec![], Some(b))).unwrap();
+        let mut movement = request(vec![z], vec![], Some(b));
+        movement.view_id = view_id;
+        let plan = preview(&d, movement).unwrap();
         assert!(plan.switched_to_manual);
         assert_eq!(d, old);
         let candidate = accepted_candidate(&d, &plan).unwrap();

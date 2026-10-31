@@ -367,7 +367,11 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final views = documentValues(app, 'views');
+    final storedViews = documentValues(app, 'views');
+    final views = [
+      ...storedViews.where((v) => app.isProtectedView(intValue(v['id']))),
+      ...storedViews.where((v) => !app.isProtectedView(intValue(v['id']))),
+    ];
     return Material(
       color: AppSurfaces.of(context).sidebar,
       child: Padding(
@@ -412,7 +416,7 @@ class _Sidebar extends StatelessWidget {
                         leading: Icon(
                           app.issuesForView(intValue(view['id'])).isNotEmpty
                               ? Icons.warning_amber_rounded
-                              : intValue(view['id']) == 1
+                              : app.isProtectedView(intValue(view['id']))
                               ? Icons.layers_outlined
                               : Icons.filter_alt_outlined,
                           size: 21,
@@ -430,8 +434,15 @@ class _Sidebar extends StatelessWidget {
                           right: 0,
                         ),
                         trailing: IconButton(
-                          tooltip: 'Edit view',
-                          icon: const Icon(Icons.tune, size: 16),
+                          tooltip: app.isProtectedView(intValue(view['id']))
+                              ? 'About All tasks'
+                              : 'Edit view',
+                          icon: Icon(
+                            app.isProtectedView(intValue(view['id']))
+                                ? Icons.info_outline
+                                : Icons.tune,
+                            size: 16,
+                          ),
                           onPressed: () =>
                               showViewEditor(context, app, existing: view),
                         ),
@@ -579,9 +590,15 @@ class _TaskPane extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Edit this view',
+                tooltip: app.isProtectedView(intValue(view['id']))
+                    ? 'About All tasks'
+                    : 'Edit this view',
                 onPressed: () => showViewEditor(context, app, existing: view),
-                icon: const Icon(Icons.tune),
+                icon: Icon(
+                  app.isProtectedView(intValue(view['id']))
+                      ? Icons.info_outline
+                      : Icons.tune,
+                ),
               ),
             ],
           ),

@@ -21,9 +21,25 @@ collection or in an authorized backup folder. Stop if backup fails; migrate a
 separate candidate and validate it before guarded publication. Preserve recovery
 data and automatically persist exportable, redacted failure diagnostics. This is
 implemented as a shared migration-safety candidate; see
-[behavior and acceptance](docs/migration-safety.md). Current schema-2 files need no
-conversion. Physical upgrade acceptance remains required, and later feature/data
+[behavior and acceptance](docs/migration-safety.md). Schema-2 files with the
+intact original All tasks view need no conversion. Customized/missing originals
+require the explicit protected-view semantic migration below, even without a
+schema bump. Physical upgrade acceptance remains required, and later feature/data
 migrations need their own explicit plans and preservation tests.
+
+## Protected All tasks view
+
+Shared Rust protects the stable built-in view's name, unfiltered rule and deletion.
+Shared Flutter keeps it first in navigation and provides a read-only explanation;
+sorting, display preferences and task/folder editing remain available. A normal
+existing view 1 named exactly All tasks with an All filter needs no rewrite on
+open. If it was renamed, filtered or deleted, the explicit backed-up migration
+adds a fresh protected ID and preserves every existing view, setting, item and
+relationship. The optional identity marker is retained across saves. Invalid
+explicit markers fail safely instead of being silently reset. Pending working/
+recovery files are protected separately, and private drafts remain recoverable
+through validated migration-owner evidence, never UUID equality alone. See
+[behavior and physical acceptance](docs/protected-all-tasks.md).
 
 ## Model
 
