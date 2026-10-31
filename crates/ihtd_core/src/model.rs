@@ -304,6 +304,8 @@ pub struct View {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Document {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tag_usage: crate::tag_usage::TagUsage,
     pub schema_version: u32,
     pub document_id: String,
     pub revision: u64,
@@ -328,6 +330,7 @@ impl Document {
     pub fn new(document_id: String) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
+            tag_usage: BTreeMap::new(),
             collection_settings: CollectionSettings::default(),
             parent_indicator_defaults: BTreeMap::new(),
             document_id,
@@ -354,6 +357,7 @@ impl Document {
     /// Validate data from disk before it can replace the open document.
     pub fn validate(&self) -> Result<(), String> {
         self.validate_settings()?;
+        self.validate_tag_usage()?;
         self.validate_sorting()?;
         if self.schema_version != SCHEMA_VERSION {
             return Err(format!(
@@ -714,6 +718,7 @@ impl Document {
                 .tags
                 .remove(&id)
                 .ok_or_else(|| format!("Tag {id} does not exist"))?;
+            document.tag_usage.remove(&id);
             for item in document.items.values_mut() {
                 item.tag_ids.retain(|&tag| tag != id);
             }

@@ -32,6 +32,11 @@ of cross-platform completion. Follow the implemented
   metrics, Flutter renders query results, and local-day refresh stays read-only.
   Do not persist derived summaries or count merely contextual descendants;
   preserve the ratio's explicit cross-tab exception.
+  Read `docs/tag-selection.md`: manual popularity belongs to accepted item-draft
+  candidates and shared Rust; filter defaults/copies/cancelled edits never count.
+  Keep ranking read-only/nonblocking and nested picker results bound to working
+  path, UUID, draft session and tag baseline. Optional history starts empty;
+  never seed old assignments or rewrite a file merely to rank/open it.
   Read `docs/item-editor-drafts.md`: private drafts never auto-commit on typing,
   disposal/backgrounding or model refresh. Use controller resolution guards for
   navigation/separate actions, preserve the owning working path plus UUID, and
@@ -103,7 +108,7 @@ of cross-platform completion. Follow the implemented
 
 ## Verification
 
-- Core/storage: `cargo test --workspace --locked` (67 tests at this baseline).
+- Core/storage: `cargo test --workspace --locked`.
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.
 - Linux UI: `GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test integration_test/app_test.dart -d linux`.

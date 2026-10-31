@@ -1,6 +1,6 @@
 # IHTD prototype behavior
 
-Updated 2026-10-30. This records the implemented prototype and the user's
+Updated 2026-10-31. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
 
 ## Approved changes awaiting implementation
@@ -173,8 +173,21 @@ each indicator; resetting one field resumes inheritance. Settings forms stage
 choices until Save, reject stale or different-copy saves and preserve external
 publication barriers. Separate indicator preferences do not commit item drafts.
 Optional schema-2 metadata preserves existing data without conversion or a
-rewrite on open. Tag suggestions remain a later task;
+rewrite on open. Tag selection and ranking consume these settings as described below;
 physical upgrade/device acceptance is pending.
+
+## Tag selection and popularity (implementation candidate)
+
+Follow [tag selection and ranking](docs/tag-selection.md). Editors show all
+selected tags above a divider and up to the stored number of popular unselected
+suggestions below it, plus searchable multi-select with Done/Cancel. Choices
+remain in the item draft until Save. Only newly committed manual assignments
+increase popularity; exclude copied/automatic/cancelled/unchanged assignments.
+Shared Rust weights UTC assignment history by the configured half-life (three
+days by default), breaking ties alphabetically then by ID. Old collections have
+no invented history. History is optional metadata with no schema-2 conversion or
+rewrite on open. Picker and ranking ownership guards preserve draft/private-file
+safety; physical acceptance remains open.
 
 ## Summary indicators (implementation candidate)
 

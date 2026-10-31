@@ -293,3 +293,13 @@ local day rollover, private drafts and disconnected-file restart. Widget tests
 check preserved main-body height/center, inline bottom Total/date positions, centered one/two/
 three-priority stacks, hidden zero priority counts, narrow scrolling, large text
 and accessible descriptions. See [summary behavior/acceptance](summary-indicators.md).
+
+## Tag selection verification
+
+Run the Rust/Flutter suites and `integration_test/tag_picker_test.dart` using the
+usual native desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It checks frozen files, read-only ranking, actual picker Done/Cancel, manual
+versus filter-default/copied tags, decay, pending publication and restart/draft
+recovery. Widget tests cover suggestion limits, isolated search/multi-select,
+ownership/stale metadata and constrained layouts. See
+[tag behavior and physical acceptance](tag-selection.md).

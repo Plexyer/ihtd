@@ -231,6 +231,11 @@ impl Backend {
                     json!({"descendants":descendants,"max_depth":max_depth,"revision":session.document.revision}),
                 );
             }
+            "rank_tags" => {
+                return Ok(
+                    json!({"order": session.document.ranked_tags(number(&request, "now")?)?}),
+                );
+            }
             "preview_item_action" => {
                 return serde_json::to_value(session.document.preview_item_action(
                     decode::<Vec<i64>>(&request["path"])?,
@@ -483,6 +488,49 @@ mod tests {
     use super::*;
     fn execute(b: &mut Backend, v: Value) -> Value {
         serde_json::from_str(&b.execute(&v.to_string())).unwrap()
+    }
+    #[test]
+    fn tag_usage_preview_and_replayed_saves_never_count_an_assignment_twice() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("file.ihtd");
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        assert_eq!(execute(&mut b, json!({"op":"new","path":path}))["ok"], true);
+        let tag = execute(&mut b, json!({"op":"add_tag","name":"Travel"}))["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let id = execute(
+            &mut b,
+            json!({"op":"add_item","kind":"task","title":"Task","view_id":1}),
+        )["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let source = b.session.as_ref().unwrap().document.clone();
+        let mut request = json!({"op":"preview_item_draft","id":id,"expected_item":source.items[&id],"title":"Task","notes":"","due_date":null,"priority":0,"tag_ids":[tag],"auto_complete":false,"tag_assignment_time":1800000000});
+        let before = std::fs::read(&path).unwrap();
+        let plan = execute(&mut b, request.clone());
+        assert_eq!(plan["ok"], true);
+        assert_eq!(b.session.as_ref().unwrap().document, source);
+        request["op"] = json!("save_item_draft");
+        request["expected_revision"] = plan["data"]["revision"].clone();
+        request["expected_digest"] = plan["data"]["digest"].clone();
+        let mut wrong_time = request.clone();
+        wrong_time["tag_assignment_time"] = json!(1800001000);
+        assert_eq!(execute(&mut b, wrong_time)["ok"], false);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(execute(&mut b, request.clone())["ok"], true);
+        let accepted = std::fs::read(&path).unwrap();
+        assert_eq!(execute(&mut b, request)["ok"], false);
+        assert_eq!(
+            execute(&mut b, json!({"op":"rank_tags","now":1800000000}))["data"]["order"],
+            json!([tag])
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), accepted);
+        let restored = storage::decode_preserving(&accepted).unwrap();
+        assert_eq!(restored.tag_usage[&tag][&1_800_000_000], 1);
+        assert_eq!(restored.revision, source.revision + 1);
     }
     #[test]
     fn filtered_creation_is_atomic_and_saves_every_accepted_change() {

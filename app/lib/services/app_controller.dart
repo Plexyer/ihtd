@@ -292,6 +292,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final command = {
         ...draft.command(),
         'title': '${draft.values['title']}'.trim(),
+        'tag_assignment_time': _now().toUtc().millisecondsSinceEpoch ~/ 1000,
       };
       final identity = editIdentity;
       final plan = await dispatch({
@@ -356,6 +357,42 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       draft.rebase(_map(_map(document?['items'])['${draft.itemId}']));
     }
     return true;
+  }
+
+  Future<List<int>?> rankedTags(DocumentEditIdentity owner) async {
+    if (owner != editIdentity || switchingCollection) return null;
+    try {
+      // A read-only backend query must not take the editor's mutation queue or
+      // apply a snapshot while the user is typing. Native commands serialize
+      // inside the bridge; validate the returned working-copy identity too.
+      final response = _map(
+        jsonDecode(
+          await _command(
+            jsonEncode({
+              'op': 'rank_tags',
+              'now': _now().toUtc().millisecondsSinceEpoch ~/ 1000,
+            }),
+          ),
+        ),
+      );
+      final state = _map(response['snapshot']);
+      final returnedOwner = (
+        workingPath: state['path'] as String?,
+        documentId: _map(state['document'])['document_id'] as String?,
+      );
+      if (response['ok'] != true ||
+          owner != editIdentity ||
+          returnedOwner != owner ||
+          switchingCollection) {
+        return null;
+      }
+      final order = _map(response['data'])['order'];
+      return order is List && order.every((id) => id is int)
+          ? List<int>.from(order)
+          : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> beginCreateDraft(
@@ -720,6 +757,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'preview_item_action',
       'preview_sorted_move',
       'copy_options',
+      'rank_tags',
       'preview_item_draft',
       'item_draft_status',
       'snapshot',
@@ -741,6 +779,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         'preview_item_action',
         'preview_sorted_move',
         'copy_options',
+        'rank_tags',
         'preview_item_draft',
         'item_draft_status',
         'snapshot',

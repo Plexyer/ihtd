@@ -81,6 +81,20 @@ class DraftHarness {
     'path': working,
     'dirty': false,
     'completion': {},
+    'collection_settings':
+        doc['collection_settings'] ??
+        {
+          'tag_suggestion_count': 5,
+          'tag_half_life_days': 3,
+          'indicators': {
+            'total': true,
+            'completed_ratio': false,
+            'high_priority': true,
+            'medium_priority': false,
+            'low_priority': false,
+            'next_due_date': false,
+          },
+        },
     'placements': {
       '2': {'root': true, 'count': 1},
       '3': {'root': true, 'count': 1},
@@ -118,6 +132,14 @@ class DraftHarness {
     var data = <String, dynamic>{};
     bool ok = true;
     switch (request['op']) {
+      case 'rank_tags':
+        final tags = (doc['tags'] as Map).values.toList()
+          ..sort(
+            (a, b) => '${a['name']}'.toLowerCase().compareTo(
+              '${b['name']}'.toLowerCase(),
+            ),
+          );
+        data = {'order': tags.map((t) => t['id']).toList()};
       case 'preview_item_draft':
         if (request['id'] != null &&
             jsonEncode(request['expected_item']) !=

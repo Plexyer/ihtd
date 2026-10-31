@@ -1,6 +1,6 @@
 # Feature checklist
 
-Updated 2026-10-29 with implementation evidence for the owner's clarified backlog.
+Updated 2026-10-31 with implementation evidence for the owner's clarified backlog.
 The section below and the existing agreed-work sections contain approved
 requirements. Optional suggestions still require discussion. Implementation and validation evidence are tracked separately; an approved
 requirement is not automatically complete. The migration foundation below is an
@@ -127,14 +127,19 @@ until step 12. This order is a plan, not completed implementation.
   Shared candidate: [summary calculation, layout and acceptance](summary-indicators.md).
   Queries are read-only derived data; no stored-data conversion is needed.
 - [ ] **6 — Medium: clear selected tags and a bounded suggestion list.**
-  - [ ] Show all selected tags above a light divider; below show up to N popular
+  - [x] Show all selected tags above a light divider; below show up to N popular
     unselected tags plus Select other. N defaults to 5 and is a collection setting.
-  - [ ] Select other opens searchable multi-select with Done/Cancel; Done applies
+  - [x] Select other opens searchable multi-select with Done/Cancel; Done applies
     to the item draft and picker Cancel discards the picker operation.
-  - [ ] Rank committed manual assignments by gradually decaying usage, excluding
+  - [x] Rank committed manual assignments by gradually decaying usage, excluding
     automatic/copied assignments. Influence halves after 3 days by default;
     configure that period in collection settings. Older collections start without
     usage scores and use alphabetical suggestions until usage establishes rank.
+  - [ ] Verify physical phone/native desktop search, selection/cancellation,
+    popularity, keyboard/layout and upgrade/transfer/recovery behavior.
+  Shared candidate: [tag selection, ranking and acceptance](tag-selection.md).
+  Optional history requires no conversion of existing assignments or schema-2
+  files. Read-only rank/open checks retain existing bytes and private drafts.
 - [ ] **7 — Medium: collection Settings page.**
   - [x] Add Settings to the top-right menu, with isolated Save/Cancel and validated
     tag suggestion count (default 5) and fading half-life (default 3 days).
