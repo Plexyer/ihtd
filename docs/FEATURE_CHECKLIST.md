@@ -89,9 +89,17 @@ until step 12. This order is a plan, not completed implementation.
     GrapheneOS, Samsung, Windows and Fedora before release.
   Shared candidate: [protected-view behavior and acceptance](protected-all-tasks.md).
   No app version bump; schema-2 semantic conversion is explicit, not a loader repair.
-- [ ] **2 — Medium: additional top-right Create action.** Show it for new
-  tasks/folders in short or keyboard-constrained layouts on any platform, retaining
-  the bottom Create action. Make creation possible without scrolling to the end.
+- [ ] **2 — Medium: additional top-right Create action.**
+  - [x] Show it for new tasks/folders in short or keyboard-constrained layouts
+    on every platform; keep normal layouts unchanged and retain bottom Create.
+  - [x] Use the same draft validation/Save and busy guards for both actions;
+    preserve typed text, focus and composition through keyboard/window changes.
+  - [x] Keep top controls visible while the short form scrolls; adapt narrow/
+    enlarged-text controls and retain the fully scrolling extreme-height fallback.
+  - [ ] Verify physical phone keyboards, landscape/enlarged text and short
+    desktop windows on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [constrained creation actions](item-editor-drafts.md#constrained-creation-actions).
+  Presentation-only; no data conversion, schema or app-version change.
 - [ ] **3 — Medium: show linked appearances.**
   - [x] Display compact `Links: N` below the row menu only for N >= 2, counting
     all collection hierarchy paths, including those through linked parents.

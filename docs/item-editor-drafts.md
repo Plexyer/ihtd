@@ -17,7 +17,7 @@ Save validates and atomically commits the fields and automatic-completion choice
 then closes the entire editor. Cancel discards the draft. The former Done/outer
 X and inner Close-details X are gone. Desktop details and responsive dialog
 editors share the same form and policy. New-item creation keeps its bottom Create
-action; the additional constrained-layout Create action is a later checklist task.
+action and adds a top-right Create action in constrained layouts, as described below.
 
 | Action | Result |
 | --- | --- |
@@ -41,6 +41,36 @@ The shared `EditorFormLayout` provides the former dialog's responsive behavior
 for both dialogs and embedded details. At very short heights/large text, the
 header, body and actions scroll together. Stable subtree keys retain focus,
 selection and composing ranges while keyboard/window constraints change.
+
+## Constrained creation actions
+
+Item 2 is implemented in the shared Flutter form. New task/folder editors add a
+top-right Create action only when available editor height is below 600 logical
+pixels scaled by the controls' text size. The decision uses layout constraints
+after the dialog has applied keyboard/safe-area insets, so it also works for
+short desktop windows and enlarged text. Normal spacious layouts keep only the
+bottom Create button; existing-item editors keep their Save control.
+
+`EditorFormLayout.constrainedHeader` pins Cancel/Create above the scrolling
+caption, fields and retained bottom action. This keeps Create accessible when
+focus or scrolling reveals lower fields. Narrow/large-text controls can arrange
+vertically while retaining Cancel on the left and Create on the right. If the
+entire viewport is below 140 text-scaled logical pixels, the full form—including
+controls—scrolls to avoid overflow. Other editors retain their existing layout.
+
+Both Create buttons call `AppController.saveItemDraft` with the same validation,
+durable Save, owner and duplicate-submission safeguards. Saving/discarding/busy
+state disables both. Invalid titles or failed Saves retain the draft; a successful
+Create closes the whole editor. Keyboard/window changes preserve the existing
+keyed form, text controller, selection and composing range. This presentation
+change performs no data migration, file rewrite on layout change or version bump.
+
+Widget checks cover normal/short/keyboard layouts, task/folder creation,
+validation/retry, busy state, retained bottom Create, very short/enlarged text,
+focus/composition and existing-item Save. Native phone-layout integration uses
+top Create above a simulated keyboard; desktop integration still verifies normal
+creation. Physical Pixel/GrapheneOS and Samsung keyboards, landscape, enlarged
+text, and short Windows/Fedora windows remain acceptance tasks before release.
 
 ## Immediate settings and separate operations
 

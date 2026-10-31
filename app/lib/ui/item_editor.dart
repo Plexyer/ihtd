@@ -323,6 +323,15 @@ class _ItemEditorState extends State<ItemEditor> {
               ],
             ),
           ),
+          constrainedTitle: d.isNew
+              ? Text(
+                  'New ${folder ? 'folder' : 'task'}',
+                  textAlign: TextAlign.center,
+                )
+              : null,
+          constrainedHeader: d.isNew
+              ? _ConstrainedCreateActions(app: app, disabled: disabled)
+              : null,
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -749,6 +758,7 @@ class _ItemEditorState extends State<ItemEditor> {
                   alignment: Alignment.centerRight,
                   child: FilledButton(
                     onPressed: disabled ? null : () => app.saveItemDraft(),
+                    key: const ValueKey('item-create-bottom'),
                     child: const Text('Create'),
                   ),
                 ),
@@ -758,6 +768,46 @@ class _ItemEditorState extends State<ItemEditor> {
       ),
     );
   }
+}
+
+/// Preserve touch targets when large text requires vertically arranged actions.
+class _ConstrainedCreateActions extends StatelessWidget {
+  const _ConstrainedCreateActions({required this.app, required this.disabled});
+  final AppController app;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final cancel = TextButton(
+          onPressed: disabled ? null : () => app.discardItemDraft(),
+          child: const Text('Cancel'),
+        );
+        final create = FilledButton(
+          key: const ValueKey('item-create-top'),
+          onPressed: disabled ? null : () => app.saveItemDraft(),
+          child: const Text('Create'),
+        );
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        if (constraints.maxWidth < 280 * scale) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: Alignment.centerLeft, child: cancel),
+              Align(alignment: Alignment.centerRight, child: create),
+            ],
+          );
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [cancel, create],
+        );
+      },
+    ),
+  );
 }
 
 Future<int?> showNewTag(

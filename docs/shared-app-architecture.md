@@ -33,6 +33,11 @@ floating-label paint space and action reachability for view/task/folder editors.
 contrast. The shell paints behind safe insets and transparent system bars;
 Android resource themes only supply startup colors and native contrast flags.
 Keep new shared editor behavior here rather than creating per-OS dialogs.
+`EditorFormLayout` selects optional constrained titles/pinned header controls by
+available height and text scale. New-item editors use them for the extra Create
+action, retaining the same draft Save path. Do not detect an operating system or
+subtract keyboard insets again to choose this layout; see
+[constrained creation actions](item-editor-drafts.md#constrained-creation-actions).
 
 Shared expression editing: `services/rule_draft.dart` owns draft-only slots,
 stable UI node identities and a flattened display projection retaining stored
