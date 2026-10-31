@@ -1219,6 +1219,57 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<bool> openParentInAllTasks({
+    required DocumentEditIdentity owner,
+    required int view,
+    required int parent,
+    required String path,
+  }) async {
+    bool current() {
+      if (editIdentity != owner ||
+          selectedViewId != view ||
+          !_map(document?['items']).containsKey('$parent') ||
+          allTasksViewId == null) {
+        return false;
+      }
+      final parts = path.split('/');
+      final edges = <String>{
+        for (final link in document?['links'] as List? ?? [])
+          '${link['parent']}/${link['child']}',
+      };
+      return parts.last == '$parent' &&
+          _map(placements[parts.first])['root'] == true &&
+          List.generate(
+            parts.length - 1,
+            (i) => '${parts[i]}/${parts[i + 1]}',
+          ).every(edges.contains);
+    }
+
+    if (!current() || !await finishDraft()) return false;
+    final resolvedDraft = itemDraft;
+    while (busy || _polling) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    if (!current() || !identical(itemDraft, resolvedDraft)) return false;
+    if (itemDraft != null && !await discardItemDraft()) return false;
+    if (!current()) return false;
+    selectedViewId = allTasksViewId!;
+    completedOnly =
+        _map(_map(document?['items'])['$parent'])['completed'] == true;
+    selectedItemId = parent;
+    selectedItemPath = path;
+    final parts = path.split('/');
+    for (var i = 1; i <= parts.length; i++) {
+      final prefix = parts.take(i).join('/');
+      expandedPaths.remove('!$prefix');
+      expandedPaths.add(prefix);
+    }
+    ensureItemDraft();
+    await refreshRows();
+    notifyListeners();
+    return true;
+  }
+
   void setCompletedOnly(bool value) {
     completedOnly = value;
     refreshRows().then((_) {

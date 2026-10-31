@@ -134,7 +134,7 @@ void main() {
         find.byWidgetPredicate((w) => w is DropdownButtonFormField<String>),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Title').last);
+      await tester.tap(find.text('Alphabetic').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save sorting'));
       await idle();

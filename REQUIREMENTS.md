@@ -410,3 +410,13 @@ signing, reviewed master ancestry and stable-versus-prerelease updater rules
 remain required; no test APK may be offered as an in-place production update.
 Physical acceptance and owner review precede stable promotion. No host/CI pass
 stands in for a real phone, Windows 11 PC or Fedora laptop result.
+
+## Rule-hidden child indication and sorting terminology
+
+Sorting labels use Alphabetic for the existing stored `title` mode; sorting and
+saved preferences remain compatible. A parent’s footer appends an icon/count
+for rule-excluded direct child tasks, independently of Total and completion tab.
+Omit zero, retain existing filtered totals and card alignment, explain on tap and
+offer guarded navigation to the parent in protected All tasks. See
+[summary contract](docs/summary-indicators.md#rule-hidden-children-2026-10-31).
+These shared query/UI changes require no collection migration or version bump.
