@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'app_brand.dart';
+
 void showIhtdAbout(BuildContext context) {
   showAboutDialog(
     context: context,
     applicationName: 'IHTD',
+    applicationIcon: const IhtdLogo(size: 48),
     applicationLegalese:
         'Copyright (C) 2026 IHTD contributors.\n'
         'GNU AGPL version 3 only. No warranty.\n'

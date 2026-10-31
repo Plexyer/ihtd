@@ -53,6 +53,16 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  // Installed desktop integration uses Icon=ihtd. Portable bundles also supply
+  // their own window icon from the same Flutter asset, independent of cwd.
+  gtk_window_set_icon_name(window, "ihtd");
+  g_autofree gchar* executable = g_file_read_link("/proc/self/exe", nullptr);
+  if (executable != nullptr) {
+    g_autofree gchar* directory = g_path_get_dirname(executable);
+    g_autofree gchar* icon = g_build_filename(directory, "data", "flutter_assets",
+                                            "assets", "branding", "ihtd.png", nullptr);
+    gtk_window_set_icon_from_file(window, icon, nullptr);
+  }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -60,9 +70,8 @@ static void my_application_activate(GApplication* application) {
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
-  // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
-  gdk_rgba_parse(&background_color, "#000000");
+  // Match the branded startup surface before the first Flutter frame.
+  gdk_rgba_parse(&background_color, "#ffffff");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

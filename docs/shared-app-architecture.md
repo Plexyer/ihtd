@@ -39,6 +39,14 @@ action, retaining the same draft Save path. Do not detect an operating system or
 subtract keyboard insets again to choose this layout; see
 [constrained creation actions](item-editor-drafts.md#constrained-creation-actions).
 
+Shared branding: `ui/app_brand.dart` renders the same generated artwork for
+header/About and core initialization. Bootstrap passes the real initialization
+Future before mounting model services; do not add a splash timer or move startup
+policy into per-platform implementations. Native launcher/window/splash formats
+are generated from `assets/branding/ihtd.svg`. `AppUpdateButton` owns the permanent
+header slot; moving it must not reimplement update state or installation policy.
+Read [branding and assets](branding.md) before changing the mark or its startup.
+
 Shared expression editing: `services/rule_draft.dart` owns draft-only slots,
 stable UI node identities and a flattened display projection retaining stored
 AND/OR boundaries. `ui/rule_expression.dart` renders Option-A rows or inline

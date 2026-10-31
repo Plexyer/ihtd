@@ -4,7 +4,8 @@
     <application
         android:label="IHTD"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.updates"

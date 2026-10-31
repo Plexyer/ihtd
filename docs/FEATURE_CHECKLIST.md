@@ -182,9 +182,16 @@ until step 12. This order is a plan, not completed implementation.
   Shared candidate: [priority icon design and acceptance](priority-icons.md).
   This is presentation-only and needs no stored-data migration. Summary counter
   integration remains in item 5.
-- [ ] **9 — Medium: new branding across platforms.** Replace the header,
-  launcher/application icons and splash branding with a filled blue diagonal
-  infinity shape, running top-left to bottom-right, with a white tick in each loop.
+- [ ] **9 — Medium: new branding across platforms.**
+  - [x] Implement the sketch's filled blue diagonal infinity-like shape with a
+    white tick in each lobe; use one canonical vector and generated platform assets.
+  - [x] Replace shared header/About branding, Windows runner/installer ICO,
+    Fedora SVG/portable window icon and Android density/adaptive/themed icons.
+  - [x] Replace native Android splash and add shared branded initialization on
+    all platforms, as the owner selected, with no added minimum display delay.
+  - [ ] Verify physical installed icons, startup, accessibility and in-place
+    upgrades on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [branding, startup and acceptance](branding.md).
 - [x] **10 — High: coherent editor Save/Cancel controls.** Replace Done with
   top-right Save, add top-left Cancel, and remove both confusing X controls.
   Save closes the editor; never leave its empty outer window open.
@@ -205,9 +212,12 @@ until step 12. This order is a plan, not completed implementation.
   guards are implemented. Item 11 remains open for physical device/upgrade
   acceptance; host checks do not establish that result. The collection format
   stays schema 2 and needs no data migration for these editor changes.
-- [ ] **12 — Low: move the update indicator.** Put all its states immediately
-  left of the top-right three-dot menu; reserve its space while hidden so header
-  content does not shift.
+- [ ] **12 — Low: move the update indicator.**
+  - [x] Put every state immediately left of the top-right three-dot menu.
+    Reserve a 48px slot while hidden so the brand, filename and menu do not shift.
+    Reuse existing animations, reduced motion and download/install safeguards.
+  - [ ] Verify physical layouts and update transitions on all target platforms.
+  Shared candidate: [branding and header acceptance](branding.md).
 - [ ] **Additional approved work — revise Unlink/Delete and add Link/Copy.**
   - [x] Two or more appearances: offer both Unlink and Delete; one appearance:
     Delete only. Delete removes the item everywhere and always confirms. For

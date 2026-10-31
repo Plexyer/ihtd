@@ -19,6 +19,7 @@ import 'document_status.dart';
 import 'app_theme.dart';
 import 'app_updates.dart';
 import 'app_license.dart';
+import 'app_brand.dart';
 import '../services/update_composition.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -129,7 +130,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         color: surfaces.header,
                         child: SafeArea(
                           bottom: false,
-                          child: _FileBar(app: app, drawer: drawer),
+                          child: AppFileBar(app: app, drawer: drawer),
                         ),
                       ),
                       if ((app.document != null ||
@@ -216,8 +217,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-class _FileBar extends ConsumerWidget {
-  const _FileBar({required this.app, required this.drawer});
+class AppFileBar extends ConsumerWidget {
+  const AppFileBar({super.key, required this.app, required this.drawer});
   final AppController app;
   final bool drawer;
 
@@ -233,8 +234,7 @@ class _FileBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          AppUpdateButton(app: app),
-          const Icon(Icons.check_circle, color: Color(0xff2763a5), size: 23),
+          const IhtdLogo(key: ValueKey('app-logo')),
           const SizedBox(width: 10),
           const Text(
             'IHTD',
@@ -248,6 +248,7 @@ class _FileBar extends ConsumerWidget {
           Expanded(
             child: Text(
               name ?? 'Your tasks, connected',
+              key: const ValueKey('collection-filename'),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, color: Color(0xff657589)),
             ),
@@ -273,7 +274,9 @@ class _FileBar extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
           ],
+          AppUpdateButton(app: app),
           PopupMenuButton<String>(
+            key: const ValueKey('file-menu'),
             tooltip: 'File and export',
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
