@@ -14,6 +14,7 @@ import 'collection_settings.dart';
 import 'sort_settings.dart';
 import 'priority_icon.dart';
 import 'tag_selector.dart';
+import 'item_editor_style.dart';
 
 Future<DraftExitChoice> chooseItemDraftExit(
   BuildContext context,
@@ -282,7 +283,7 @@ class _ItemEditorState extends State<ItemEditor> {
     final disabled = app.savingItemDraft || app.discardingItemDraft || app.busy;
     void change(String key, dynamic value) =>
         app.changeItemDraft(key, value, sessionId: d.sessionId);
-    return Focus(
+    final form = Focus(
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape &&
@@ -309,8 +310,13 @@ class _ItemEditorState extends State<ItemEditor> {
                   child: Text(
                     d.isNew
                         ? 'New ${folder ? 'folder' : 'task'}'
-                        : '${folder ? 'FOLDER' : 'TASK'}  #$id',
+                        : 'Edit ${folder ? 'folder' : 'task'}',
                     textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff18334c),
+                    ),
                   ),
                 ),
                 if (!d.isNew)
@@ -366,6 +372,11 @@ class _ItemEditorState extends State<ItemEditor> {
               ],
               TextField(
                 controller: title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xff18334c),
+                ),
                 autofocus: d.isNew,
                 readOnly:
                     app.savingItemDraft ||
@@ -399,6 +410,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 ),
                 const SizedBox(height: 12),
               ],
+              const ItemEditorSection('Details'),
               TextField(
                 controller: notes,
                 readOnly:
@@ -424,50 +436,86 @@ class _ItemEditorState extends State<ItemEditor> {
                     : 'No unsaved changes',
                 style: const TextStyle(fontSize: 12, color: Color(0xff788899)),
               ),
-              const SectionLabel('Details'),
-              OutlinedButton.icon(
-                onPressed: disabled
-                    ? null
-                    : () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate:
-                              DateTime.tryParse(due ?? '') ?? DateTime.now(),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime(9999),
-                        );
-                        if (date != null &&
-                            mounted &&
-                            identical(d, app.itemDraft)) {
-                          change('due_date', dateText(date));
-                        }
-                      },
-                icon: const Icon(Icons.calendar_today_outlined, size: 17),
-                label: Text(
-                  due ?? (d.isNew ? 'Choose due date' : 'Set due date'),
-                ),
-              ),
-              if (due != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: disabled ? null : () => change('due_date', null),
-                    child: const Text('Clear due date'),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                key: ValueKey('${d.sessionId}-${d.formRevision}-$priority'),
-                initialValue: priority,
-                decoration: const InputDecoration(labelText: 'Priority'),
-                items: [
-                  for (var p = 0; p < 4; p++)
-                    DropdownMenuItem(
-                      value: p,
-                      child: PriorityChoice(priority: p),
+              const SizedBox(height: 20),
+              ItemEditorFields(
+                first: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InkWell(
+                      onTap: disabled
+                          ? null
+                          : () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate:
+                                    DateTime.tryParse(due ?? '') ??
+                                    DateTime.now(),
+                                firstDate: DateTime(1900),
+                                lastDate: DateTime(9999),
+                              );
+                              if (date != null &&
+                                  mounted &&
+                                  identical(d, app.itemDraft)) {
+                                change('due_date', dateText(date));
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Semantics(
+                        button: true,
+                        enabled: !disabled,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Due date',
+                            enabled: !disabled,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  due ??
+                                      (d.isNew
+                                          ? 'Choose due date'
+                                          : 'Set due date'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                ],
-                onChanged: disabled ? null : (v) => change('priority', v ?? 0),
+                    if (due != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: disabled
+                              ? null
+                              : () => change('due_date', null),
+                          child: const Text('Clear due date'),
+                        ),
+                      ),
+                  ],
+                ),
+                second: DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  key: ValueKey('${d.sessionId}-${d.formRevision}-$priority'),
+                  initialValue: priority,
+                  decoration: const InputDecoration(labelText: 'Priority'),
+                  items: [
+                    for (var p = 0; p < 4; p++)
+                      DropdownMenuItem(
+                        value: p,
+                        child: PriorityChoice(priority: p, flexible: true),
+                      ),
+                  ],
+                  onChanged: disabled
+                      ? null
+                      : (v) => change('priority', v ?? 0),
+                ),
               ),
               if (d.isNew) ...[
                 const SizedBox(height: 12),
@@ -493,7 +541,7 @@ class _ItemEditorState extends State<ItemEditor> {
                       : (v) => change('parent_id', v == 0 ? null : v),
                 ),
               ],
-              SectionLabel(
+              ItemEditorSection(
                 'Tags',
                 trailing: IconButton(
                   tooltip: 'Create tag',
@@ -528,7 +576,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 disabled: disabled,
               ),
               if (!folder) ...[
-                const SectionLabel('Completion'),
+                const ItemEditorSection('Completion'),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Automatic completion'),
@@ -554,6 +602,7 @@ class _ItemEditorState extends State<ItemEditor> {
                   ),
               ],
               if (!d.isNew) ...[
+                const ItemEditorSection('Display and sorting'),
                 OutlinedButton.icon(
                   onPressed: disabled
                       ? null
@@ -567,7 +616,8 @@ class _ItemEditorState extends State<ItemEditor> {
                   label: const Text('Summary indicator settings…'),
                 ),
                 SortControl(app: app, parent: id),
-                const SectionLabel('Visibility in this view'),
+                if (folder || children.isNotEmpty)
+                  const ItemEditorSection('Visibility in this view'),
                 if (folder) ...[
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -629,7 +679,7 @@ class _ItemEditorState extends State<ItemEditor> {
                         : (v) => _preference('inherit_hide_completed', v),
                   ),
                 ],
-                SectionLabel('Subitems (${children.length})'),
+                ItemEditorSection('Subitems (${children.length})'),
                 Wrap(
                   spacing: 8,
                   children: [
@@ -663,7 +713,7 @@ class _ItemEditorState extends State<ItemEditor> {
                     ),
                   ],
                 ),
-                SectionLabel('Parents and top-level placement'),
+                ItemEditorSection('Parents and top-level placement'),
                 for (final parent in [
                   if (asMap(app.placements['$id'])['root'] == true) null,
                   ...parents,
@@ -682,6 +732,7 @@ class _ItemEditorState extends State<ItemEditor> {
                 Text(
                   'Current place: ${(selectedOccurrence(app, id) ?? []).map((part) => '${itemById(app, part)['title']} (#$part)').join(' › ')}',
                 ),
+                const ItemEditorSection('Item actions'),
                 Wrap(
                   spacing: 8,
                   children: [
@@ -767,6 +818,7 @@ class _ItemEditorState extends State<ItemEditor> {
         ),
       ),
     );
+    return ItemEditorStyle(child: form);
   }
 }
 

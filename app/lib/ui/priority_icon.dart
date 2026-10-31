@@ -38,9 +38,14 @@ class PriorityIcon extends StatelessWidget {
 /// A selector's visible text supplies its accessible name; don't announce the
 /// decorative icon a second time.
 class PriorityChoice extends StatelessWidget {
-  const PriorityChoice({super.key, required this.priority});
+  const PriorityChoice({
+    super.key,
+    required this.priority,
+    this.flexible = false,
+  });
 
   final int priority;
+  final bool flexible;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -50,7 +55,18 @@ class PriorityChoice extends StatelessWidget {
         ExcludeSemantics(child: PriorityIcon(priority: priority)),
         const SizedBox(width: 8),
       ],
-      Text(priorityLabel(priority)),
+      if (flexible)
+        Flexible(
+          child: Tooltip(
+            message: priorityLabel(priority),
+            child: Text(
+              priorityLabel(priority),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        )
+      else
+        Text(priorityLabel(priority)),
     ],
   );
 }

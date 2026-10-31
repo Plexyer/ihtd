@@ -211,3 +211,43 @@ creation whose ID was still available in that immutable source can prepare a fre
 Save, even if migration allocated that ID to the new protected view. Ambiguous
 creation receipts continue to require review/export; never create a duplicate to
 work around an uncertain result.
+
+## Editor appearance and section applicability
+
+The approved [mockup](images/item-editor-approved-mockup.png) guides the full
+shared task/folder form. `item_editor_style.dart` scopes pale surfaces, outlined
+fields, blue controls and readable typography to this editor. It leaves other
+screens' section labels/themes unchanged. A heading has a short leading rule,
+a left-aligned title and a longer trailing rule; long titles wrap at large text
+sizes while retaining the full accessible heading. Notes/date/priority are under
+Details, followed by Tags, applicable Completion, Display and sorting, applicable
+Visibility in this view, Subitems, placements and Item actions.
+
+The title/notes controllers, draft session keys, Save/Cancel/Create handlers,
+validation, separate preference actions and recovery paths are unchanged. Due
+date and priority share a row only when the actual font/text scale and width fit;
+otherwise they stack. Priority values retain full semantics/tooltips when the
+selected field has limited width. Keyboard/short-height creation controls and
+floating-label scroll clearance remain owned by EditorFormLayout.
+
+Visibility is omitted entirely for existing leaf tasks. Existing folders retain
+folder visibility/reappearance controls even without children; completed-child
+and inheritance controls appear only with children. New-item visibility controls
+remain unavailable until creation. Other sections contain applicable controls:
+Tags still permits tag creation/selection, Subitems still permits adding children,
+and display settings can configure defaults for future children. Do not hide a
+section merely because the current count is zero, or leave an orphan heading.
+
+Verification includes the four task/folder × leaf/parent combinations, heading
+wrapping at 2× text, existing draft and keyboard/layout tests, plus native phone
+layout and draft/restart integration. Physical acceptance remains required:
+
+- [ ] Pixel/GrapheneOS and Samsung: compare the editor with the approved visual,
+  exercise keyboard, scrolling, focus/composition and Save/Cancel/Create.
+- [ ] Windows/Fedora: check narrow/wide forms, date/priority selection, large text,
+  dropdown accessibility and keyboard traversal.
+- [ ] Confirm all applicable settings remain reachable and empty sections absent;
+  existing visibility, linking/copying/removal and conversion policies still apply.
+
+This is shared presentation/applicability work; no schema conversion, collection
+rewrite, signing identity or release version change is needed.

@@ -8,9 +8,8 @@ implementation candidate; physical acceptance remains open.
 
 ## Approved follow-up: sorting labels, hidden children and editor polish
 
-Agreed 2026-10-31 after the owner's v0.3.0 phone test. Tasks 1 and 2 are
-implemented candidates; physical acceptance remains open. Tasks 3 and 4 await
-the owner’s separate implementation approval. Implement general behavior/UI once for Android,
+Agreed 2026-10-31 after the owner's v0.3.0 phone test. Tasks 1–4 are
+implemented candidates; physical acceptance remains open. Implement general behavior/UI once for Android,
 Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
 
 1. [x] **Rename sorting Title to Alphabetic.** Use “Alphabetic” consistently in
@@ -32,7 +31,7 @@ Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
      hidden by view rules” and offers to open this parent in All tasks. Preserve
      existing unfinished-draft navigation safeguards and protected-view identity.
      Do not silently change the current view's rules or counting semantics.
-3. [ ] **Restyle the full task/folder editor to the approved mockup.**
+3. [x] **Restyle the full task/folder editor to the approved mockup.**
    - Adopt its overall visual treatment: spacing, fields, switches and section
      dividers, while retaining every existing applicable function and setting.
    - Section titles interrupt a thin horizontal line near the left edge: a short
@@ -43,15 +42,18 @@ Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
      targets. Hierarchy card restyling is outside this editor task.
    - The mockup is a styling reference, not a replacement functional specification:
      its illustrative field values and helper copy do not override agreed behavior.
-4. [ ] **Hide empty settings sections.** For both tasks and folders, render a
+4. [x] **Hide empty settings sections.** For both tasks and folders, render a
    section's heading/divider/spacing only when it contains applicable controls.
    In particular, omit the empty “Visibility in this view” section on leaf tasks.
    A childless folder may still have valid folder-visibility controls: retain
    sections with applicable controls rather than hiding all sections on leaf items.
 
 Approved visual reference: [task/folder editor mockup](images/item-editor-approved-mockup.png).
-Task 3 supplies the section styling used by task 4; implement and verify those
-coherently. Other existing checklist items and physical acceptance remain open.
+Tasks 3 and 4 use shared item-editor styling and applicability guards. Date and
+priority fields share a row when measured label/font space permits and stack
+otherwise. Existing fields/actions and draft/save behavior remain. Physical
+Pixel/Samsung and desktop visual, keyboard and text-scaling acceptance is open.
+See [editor styling and acceptance](item-editor-drafts.md#editor-appearance-and-section-applicability). Other existing checklist items and physical acceptance remain open.
 
 ## Owner-clarified Changes.docx backlog
 
