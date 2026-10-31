@@ -6,6 +6,18 @@ requirements. Optional suggestions still require discussion. Implementation and 
 requirement is not automatically complete. The migration foundation below is an
 implementation candidate; physical acceptance remains open.
 
+## Release 0.3.1 preparation
+
+The owner requested **0.3.1+16 as stable Latest** to test the update button from
+manually installed 0.3.0+15. This supersedes the 0.3.0 prerelease-only publication
+plan for this release; keep all old tags/assets and signing identities intact.
+See [release notes and update-button steps](release-0.3.1.md).
+
+- [x] Align Flutter/Android and Fedora versions; document changes and publication intent.
+- [ ] Merge reviewed version/notes and release PRs; pass full platform validation.
+- [ ] Tag reviewed master, verify production signing and complete assets, publish stable Latest.
+- [ ] Record physical discovery/download/verification/OS-install/data-retention results.
+
 ## Approved follow-up: sorting labels, hidden children and editor polish
 
 Agreed 2026-10-31 after the owner's v0.3.0 phone test. Tasks 1–4 are

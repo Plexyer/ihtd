@@ -1,6 +1,7 @@
 # Upgrade acceptance results
 
-Candidate target: 0.3.0+15. Baseline: v0.2.5+14.
+Candidate target: 0.3.1+16. File/installer baseline: v0.2.5+14.
+Updater test starting version: manually installed 0.3.0+15.
 Record the exact tested commit/package checksum; a build check is not a device result.
 
 ## Automated evidence
@@ -8,7 +9,7 @@ Record the exact tested commit/package checksum; a build check is not a device r
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Released v0.2.5 producer/provenance and SQLite preservation | Passed on Linux host | Historical producer, old-reader and fixture integrity/hash checks |
-| Shared core/storage, Dart analysis and unit suites | Passed on Linux host | 117 Rust, 217 Flutter, 26 Python tests; Dart analysis clean |
+| Shared core/storage, Dart analysis and unit suites | Passed on Linux host | 118 Rust, 224 Flutter, 26 Python tests; Dart analysis clean |
 | Native combined-feature upgrade/disconnect/restart | Passed on Linux host | Actual Rust/storage + Flutter, all three opening/migration cases, update draft barriers |
 | Windows actual 0.2.5 installer → candidate, upgrade/removal/data | Pending native CI | Draft release PR |
 | Fedora actual 0.2.5 RPM → candidate, upgrade/removal/private data | Pending native CI | Draft release PR |
@@ -51,4 +52,4 @@ platforms because one phone or a CI container passed.
 - Synthetic test file / provider:
 - Redacted log filename:
 - Fix commit and retest:
-- Stable promotion decision: **Pending physical acceptance and owner review**.
+- Stable promotion decision: **Stable Latest authorized by owner; pending release verification/publication. Physical acceptance remains open.**.
