@@ -12,3 +12,4 @@ CMakeLists.txt text eol=lf
 Dockerfile text eol=lf
 *.png binary
 *.ico binary
+*.sqlite binary

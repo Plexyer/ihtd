@@ -39,6 +39,7 @@ fn identity(path: &Path, metadata: &fs::Metadata) -> Option<String> {
 }
 
 fn read(path: &Path, allow_missing: bool) -> Result<Vec<u8>, Failure> {
+    crate::migration::reject_sidecars(path).map_err(|e| Failure(e.0))?;
     match fs::read(path) {
         Ok(bytes) => Ok(bytes),
         Err(e) if allow_missing && e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
@@ -48,6 +49,7 @@ fn read(path: &Path, allow_missing: bool) -> Result<Vec<u8>, Failure> {
 
 pub fn inspect(path: &Path, allow_missing: bool) -> Result<Value, Failure> {
     let bytes = read(path, allow_missing)?;
+    crate::migration::reject_sidecars(path).map_err(|e| Failure(e.0))?;
     let metadata = match fs::metadata(path) {
         Ok(value) => Some(value),
         Err(e) if allow_missing && e.kind() == std::io::ErrorKind::NotFound => None,
@@ -168,6 +170,29 @@ pub fn execute(request: &Value) -> Result<Value, Failure> {
     let allow_missing = request["allow_missing"].as_bool().unwrap_or(false);
     match request["action"].as_str() {
         Some("inspect") => inspect(destination, allow_missing),
+        Some("backup") => {
+            let name = request["name"].as_str().ok_or(Failure("write_failed"))?;
+            if name.contains(['/', '\\']) || !name.starts_with("IHTD-before-upgrade-") {
+                return Err(Failure("write_failed"));
+            }
+            let source = fs::canonicalize(destination).map_err(|_| Failure("unavailable"))?;
+            let parent = match request["folder"].as_str() {
+                Some(folder) => fs::canonicalize(folder).map_err(|_| Failure("unavailable"))?,
+                None => source.parent().ok_or(Failure("unavailable"))?.to_path_buf(),
+            };
+            let target = parent.join(name);
+            let bytes = fs::read(request["working"].as_str().ok_or(Failure("local_failed"))?)
+                .map_err(|_| Failure("local_failed"))?;
+            crate::storage::publish(&target, &bytes, false).map_err(|_| Failure("write_failed"))?;
+            #[cfg(unix)]
+            fs::File::open(&parent)
+                .and_then(|dir| dir.sync_all())
+                .map_err(|_| Failure("write_failed"))?;
+            if fs::read(&target).map_err(|_| Failure("verification_failed"))? != bytes {
+                return Err(Failure("verification_failed"));
+            }
+            Ok(json!({"path":target}))
+        }
         Some("read") => {
             let bytes = read(destination, allow_missing)?;
             Ok(json!({"hash":fingerprint(&bytes),"bytes":bytes}))

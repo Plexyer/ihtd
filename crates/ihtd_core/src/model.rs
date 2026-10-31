@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::filter::FilterExpr;
 pub use crate::graph::ItemKind;
 use crate::graph::{Graph, ItemId};
+use crate::settings::{CollectionSettings, IndicatorOverrides};
 
 pub const SCHEMA_VERSION: u32 = 2;
 
@@ -281,6 +282,8 @@ pub struct Tag {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct ContainerPreferences {
+    #[serde(skip_serializing_if = "IndicatorOverrides::is_empty")]
+    pub indicators: IndicatorOverrides,
     /// None uses the nearest inherited setting, or true when none applies.
     pub hide_completed: Option<bool>,
     pub inherit_hide_completed: bool,
@@ -290,6 +293,8 @@ pub struct ContainerPreferences {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct View {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sorting: BTreeMap<i64, crate::sorting::SortSpec>,
     pub id: i64,
     pub name: String,
     pub filter: FilterExpr,
@@ -299,6 +304,10 @@ pub struct View {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Document {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_tasks_view_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tag_usage: crate::tag_usage::TagUsage,
     pub schema_version: u32,
     pub document_id: String,
     pub revision: u64,
@@ -313,12 +322,20 @@ pub struct Document {
     pub deleted_item_ids: BTreeSet<i64>,
     pub tags: BTreeMap<i64, Tag>,
     pub views: BTreeMap<i64, View>,
+    #[serde(default, skip_serializing_if = "CollectionSettings::is_default")]
+    pub collection_settings: CollectionSettings,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parent_indicator_defaults: BTreeMap<i64, IndicatorOverrides>,
 }
 
 impl Document {
     pub fn new(document_id: String) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
+            all_tasks_view_id: None,
+            tag_usage: BTreeMap::new(),
+            collection_settings: CollectionSettings::default(),
+            parent_indicator_defaults: BTreeMap::new(),
             document_id,
             revision: 0,
             next_id: 2,
@@ -334,6 +351,7 @@ impl Document {
                     name: "All tasks".into(),
                     filter: FilterExpr::All,
                     preferences: BTreeMap::new(),
+                    sorting: BTreeMap::new(),
                 },
             )]),
         }
@@ -341,6 +359,18 @@ impl Document {
 
     /// Validate data from disk before it can replace the open document.
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(id) = self.all_tasks_view_id {
+            if !self
+                .views
+                .get(&id)
+                .is_some_and(|view| view.name == "All tasks" && view.filter == FilterExpr::All)
+            {
+                return Err("The protected All tasks view is missing or changed.".into());
+            }
+        }
+        self.validate_settings()?;
+        self.validate_tag_usage()?;
+        self.validate_sorting()?;
         if self.schema_version != SCHEMA_VERSION {
             return Err(format!(
                 "Unsupported document schema {}",
@@ -700,6 +730,7 @@ impl Document {
                 .tags
                 .remove(&id)
                 .ok_or_else(|| format!("Tag {id} does not exist"))?;
+            document.tag_usage.remove(&id);
             for item in document.items.values_mut() {
                 item.tag_ids.retain(|&tag| tag != id);
             }
@@ -717,13 +748,61 @@ impl Document {
                     name,
                     filter,
                     preferences: BTreeMap::new(),
+                    sorting: BTreeMap::new(),
                 },
             );
             Ok(id)
         })
     }
 
+    /// Intact original views need no stored-data rewrite. A migrated collection
+    /// records its new protected ID, keeping every old customized view intact.
+    pub fn all_tasks_view_id(&self) -> Option<i64> {
+        self.all_tasks_view_id.or_else(|| {
+            self.views
+                .get(&1)
+                .filter(|view| view.name == "All tasks" && view.filter == FilterExpr::All)
+                .map(|view| view.id)
+        })
+    }
+
+    /// Explicit semantic conversion; call only on a backed-up migration candidate.
+    pub fn install_all_tasks_view(&mut self) -> Result<bool, String> {
+        if self.all_tasks_view_id().is_some() {
+            return Ok(false);
+        }
+        // A migration changes only the approved view metadata. Ordinary
+        // transactions recompute completion, which would also change unrelated
+        // stored item fields in a legacy snapshot.
+        let mut candidate = self.clone();
+        let id = candidate.allocate_id()?;
+        candidate.views.insert(
+            id,
+            View {
+                id,
+                name: "All tasks".into(),
+                filter: FilterExpr::All,
+                preferences: BTreeMap::new(),
+                sorting: BTreeMap::new(),
+            },
+        );
+        candidate.all_tasks_view_id = Some(id);
+        candidate.revision = self
+            .revision
+            .checked_add(1)
+            .ok_or("Document revision exhausted")?;
+        candidate.validate()?;
+        *self = candidate;
+        Ok(true)
+    }
+
     pub fn edit_view(&mut self, id: i64, name: String, filter: FilterExpr) -> Result<(), String> {
+        if self.all_tasks_view_id() == Some(id) {
+            return Err(
+                "All tasks is protected. Create a separate view to customize its name or rules."
+                    .into(),
+            );
+        }
         self.transact(|document| {
             let view = document
                 .views
@@ -736,6 +815,9 @@ impl Document {
     }
 
     pub fn remove_view(&mut self, id: i64) -> Result<(), String> {
+        if self.all_tasks_view_id() == Some(id) {
+            return Err("The protected All tasks view cannot be deleted.".into());
+        }
         self.transact(|document| {
             if document.views.len() <= 1 {
                 return Err("Keep at least one view".into());
@@ -813,13 +895,13 @@ impl Document {
         Ok(result)
     }
 
-    fn allocate_id(&mut self) -> Result<i64, String> {
+    pub(crate) fn allocate_id(&mut self) -> Result<i64, String> {
         let id = self.next_id;
         self.next_id = id.checked_add(1).ok_or("Document ID space exhausted")?;
         Ok(id)
     }
 
-    fn reveal_new_tasks(&mut self, id: i64) -> Result<(), String> {
+    pub(crate) fn reveal_new_tasks(&mut self, id: i64) -> Result<(), String> {
         let graph = self.build_graph()?;
         let node = item_id(id)?;
         let contains_task = self.item(id)?.kind == ItemKind::Task
@@ -1007,5 +1089,94 @@ mod tests {
             .unwrap();
         assert!(!document.views[&1].preferences[&folder].folder_hidden);
         assert!(document.views[&other].preferences[&folder].folder_hidden);
+    }
+}
+
+#[cfg(test)]
+mod protected_view_tests {
+    use super::*;
+    #[test]
+    fn protected_identity_guards_edits_and_removal_but_allows_item_preferences() {
+        let mut doc = Document::new("protected".into());
+        assert_eq!(doc.all_tasks_view_id(), Some(1));
+        let original = doc.clone();
+        assert!(doc.edit_view(1, "Renamed".into(), FilterExpr::All).is_err());
+        assert!(doc.remove_view(1).is_err());
+        assert_eq!(doc, original);
+        assert!(!doc.install_all_tasks_view().unwrap());
+        assert_eq!(doc, original);
+        let item = doc
+            .add_item(ItemKind::Task, "Editable".into(), None)
+            .unwrap();
+        doc.set_container_preferences(
+            1,
+            item,
+            ContainerPreferences {
+                hide_completed: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(doc.views[&1].preferences[&item].hide_completed, Some(true));
+        let custom = doc.add_view("Custom".into(), FilterExpr::All).unwrap();
+        doc.edit_view(custom, "Changed".into(), FilterExpr::All)
+            .unwrap();
+        doc.remove_view(custom).unwrap();
+    }
+    #[test]
+    fn semantic_installation_preserves_old_views_and_protects_a_fresh_id() {
+        for old in [Some("Renamed"), None] {
+            let mut doc = Document::new("legacy".into());
+            if let Some(name) = old {
+                doc.views.get_mut(&1).unwrap().name = name.into();
+            } else {
+                doc.views.remove(&1);
+            }
+            let before = doc.clone();
+            assert_eq!(doc.all_tasks_view_id(), None);
+            assert!(doc.install_all_tasks_view().unwrap());
+            let id = doc.all_tasks_view_id().unwrap();
+            assert_eq!(id, before.next_id);
+            assert_eq!(doc.revision, before.revision + 1);
+            assert_eq!(doc.next_id, before.next_id + 1);
+            let mut old_views = doc.views.clone();
+            old_views.remove(&id);
+            assert_eq!(old_views, before.views);
+            let protected = doc.clone();
+            assert!(doc.remove_view(id).is_err());
+            assert!(doc.edit_view(id, "Other".into(), FilterExpr::All).is_err());
+            assert!(!doc.install_all_tasks_view().unwrap());
+            assert_eq!(doc, protected);
+            doc.views.get_mut(&id).unwrap().name = "Invalid".into();
+            assert!(doc.validate().is_err());
+        }
+    }
+    #[test]
+    fn installing_a_view_does_not_recompute_unrelated_stored_item_fields() {
+        let mut doc = Document::new("legacy-completion".into());
+        let parent = doc.add_item(ItemKind::Task, "Parent".into(), None).unwrap();
+        let child = doc
+            .add_item(ItemKind::Task, "Child".into(), Some(parent))
+            .unwrap();
+        doc.items.get_mut(&parent).unwrap().auto_complete = true;
+        doc.items.get_mut(&child).unwrap().completed = true;
+        doc.views.get_mut(&1).unwrap().name = "Customized".into();
+        let old_items = doc.items.clone();
+        doc.install_all_tasks_view().unwrap();
+        assert_eq!(doc.items, old_items);
+    }
+    #[test]
+    fn exhausted_ids_do_not_partially_install_a_view() {
+        let mut doc = Document::new("full".into());
+        doc.views.clear();
+        doc.next_id = i64::MAX;
+        let before = doc.clone();
+        assert!(doc.install_all_tasks_view().is_err());
+        assert_eq!(doc, before);
+        doc.next_id = 2;
+        doc.revision = u64::MAX;
+        let before = doc.clone();
+        assert!(doc.install_all_tasks_view().is_err());
+        assert_eq!(doc, before);
     }
 }

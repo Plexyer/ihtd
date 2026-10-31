@@ -23,6 +23,38 @@ of cross-platform completion. Follow the implemented
   `crates/ihtd_core`, storage/application commands in `crates/ihtd_app`.
 - Flutter Rust Bridge 2.13.0; bridge toolchain Rust 1.93.1 is pinned in
   `app/rust/rust-toolchain.toml`. Keep generated bindings consistent with APIs.
+- The owner-clarified [Changes.docx backlog](docs/changes-2026-10-28.md) is
+  approved. The checklist records implemented candidates and remaining physical
+  acceptance. Read `docs/collection-settings.md` before adding indicators
+  or tag suggestions: Rust owns defaults/inheritance; per-field resets must resume
+  inheritance, and settings commands preserve item drafts/file-save barriers.
+  Read `docs/summary-indicators.md`: shared Rust computes enabled direct-child
+  metrics, Flutter renders query results, and local-day refresh stays read-only.
+  Do not persist derived summaries or count merely contextual descendants;
+  preserve the ratio's explicit cross-tab exception.
+  Read `docs/tag-selection.md`: manual popularity belongs to accepted item-draft
+  candidates and shared Rust; filter defaults/copies/cancelled edits never count.
+  Keep ranking read-only/nonblocking and nested picker results bound to working
+  path, UUID, draft session and tag baseline. Optional history starts empty;
+  never seed old assignments or rewrite a file merely to rank/open it.
+  Read `docs/item-editor-drafts.md`: private drafts never auto-commit on typing,
+  disposal/backgrounding or model refresh. Use controller resolution guards for
+  navigation/separate actions, preserve the owning working path plus UUID, and
+  retain private recovery/Save receipts. It revises linking/removal/copying
+  and other UI/model behavior described below. Read it and the checklist before
+  implementing those tasks; older passing checks describe the baseline only.
+  Ask about new ambiguities rather than inventing product behavior.
+  Any conversion of existing stored data must first implement its migration
+  safety gate: verified backup beside the original/authorized backup folder,
+  staged validation, guarded publication and automatic redacted failure logs.
+  Follow `docs/migration-safety.md`: shared MigrationSafety owns policy, Rust owns
+  read-only probes/candidate validation, adapters supply backup access. Read
+  `docs/protected-all-tasks.md`: intact original view 1 needs no conversion;
+  customized/missing originals require the explicit protected-view migration,
+  even for schema 2. Preserve every old view and item; never normalize this in
+  the loader. Use the snapshot's protected ID in shared UI, not a hardcoded 1.
+  Future semantic/schema changes must extend the plan and preservation tests.
+  Physical upgrade acceptance is pending.
 - Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android development
   targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
   copies and local recovery; physical phone validation remains outstanding.
@@ -35,13 +67,23 @@ of cross-platform completion. Follow the implemented
   Follow `docs/view-expression-editor-plan.md`; preserve matching AND creation
   hints when displaying flattened AND/OR chains. Shared implementation is complete;
   physical acceptance remains pending. Use `docs/view-expression-editor-acceptance.md`.
-- Shared removal is in `crates/ihtd_core/src/removal.rs`. Count actual parent/root
-  placements; use revision-bound previews for confirmed Delete and immediate
-  Unlink. Cascade only into nodes losing all surviving placements. Retain
-  deleted IDs (not contents) for view-rule warnings; never reuse them. See
-  `docs/unlink-delete-plan.md` and `docs/unlink-delete-acceptance.md`.
+- Shared linking/copying/removal is in `crates/ihtd_core/src/hierarchy.rs`.
+  Read `docs/link-copy-removal.md` and the later owner specification: count full
+  hierarchy appearances, offer explicit global Delete and local Unlink, and use
+  revision/path-bound previews. A linked ancestor blocks direct child Unlink;
+  only the confirmed full independent replacement can isolate that occurrence.
+  Copy from a frozen source, honor depth/reuse boundaries, preserve settings and
+  deleted IDs, and use the shared controller/file-save safeguards. The historical
+  removal helpers describe the old baseline; do not use them in new product UI.
 - Collections use schema 2 `.ihtd` files with schema 1 migration. Preserve
   compatibility and atomic-save/external-change handling.
+- Read [sorting and drag insertion](docs/sorting-drag-insertion.md). Core sorting
+  owns per-view/parent modes and the single shared manual sequence. Product drag
+  UI must use `AppController.moveOccurrence` and revision/path-bound planned
+  moves, not the historical raw `move_item` command. Keep hidden manual slots,
+  block moves out of shared parents, and preserve queued owner/view/tab guards.
+  Sorting preferences are separate from item drafts; optional metadata requires
+  no schema-2 conversion. Physical acceptance remains pending.
 - App model sessions edit private working copies on all platforms. External
   reads/writes go through `DocumentSaveCoordinator` and typed adapters. Shared
   registry schema 3 migrates legacy Android metadata without deleting its
@@ -59,6 +101,12 @@ of cross-platform completion. Follow the implemented
   Never add cleanup that deletes user collections or recovery data. Installer
   verification installs/uninstalls on disposable native CI runners only.
 
+- Read `docs/branding.md` before changing app icons/startup. Edit the canonical
+  `assets/branding/ihtd.svg`, regenerate platform outputs and verify the inventory;
+  do not maintain separate artwork or change package/support/signing identities.
+  Shared startup waits only for real Rust initialization, with no splash timer.
+  Keep model services behind that gate and the update indicator's reserved slot.
+
 - Shared updates live in update_contract/catalog/coordinator and ui/app_updates.
   Native selection belongs only in update_composition; verify downloads before
   ready and before OS handoff. Never embed GitHub credentials or execute unsigned
@@ -70,7 +118,14 @@ of cross-platform completion. Follow the implemented
 
 ## Verification
 
-- Core/storage: `cargo test --workspace --locked` (67 tests at this baseline).
+- For combined released-version acceptance, follow `docs/upgrade-acceptance.md`
+  and record results in `docs/upgrade-acceptance-results.md`. Use the historical
+  encoder fixtures/provenance, not current-writer substitutes. CI installs the
+  pinned published v0.2.5 EXE/RPM only on disposable runners/containers. Never
+  substitute branch test signing for permanent-key phone upgrades or infer
+  physical results from CI. Data-kit release assets are separate from runtimes.
+
+- Core/storage: `cargo test --workspace --locked`.
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.
 - Linux UI: `GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test integration_test/app_test.dart -d linux`.

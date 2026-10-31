@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ui/app_shell.dart';
 import 'ui/app_theme.dart';
+import 'ui/app_brand.dart';
 import 'src/rust/frb_generated.dart';
 import 'services/app_controller.dart';
 
 Future<void> main([List<String> arguments = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
-  await RustLib.init();
+  final initialization = RustLib.init();
   runApp(
     ProviderScope(
       overrides: [
@@ -19,13 +20,14 @@ Future<void> main([List<String> arguments = const []]) async {
             (ref) => AppController(initialDocumentPath: arguments.first),
           ),
       ],
-      child: const IhtdApp(),
+      child: IhtdApp(initialization: initialization),
     ),
   );
 }
 
 class IhtdApp extends StatelessWidget {
-  const IhtdApp({super.key});
+  const IhtdApp({super.key, this.initialization});
+  final Future<void>? initialization;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,18 @@ class IhtdApp extends StatelessWidget {
       title: 'IHTD · Your tasks, connected',
       debugShowCheckedModeBanner: false,
       theme: buildIhtdTheme(),
-      home: const AppShell(),
+      home: initialization == null
+          ? const AppShell()
+          : FutureBuilder<void>(
+              future: initialization,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done &&
+                    !snapshot.hasError) {
+                  return const AppShell();
+                }
+                return IhtdStartupScreen(failed: snapshot.hasError);
+              },
+            ),
     );
   }
 }

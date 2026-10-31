@@ -13,20 +13,27 @@ class AppUpdateButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final updates = ref.watch(updateProvider);
-    if (updates.candidate == null) return const SizedBox.shrink();
-    return UpdateIndicator(
-      updates: updates,
-      onPressed: () async {
-        if (updates.phase == UpdatePhase.ready) {
-          await updates.install(app.prepareForUpdate);
-          if (context.mounted && updates.message != null) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(updates.message!)));
-          }
-        } else {
-          await showUpdateDetails(context, updates);
-        }
-      },
+    return SizedBox(
+      key: const ValueKey('update-slot'),
+      width: 48,
+      height: 48,
+      child: updates.candidate == null
+          ? null
+          : UpdateIndicator(
+              updates: updates,
+              onPressed: () async {
+                if (updates.phase == UpdatePhase.ready) {
+                  await updates.install(app.prepareForUpdate);
+                  if (context.mounted && updates.message != null) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(updates.message!)));
+                  }
+                } else {
+                  await showUpdateDetails(context, updates);
+                }
+              },
+            ),
     );
   }
 }

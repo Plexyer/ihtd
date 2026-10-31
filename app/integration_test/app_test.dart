@@ -27,12 +27,21 @@ void main() {
     });
     final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
     Future<void> start([String? initialPath]) async {
-      await RustLib.init();
+      var coreReady = false;
+      final initialization = RustLib.init().then((_) {
+        coreReady = true;
+      });
       runApp(
         ProviderScope(
           overrides: [
-            appProvider.overrideWith(
-              (ref) => AppController(
+            appProvider.overrideWith((ref) {
+              expectSync(
+                coreReady,
+                true,
+                reason:
+                    'Open model services only after branded startup finishes',
+              );
+              return AppController(
                 // This test drives poll explicitly after filesystem changes.
                 // A periodic poll already in flight can skip that call and
                 // race its immediate assertions, independently of UI layout.
@@ -47,12 +56,13 @@ void main() {
                   supportDirectory: () async =>
                       Directory('${directory.path}/support'),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
-          child: const app.IhtdApp(),
+          child: app.IhtdApp(initialization: initialization),
         ),
       );
+      await initialization;
     }
 
     await start();
@@ -83,7 +93,7 @@ void main() {
       (w) => w is TextField && w.decoration?.labelText == 'Title',
     );
     await tester.enterText(editTitle, 'Shared task edited');
-    expect(await controller.finishDraft(), true);
+    expect(await controller.saveItemDraft(), true);
     await tester.pumpAndSettle();
     expect(
       controller.document!['items']['$task']['title'],
@@ -290,7 +300,7 @@ void main() {
       await tester.tap(menu);
       await tester.pumpAndSettle();
       final removal = find.byWidgetPredicate(
-        (w) => w is PopupMenuItem<String> && w.value == 'remove',
+        (w) => w is PopupMenuItem<String> && w.value == label.toLowerCase(),
       );
       expect(
         find.descendant(of: removal, matching: find.text(label)),
@@ -304,7 +314,7 @@ void main() {
     expect(find.text('Delete “Removal trip”?'), findsOneWidget);
     expect(find.textContaining('These shared branches remain'), findsOneWidget);
     final beforeCancel = controller.document!;
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel').last);
     await tester.pumpAndSettle();
     expect(controller.document, beforeCancel);
     await openRemovalMenu('$trip', 'Delete');

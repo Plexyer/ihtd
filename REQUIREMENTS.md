@@ -1,7 +1,45 @@
 # IHTD prototype behavior
 
-Updated 2026-10-14. This records the implemented prototype and the user's
+Updated 2026-10-31. This records the implemented prototype and the user's
 clarifications; platform validation is listed separately in README.md.
+
+## Approved changes awaiting implementation
+
+The [2026-10-28 Changes.docx specification](docs/changes-2026-10-28.md) and
+[checklist backlog](docs/FEATURE_CHECKLIST.md#owner-clarified-changesdocx-backlog)
+record the owner's later approved changes, including cancellable item drafts,
+appearance counts, global Delete/blocked child Unlink, configurable Link/Copy,
+sorting, indicators and tag suggestions. Implemented candidates and remaining
+acceptance are identified below and in the checklist; other backlog items remain
+pending. The sections below also describe the existing prototype;
+use the later specification when implementing the approved changes rather
+than treating the old removal/autosave behavior as the new target.
+
+The owner also requires a [migration safety gate](docs/changes-2026-10-28.md#14-migration-safety-prerequisite):
+where migration is necessary, first create and verify a backup beside the original
+collection or in an authorized backup folder. Stop if backup fails; migrate a
+separate candidate and validate it before guarded publication. Preserve recovery
+data and automatically persist exportable, redacted failure diagnostics. This is
+implemented as a shared migration-safety candidate; see
+[behavior and acceptance](docs/migration-safety.md). Schema-2 files with the
+intact original All tasks view need no conversion. Customized/missing originals
+require the explicit protected-view semantic migration below, even without a
+schema bump. Physical upgrade acceptance remains required, and later feature/data
+migrations need their own explicit plans and preservation tests.
+
+## Protected All tasks view
+
+Shared Rust protects the stable built-in view's name, unfiltered rule and deletion.
+Shared Flutter keeps it first in navigation and provides a read-only explanation;
+sorting, display preferences and task/folder editing remain available. A normal
+existing view 1 named exactly All tasks with an All filter needs no rewrite on
+open. If it was renamed, filtered or deleted, the explicit backed-up migration
+adds a fresh protected ID and preserves every existing view, setting, item and
+relationship. The optional identity marker is retained across saves. Invalid
+explicit markers fail safely instead of being silently reset. Pending working/
+recovery files are protected separately, and private drafts remain recoverable
+through validated migration-owner evidence, never UUID equality alone. See
+[behavior and physical acceptance](docs/protected-all-tasks.md).
 
 ## Model
 
@@ -23,26 +61,45 @@ shared state: this detaches them from every placement of the moved item, while
 preserving their other parent links. Existing promoted placements coalesce.
 Root and sibling order persist, and moving onto an existing placement coalesces
 the links. Moves are
-atomic, reject cycles, and recompute completion. Ordering is document-wide.
+atomic, reject cycles, and recompute completion. Manual ordering is document-wide.
+Moving a child out of a shared parent (including inherited appearances) is
+blocked with an explanation that an independent copy is needed first;
+reordering within the same shared parent remains allowed.
+
+## Sorting (implementation candidate)
+
+Follow [sorting and drag insertion](docs/sorting-drag-insertion.md). Every view
+has independent Manual/Title/Due date/Priority choices per parent and at top
+level. Automatic sorts support both directions, keep folders first, missing
+dates/None priority last, and break ties by title then shared manual order.
+An insertion drop seeds from displayed order, preserves hidden manual slots,
+and switches only the destination/current view to Manual atomically with the
+move. Container drops retain the active sort. Shared controls preserve private
+item drafts, stale/identity guards and external-save barriers. Optional metadata
+requires no schema-2 conversion or rewrite on open; physical acceptance is open.
 
 ## Removing tasks and folders
 
-Owner confirmed 2026-10-14. Count actual incoming parent links plus one
-existing root placement, including explicit shared roots. Multiple filtered
-views or paths through shared ancestors do not count as additional placements.
+The later owner-approved [link/copy/removal contract](docs/link-copy-removal.md)
+is implemented as a candidate. Count all collection hierarchy appearances,
+including inherited paths. Multiple appearances offer both Unlink and Delete;
+a single appearance offers Delete. Delete always confirms and removes the item
+everywhere, recursively deleting only children losing all surviving placements.
 
-With two or more placements, show **Unlink** and immediately remove only the
-selected root or parent-child relationship without confirmation. Preserve the
-item, its attributes, children and other placements. With exactly one placement,
-show **Delete** and require confirmation describing the affected items. Delete
-the item and recursively delete descendants with no surviving placement;
-preserve descendants linked outside the removed branch or at the top level,
-and their surviving children. Do not promote children or add Undo/trash.
+Unlink removes the selected occurrence. Linked parents share their child lists;
+a blocked child Unlink offers full independent replacement of the earliest
+shared ancestor on that selected path, then prunes the chosen copied child and
+its copied descendants, leaving originals elsewhere untouched. All actions are
+atomic, revision/path-bound and pass through document-save safeguards.
 
-Linked tasks/folders have the same children everywhere. Removing a child from
-a shared parent affects every appearance of that relationship. Execute removal
-atomically, reject stale confirmations, preserve surviving IDs and order, and
-use the existing shared saving/recovery flow on all platforms.
+Link / copy task to searches destinations including Top level. Link preserves
+existing placements and rejects cycles. Copy defaults to source-only with linked
+children; selectable depth and optional independent appearances control sharing.
+Default copying preserves links among unique copied items, including reuse at
+partial-depth boundaries. Self/descendant destinations force full-depth copying
+from a finite snapshot. Copies retain fields and preferences with fresh IDs.
+These explicit operations need no stored-data conversion; physical acceptance
+remains open. See the contract for the exact controls, limits and checks.
 
 A saved view referring to a deleted task/folder keeps its rule and its Boolean
 scope. That container rule matches nothing. Affected views receive a yellow
@@ -110,14 +167,79 @@ Completed displays retain unfinished ancestors for context.
 Folders have a hide switch and an independent reappear-on-new-task switch.
 Hiding a folder does not complete its descendant tasks.
 
+## Item editor drafts (implementation candidate)
+
+Follow [the approved draft/Save/Cancel behavior](docs/item-editor-drafts.md).
+Tasks/folders stage editable fields privately until Save; Cancel discards them.
+Back/Escape and explicit switching with edits prompt Save/Discard/Keep editing;
+existing-editor outside clicks save only if valid, and new-item outside clicks
+prompt Create/Discard/Keep editing. Saving closes the whole editor. Backgrounding
+and private checkpoints do not commit drafts. Visibility and collection-tag
+creation remain immediate separate operations. Unfinished drafts can be restored
+or discarded after restart and stay bound to their working copy, even for
+collections sharing a UUID. Physical acceptance remains open.
+
+## Collection settings (implementation candidate)
+
+Follow [collection settings and inheritance](docs/collection-settings.md).
+Settings belong to the collection: suggested unselected tags defaults to 5 and
+usage half-life to 3 days, with collection defaults for summary indicators.
+Optional parent defaults and parent/view overrides inherit independently for
+each indicator; resetting one field resumes inheritance. Settings forms stage
+choices until Save, reject stale or different-copy saves and preserve external
+publication barriers. Separate indicator preferences do not commit item drafts.
+Optional schema-2 metadata preserves existing data without conversion or a
+rewrite on open. Tag selection and ranking consume these settings as described below;
+physical upgrade/device acceptance is pending.
+
+## Tag selection and popularity (implementation candidate)
+
+Follow [tag selection and ranking](docs/tag-selection.md). Editors show all
+selected tags above a divider and up to the stored number of popular unselected
+suggestions below it, plus searchable multi-select with Done/Cancel. Choices
+remain in the item draft until Save. Only newly committed manual assignments
+increase popularity; exclude copied/automatic/cancelled/unchanged assignments.
+Shared Rust weights UTC assignment history by the configured half-life (three
+days by default), breaking ties alphabetically then by ID. Old collections have
+no invented history. History is optional metadata with no schema-2 conversion or
+rewrite on open. Picker and ranking ownership guards preserve draft/private-file
+safety; physical acceptance remains open.
+
+## Summary indicators (implementation candidate)
+
+Follow [direct-child summaries](docs/summary-indicators.md). Rust calculates
+enabled metrics once per parent/query using resolved settings. Only matching
+direct child tasks contribute; ordinary counts and next date follow the current
+tab, while the completed/total ratio includes both states matching the filter.
+Visibility/context and expansion do not expand metric membership. Enabled Total
+can show zero; priority pairs appear only for enabled, nonzero counts and are
+stacked vertically in High/Medium/Low order, centered in the card. Total and
+Next date share one bottom footer line, Total first. Next date ignores overdue
+dates and uses the local calendar day, refreshing read-only on rollover/resume.
+Keep the title/metadata and controls centered in the main body above the footer;
+priority stacks center against the full card including that footer.
+Flutter shares the compact priority
+stack, labels, narrow/large-text adaptation and accessible descriptions across
+all platforms. Show summaries only on tasks/folders having children, and hide
+next date when none qualifies. Derived results require no stored-data migration;
+physical acceptance remains open.
+
 ## Fields and files
 
 Title, tags, plain-text notes, date-only due date, and priorities None / Low /
 Medium / High. No custom fields.
 
+Shared [priority icons](docs/priority-icons.md) use no symbol for None, a gray
+exclamation mark for Low, muted amber for Medium, and a red rounded-triangle
+outline with a red exclamation mark for High. Rows and priority selectors share
+the same component, which also supports smaller summary-counter sizes. Text
+labels/tooltips retain meaning independently of color. Stored values are
+unchanged; physical visual/accessibility acceptance remains open.
+
 One independent .ihtd file is open at a time. Native filesystem open/save
 dialogs support local, removable, and mounted paths. Accepted mutations save
-automatically; text typing is coalesced briefly. External revisions are reported
+automatically after acceptance. Item typing is privately checkpointed until the
+user commits the cancellable draft. External revisions are reported
 for explicit reopening, consistently across platforms; they do not silently
 replace pending work. One editing device at a time, no history or merge in this prototype.
 On desktop, a document path supplied at startup opens through the same
@@ -217,7 +339,11 @@ Task/folder creation and view editing use one responsive Flutter dialog layout
 on Android, Windows and Linux. Forms scroll with inner paint space for floating
 labels and rule outlines. Normal layouts keep actions outside the form scroll;
 short windows or large text include the title and actions in the scroll so they
-remain reachable. Keyboard insets are applied once by Dialog, and partial rows
+remain reachable. New task/folder creation additionally uses a pinned top-right
+Create action in constrained layouts, retaining bottom Create and the same draft
+validation/Save. Only extreme heights scroll the entire creation form, including
+controls. Normal layouts and existing-item Save stay unchanged. Keyboard insets
+are applied once by Dialog, and partial rows
 during scrolling can be brought fully into view at either scroll limit.
 
 Header, canvas and sidebar are shared theme surface roles. The top safe inset
@@ -228,12 +354,28 @@ surfaces; Android window themes prevent extra system contrast strips and use
 the current light palette even when the OS uses dark mode. Keyboard-owned bars
 remain controlled by the keyboard. A full app dark theme is a separate feature.
 
+## Shared branding and startup
+
+The brand is the owner's diagonal connected blue shape with a white tick in each
+lobe, distinct from update-ready feedback. A canonical SVG generates the Flutter
+header/About/startup artwork, Android launcher/adaptive/themed/splash resources,
+Windows application/installer ICO and Fedora desktop icon. Desktop portable
+windows also use the bundled icon. Native application identities remain stable.
+
+All platforms show shared branding while the actual Rust initialization is pending,
+without a minimum display timer. Model services mount only after success; a core
+startup failure shows a branded restart message. Native Android launch branding
+matches the shared mark. This changes presentation, not collection formats or
+save/recovery policy. See [branding and acceptance](docs/branding.md).
+
 ## Updates (implementation candidate, physical acceptance pending)
 
 Owner approved 2026-10-15. Implement one shared release-discovery/coordinator/UI
 flow for Android, Windows and Fedora; native adapters supply OS capabilities.
 The drawer button sits beside the current view name. A newer compatible stable
-GitHub Release shows a blue download arrow/circle in the header; its popup shows
+GitHub Release shows a blue download arrow/circle immediately left of the
+header's top-right menu, in a reserved 48px slot that stays empty while hidden.
+All update states use that slot, keeping filename/branding positions stable. Its popup shows
 version, notes and size. Download confirmation closes the popup, then animated
 progress runs while editing continues. Only a verified download becomes a green
 tick. Android tapping that tick flushes drafts/checkpoints locally and opens the
@@ -252,3 +394,19 @@ trusted package signing is available. Public visibility requires the history/
 asset audit and owner review. Public visibility and corrected protections are
 verified; original source uses AGPL-3.0-only following the owner's confirmation. See
 [update acceptance and limitations](docs/update-acceptance.md).
+
+## Upgrade acceptance and release readiness
+
+The next candidate is 0.3.0+15, upgrading from released 0.2.5+14. Synthetic
+fixtures must be generated with the pinned historical model/storage, not the
+new encoder. Automated tests compare full preserved documents, permit only the
+planned protected-view migration, verify backup bytes and combine new features
+with disconnected saving/private draft recovery. Native packaging checks use
+checksum-pinned actual released installers on disposable systems only.
+
+Follow [upgrade acceptance](docs/upgrade-acceptance.md) and its per-device result
+sheet. Include the synthetic-data kit with tag releases. Permanent Android
+signing, reviewed master ancestry and stable-versus-prerelease updater rules
+remain required; no test APK may be offered as an in-place production update.
+Physical acceptance and owner review precede stable promotion. No host/CI pass
+stands in for a real phone, Windows 11 PC or Fedora laptop result.

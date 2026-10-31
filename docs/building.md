@@ -103,6 +103,14 @@ Descendant-move checks cover promotion to the former parent/top level, shared
 placements, sibling order, stale targets and completion. The phone integration
 test exercises a long-press drop into a nested descendant through the UI.
 
+Run `flutter test integration_test/sorting_drag_test.dart -d windows` (or
+`-d linux`) for real per-view sorting, filtered insertion/end targets, shared
+manual ordering, blocked shared-parent moves and rename-barrier/restart
+preservation. Windows and Fedora pipelines include this scenario. Rust tests
+cover comparator/scope/path and frozen-file preservation; Flutter widget tests
+cover Save/Cancel, private drafts, queued view changes and narrow/large-text
+controls. See [sorting acceptance](sorting-drag-insertion.md).
+
 Unlink/Delete tests cover actual root/parent placements, shared cascades,
 stale/cancelled confirmation, deleted-container view rules and pending external
 publication. `test/item_removal_test.dart` checks shared interaction and warning
@@ -238,3 +246,127 @@ If packaging from an archive or Docker context without .git, provide the origina
 40-character commit through IHTD_SOURCE_REVISION; Fedora CI and the documented
 Docker command do so. Preserve native dependency notices as well as Flutter's
 notices before stable distribution; project licensing does not replace them.
+
+## Migration safety verification
+
+See [migration behavior and physical acceptance](migration-safety.md). Run the
+normal Rust/Flutter suites plus `flutter test integration_test/migration_test.dart
+-d windows` (or `-d linux` under the existing Xvfb wrapper). It uses committed,
+synthetic schema-1/schema-2 fixtures, creates real sibling backups and checks
+preservation/publication/restart. Windows/Fedora native pipelines include it.
+Kotlin document tests include strict create-new backup/source-alias protection.
+Run native integration/build targets sequentially in one checkout. This work
+changes no app version/tag and does not prove a physical phone upgrade.
+
+## Item draft verification
+
+Run the normal Rust/Flutter suites and `integration_test/item_draft_test.dart`
+with the native desktop target, alongside the existing desktop/phone integrations.
+Windows/Fedora pipelines include this same-UUID restart/reconnection test. Shared
+widget tests inject an in-memory draft store to isolate UI/fake-clock behavior;
+repository/unit and native integration tests use actual private files. See
+[item draft behavior and physical acceptance](item-editor-drafts.md). No collection
+schema migration or app version bump is needed for this editor task.
+
+## Collection settings verification
+
+Run Rust/Flutter tests and native `integration_test/collection_settings_test.dart`
+with the same desktop target/Xvfb wrapper as the other native tests. Windows and
+Fedora pipelines include it. Frozen schema-2 fixtures check read-only defaults
+and save/reopen preservation; the native test covers private drafts, external
+file disconnection and restart. See [settings acceptance](collection-settings.md).
+
+## Hierarchy action verification
+
+Run the Rust/Flutter suites plus native `integration_test/hierarchy_actions_test.dart`
+with the same desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It covers the new copy/removal commands, selected-path replacement, retained shared
+children/rules and file barriers across restart. Follow the separate physical
+[link/copy/removal acceptance](link-copy-removal.md).
+
+## Summary indicator verification
+
+Run the Rust/Flutter suites and native `integration_test/summary_indicators_test.dart`
+with the usual desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It checks frozen schema-2 files, read-only metrics, actual settings/tab results,
+local day rollover, private drafts and disconnected-file restart. Widget tests
+check preserved main-body height/center, inline bottom Total/date positions, centered one/two/
+three-priority stacks, hidden zero priority counts, narrow scrolling, large text
+and accessible descriptions. See [summary behavior/acceptance](summary-indicators.md).
+
+## Tag selection verification
+
+Run the Rust/Flutter suites and `integration_test/tag_picker_test.dart` using the
+usual native desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+It checks frozen files, read-only ranking, actual picker Done/Cancel, manual
+versus filter-default/copied tags, decay, pending publication and restart/draft
+recovery. Widget tests cover suggestion limits, isolated search/multi-select,
+ownership/stale metadata and constrained layouts. See
+[tag behavior and physical acceptance](tag-selection.md).
+
+## Protected All tasks verification
+
+Run the Rust/Flutter suites and native `integration_test/protected_view_test.dart`
+using the usual desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+The frozen customized/pending fixtures exercise a schema-2 semantic conversion,
+byte-exact sibling backups, preservation of custom rules/settings/tag history,
+backend protection, editable sorting/display preferences, retained pending files
+and explicit unfinished-draft restoration without automatic publication.
+`integration_test/sorting_drag_test.dart` now uses a custom filtered view; it must
+not edit the protected built-in. See [protected-view acceptance](protected-all-tasks.md).
+
+## Constrained Create action verification
+
+Run `flutter analyze` and the normal Flutter suite. Focused coverage is in
+`test/create_action_test.dart`, `test/layout_polish_test.dart`, and
+`test/item_draft_ui_test.dart`. Native `integration_test/phone_layout_test.dart` verifies top Create above
+the keyboard; `integration_test/app_test.dart` retains normal desktop creation.
+Use the existing native desktop target/Xvfb wrapper, sequentially in one checkout.
+Both native tests are already included in Windows/Fedora pipelines. No storage
+conversion or version change is required. See
+[creation behavior and physical acceptance](item-editor-drafts.md#constrained-creation-actions).
+
+## Branding and startup verification
+
+Run `python3 scripts/generate-branding.py --check`, the standard Python tests,
+Flutter analysis and Flutter tests. Focused UI coverage is
+`test/branding_header_test.dart`, `test/update_test.dart` and
+`test/layout_polish_test.dart`. Native `integration_test/app_test.dart` uses the
+real initialization Future and asserts core readiness before opening model
+services; the existing Windows/Fedora pipelines run it. Native phone-layout
+integration covers the updated header within the full shell. Compile Android
+resources with an ARM64 APK build and run both ELF and ZIP alignment verification.
+Windows ICO/frame validation runs in Python; native Windows packaging and physical
+platform appearance/upgrade acceptance remain separate. Regeneration instructions
+and the complete asset inventory are in [branding](branding.md).
+
+## Released-version upgrade acceptance
+
+The 0.3.0+15 candidate uses the pinned v0.2.5+14 baseline in
+`packaging/upgrade-baseline.json`. `python3 scripts/generate-upgrade-fixtures.py
+--check` verifies committed synthetic fixtures without Git history/toolchains.
+To regenerate them, use Python 3.12+, Rust 1.93.1 and fetch the unchanged v0.2.5
+tag; run the script without `--check`. Its temporary archived workspace uses the
+historical lockfile offline and verifies every file in the historical reader.
+Do not replace these with fixtures written by current code or personal data.
+
+Run `cargo test --workspace --locked`, the Python release tests, Flutter analysis
+and unit tests, then the native test:
+
+```sh
+cd app
+GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test --no-pub integration_test/upgrade_acceptance_test.dart -d linux
+```
+
+Windows and Fedora native pipelines include this test. Disposable installer
+verification downloads the real pinned 0.2.5 EXE/RPM, verifies exact size/SHA-256
+and tests upgrade/removal/data retention. The Fedora verifier additionally
+requires a container plus `IHTD_DISPOSABLE_FEDORA=1`; never run it on your laptop.
+The downloader itself only fetches and verifies; it executes no installer.
+
+Release validation uploads `upgrade-acceptance-kit` separately from runtime
+packages. Tag releases attach `IHTD-X.Y.Z-upgrade-tests.zip` and add its checksum
+to SHA256SUMS. It contains synthetic data/docs/provenance only. Follow
+[physical upgrade testing](upgrade-acceptance.md), recording actual results in
+[the result sheet](upgrade-acceptance-results.md). Branch test APKs cannot
+replace permanent-key phone installations; reviewed tag signing is required.

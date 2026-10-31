@@ -30,7 +30,7 @@ jobs:
           cat /tmp/fedora-image.log
       - name: Build, test and verify installed RPM
         run: |
-          if ! docker run -e IHTD_SOURCE_REVISION="$GITHUB_SHA" --name ihtd-fedora-package ihtd-fedora-builder bash -c 'bash packaging/fedora/build.sh && bash packaging/fedora/verify.sh' > /tmp/fedora-build.log 2>&1; then
+          if ! docker run -e IHTD_DISPOSABLE_FEDORA=1 -e IHTD_SOURCE_REVISION="$GITHUB_SHA" --name ihtd-fedora-package ihtd-fedora-builder bash -c 'bash packaging/fedora/build.sh && bash packaging/fedora/verify.sh' > /tmp/fedora-build.log 2>&1; then
             python3 - <<'PY'
           from pathlib import Path
           detail = '\n'.join(Path('/tmp/fedora-build.log').read_text().splitlines()[-80:])

@@ -33,6 +33,19 @@ floating-label paint space and action reachability for view/task/folder editors.
 contrast. The shell paints behind safe insets and transparent system bars;
 Android resource themes only supply startup colors and native contrast flags.
 Keep new shared editor behavior here rather than creating per-OS dialogs.
+`EditorFormLayout` selects optional constrained titles/pinned header controls by
+available height and text scale. New-item editors use them for the extra Create
+action, retaining the same draft Save path. Do not detect an operating system or
+subtract keyboard insets again to choose this layout; see
+[constrained creation actions](item-editor-drafts.md#constrained-creation-actions).
+
+Shared branding: `ui/app_brand.dart` renders the same generated artwork for
+header/About and core initialization. Bootstrap passes the real initialization
+Future before mounting model services; do not add a splash timer or move startup
+policy into per-platform implementations. Native launcher/window/splash formats
+are generated from `assets/branding/ihtd.svg`. `AppUpdateButton` owns the permanent
+header slot; moving it must not reimplement update state or installation policy.
+Read [branding and assets](branding.md) before changing the mark or its startup.
 
 Shared expression editing: `services/rule_draft.dart` owns draft-only slots,
 stable UI node identities and a flattened display projection retaining stored
@@ -44,13 +57,15 @@ unchanged. Controller edit-identity/view guards run after command-queue waits;
 UI drafts cannot overwrite a different working copy or a stale saved view.
 See [expression plan](view-expression-editor-plan.md).
 
-Shared removal: `crates/ihtd_core/src/removal.rs` owns actual placement counts,
-revision-bound previews, cascade retention and atomic removal. Rust snapshots
-supply placement metadata and deleted-container rule issues. Flutter's controller
-flushes drafts and guards collection switches; `ui/item_removal.dart` owns the
-common Delete confirmation. Row menus and details use the same action. Save
-adapters are unchanged. Optional deleted-ID metadata retains view references
-without retaining item contents; shared Flutter warns and opens rule editing.
+Shared hierarchy actions: `crates/ihtd_core/src/hierarchy.rs` owns exact derived
+appearance counts, finite-snapshot/depth-aware copy, explicit global Delete,
+local Unlink and independent replacement beneath linked ancestors. Previews bind
+revision, identity, full selected path and consequences. Shared Flutter
+`ui/link_copy.dart` / `ui/item_removal.dart` and controller guards resolve drafts,
+carry occurrence paths and use the same guarded save/publication flow. Snapshots
+supply counts without storing them in user files. Read
+[link/copy/removal contracts](link-copy-removal.md); historical removal helpers
+are retained for compatibility tests, not new product actions.
 
 Shared updates: `update_contract.dart`, `update_catalog.dart` and
 `update_coordinator.dart` own release identity/compatibility, discovery, persisted
@@ -60,6 +75,79 @@ and confirmation. Only `update_composition.dart` selects native adapters. Androi
 access; desktop adapters currently provide explicit manual release-page handoff
 until trusted package signatures are configured. Document checkpoint policy stays
 in AppController/DocumentSaveCoordinator. See [update acceptance](update-acceptance.md).
+
+Shared migrations: `services/migration_safety.dart` owns backup gates, attempt
+journals, restart handling, failure logs and recovery export. Rust migration
+operations inspect without mutable model open and validate separate candidates;
+model sessions reject old schemas. `MigrationBackupAdapter` supplies only folder
+access and create-new backups. Publication stays in DocumentSaveCoordinator.
+Read [migration safety](migration-safety.md) before adding a schema or semantic
+conversion; current-format UI work must not invent a migration.
+
+Shared item drafts: `services/item_draft.dart` owns isolated fields, baselines,
+private checkpoint sequencing and recovery records. AppController owns resolution,
+identity guards and Save-intent handling. Rust `item_drafts.rs` validates/prepares
+atomic candidates and receipts; publication remains in DocumentSaveCoordinator.
+`ui/item_editor.dart` and `GuardedEditorRoute` implement one action policy across
+embedded/dialog editors. `EditorFormLayout` shares responsive scrolling and stable
+focus/composing subtrees with view editing. Read [item editor contracts](item-editor-drafts.md)
+before adding fields or navigation; never reinstate live commits from onChanged,
+dispose, keyboard/lifecycle changes or background autosave.
+
+Shared collection settings: `crates/ihtd_core/src/settings.rs` owns collection
+values and per-indicator parent/view resolution, validation and atomic updates.
+Optional SQLite metadata carries these settings across platforms. Snapshots
+supply complete Rust defaults; `ui/collection_settings.dart` previews staged
+inheritance and uses guarded controller commands. Future metrics must use the
+shared resolved settings and avoid disabled calculations; tag popularity uses
+the stored count/half-life without replacing device update preferences.
+See [collection settings](collection-settings.md) for compatibility and acceptance.
+
+Shared sorting: `crates/ihtd_core/src/sorting.rs` owns per-view/per-parent
+choices, comparison, shared manual order and atomic moves. Application
+`sorting.rs` computes revision/digest-bound plans from actual projected full
+paths; `AppController.moveOccurrence` supplies queued owner/view/tab guards.
+`ui/sort_settings.dart` and `ui/item_drag.dart` expose common controls. New product
+drag actions must use this planned API, not the historical structural `move_item`
+command. Copy/deletion maintain parent sort metadata. Read
+[sorting and drag insertion](sorting-drag-insertion.md) for hidden-slot and
+shared-parent behavior, compatibility and acceptance.
+
+Shared priority artwork: `ui/priority_icon.dart` supplies `PriorityIcon` and
+text-bearing `PriorityChoice` to hierarchy rows and item/view-rule selectors.
+Future summary counters reuse it with an explicit compact size; do not create
+platform-specific icons or duplicate color mappings. See
+[priority icons](priority-icons.md). This presentation change requires no data
+conversion.
+
+Shared summary metrics: `crates/ihtd_core/src/indicators.rs` owns per-view/tab
+direct-child calculations using `resolved_indicators`. Application presentation
+decorates projected rows and caches shared parents; structural projections stay
+lightweight. The controller supplies the local day and read-only rollover
+refresh; `ui/summary_indicators.dart` only renders derived fields with the shared
+priority artwork, a bottom Total/date footer and a centered nonzero-priority
+stack. Title and ordinary controls align within the main body; priority stacks
+align across body plus footer. Shared measured footer space preserves these
+centers at different font/text scales. Never duplicate matching/default logic in
+Flutter or store
+these summaries in collection files. See [summary indicators](summary-indicators.md).
+
+Shared tag selection: `crates/ihtd_core/src/tag_usage.rs` owns history validation
+and ranking. Application `item_drafts.rs` records authoritative manual additions
+in the accepted candidate; copying and filter defaults do not record events.
+`AppController.rankedTags` is an identity-checked read-only query that applies no
+snapshot and does not block editing. `ui/tag_selector.dart` owns selected/suggested
+presentation and isolated picker choices with session/metadata guards. Read
+[tag selection](tag-selection.md) before adding assignment paths; never count
+typing, cancellation, copies or mere queries as manual usage.
+
+Shared protected view: Rust resolves the built-in ID and rejects rename/filter/
+delete commands. The snapshot exposes that ID; Flutter navigation and view
+information use it instead of assuming view 1. The migration engine installs a
+fresh ID only under the explicit backed-up semantic plan, preserving customized
+old views and all item state. Draft restoration can follow the exact validated
+working-path conversion with unchanged source evidence; same-UUID copies never
+qualify on their own. Read [protected All tasks](protected-all-tasks.md).
 
 ## Rules for future changes
 

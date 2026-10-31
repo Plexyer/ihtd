@@ -1,9 +1,287 @@
 # Feature checklist
 
-Updated 2026-10-15 for physical Android feedback and agreed release/update
-workflow. Unchecked suggestions are not approved requirements unless they are
-listed under "Agreed release and update work"; clarify their behavior before
-implementing them.
+Updated 2026-10-31 with implementation evidence for the owner's clarified backlog.
+The section below and the existing agreed-work sections contain approved
+requirements. Optional suggestions still require discussion. Implementation and validation evidence are tracked separately; an approved
+requirement is not automatically complete. The migration foundation below is an
+implementation candidate; physical acceptance remains open.
+
+## Owner-clarified Changes.docx backlog
+
+Source: all 12 requests and 13 screenshots in Changes.docx, plus the owner's
+subsequent selectable answers and corrections through 2026-10-28. The complete
+[clarified specification](changes-2026-10-28.md) preserves the original numbering,
+priorities, examples and later linking/copying rework. Implementation status is
+recorded on each item below. Keep general logic/UI shared across Android, Windows and Fedora.
+Ask the owner about genuinely unresolved behavior rather than inventing defaults.
+
+### Implementation order
+
+Agreed 2026-10-28. Numbers in parentheses refer to the specification's original
+feature numbers, not new priorities. Use this order when planning implementation:
+
+1. **Migration safety foundation:** verified backups, staged migration,
+   recovery and automatic failure diagnostics before converting existing data.
+2. **Editor drafts and Save/Cancel (11 + 10):** implement together, including
+   stable cursor behavior, cancellation, exit prompts and draft recovery.
+3. **Collection settings and default inheritance (7):** provide the settings
+   needed by indicators and tag suggestions.
+4. **Linking/copying/removal and Links counter (13 + 3):** first appearance
+   counting and copy primitives, then global Delete, blocked-Unlink replacement
+   and the Link/Copy dialogs.
+5. **Sorting and drag insertion (4):** shared manual order and per-view automatic
+   sorting against the clarified hierarchy behavior.
+6. **Priority icons (8):** prepare the shared designs needed by indicators.
+7. **Summary indicators (5):** build on settings, inheritance and priority icons.
+8. **Tag picker and popularity (6):** build on collection settings and committed
+   item drafts.
+9. **Protected All tasks view (1):** include preservation of existing customized
+   views during migration.
+10. **Additional Create button (2):** integrate with the settled editor behavior.
+11. **Branding and update-indicator placement (9 + 12):** coordinate header changes
+    and platform icon/splash assets.
+12. **Full upgrade and device testing:** verify upgrades, data preservation,
+    recovery and changed features on Pixel/GrapheneOS, Samsung, Windows and Fedora
+    before release.
+
+Steps 6, 9 and 11 are mostly independent and may be brought forward. Migration
+and preservation tests accompany every data-changing step; do not defer them
+until step 12. This order is a plan, not completed implementation.
+
+### Full upgrade acceptance — step 12
+
+Candidate **0.3.0+15**, baseline **v0.2.5+14**. Feature implementation candidates
+are in place; release readiness still requires the physical results below.
+Follow [upgrade instructions](upgrade-acceptance.md) and record each platform in
+[the result sheet](upgrade-acceptance-results.md).
+
+- [x] Generate synthetic intact/customized/deleted-default/pending fixtures using
+  the actual pinned v0.2.5 model/storage, with old-reader checks and provenance.
+- [x] Compare every released document field with the upgraded projection; verify
+  backups and exactly the protected-view conversion, with no unrelated changes.
+- [x] Combine feature edits/settings/copying, disconnected file saves, private
+  draft restart/restore and safe update preparation in a native acceptance test.
+- [x] Add checksum-pinned actual v0.2.5 Windows EXE/Fedora RPM upgrade, uninstall,
+  reinstall and data-retention verification to disposable native CI.
+- [x] Package synthetic test data, provenance and instructions as a separate CI
+  artifact and version-tag release asset; keep production signing/tag gates.
+- [ ] Review successful three-platform candidate CI and merge the release PR.
+- [ ] Create the reviewed master tag; verify the permanently signed APK and
+  complete release assets. Publish as a prerelease for direct testing first.
+- [ ] Test in-place upgrade, migrations, backups/refusal/failure diagnostics,
+  existing data/recovery and combined features on Pixel/GrapheneOS and Samsung.
+- [ ] Test Windows 11 Explorer/installer and Fedora Wayland/scaling/file picker/
+  rclone on physical machines, recording exact OS and package identities.
+- [ ] Record issues/retests and approve stable promotion of the exact tested
+  assets. New updater end-to-end checks need a genuinely later stable version;
+  prereleases remain excluded from discovery.
+
+### Implementation and acceptance tasks
+
+- [ ] **Migration safety prerequisite — before migrating existing data.**
+  - [x] Determine whether a migration is actually required, including semantic
+    transformations that change existing data without changing a schema number.
+  - [x] Before migration, create a consistent, durable backup beside the original
+    collection file, or in an authorized backup folder where necessary. Verify
+    it by reading it back before changing data; do not overwrite earlier backups.
+  - [x] On Android, acquire any missing backup-folder authorization first. With
+    no usable destination, insufficient space or failed verification, stop the
+    migration and preserve existing data; do not silently fall back to a private
+    collection backup instead of the location the owner chose.
+  - [x] Migrate a separate candidate, validate preserved contents/relationships
+    and new metadata, then publish through the shared identity/conflict/read-back
+    safeguards. Preserve pending working copies and recoveries independently.
+  - [x] On failure/interruption, stop further writes, retain the backup/recoverable
+    state and automatically persist a privacy-preserving diagnostic log. Provide
+    clear failure/recovery information and user-initiated log export; never upload
+    logs automatically or include collection contents/credentials by default.
+  - [ ] Verify backup refusal/failure, staged migration failure, publication
+    failure, interruption/retry, external changes and successful upgrades from
+    the currently distributed version before releasing data-migrating features.
+  Implementation candidate: [migration safety and acceptance](migration-safety.md).
+  Shared policy, Rust conversion, native backup adapters and host verification are
+  implemented; the parent stays open for physical acceptance. Schema-2 files with
+  an intact original All tasks view need no migration; customized/missing
+  originals use the protected-view semantic plan. Future conversions must
+  register their own plan and preservation checks before shipping.
+  See [migration safety requirements](changes-2026-10-28.md#14-migration-safety-prerequisite).
+- [ ] **1 — Medium: protect All tasks.**
+  - [x] Protect its name, unfiltered rule and deletion in shared Rust and UI;
+    keep sorting, visibility/display preferences and item editing available.
+  - [x] Infer an intact original view without rewriting the file. For renamed,
+    filtered or missing originals, add a fresh protected view through the verified
+    backup/candidate gate, preserving every old view and all other collection data.
+  - [x] Keep pending working/recovery files and unfinished private drafts safe;
+    use validated migration-owner evidence rather than UUID-only draft rebinding.
+  - [ ] Verify physical upgrades, authorization/refusal and recovery on Pixel /
+    GrapheneOS, Samsung, Windows and Fedora before release.
+  Shared candidate: [protected-view behavior and acceptance](protected-all-tasks.md).
+  No app version bump; schema-2 semantic conversion is explicit, not a loader repair.
+- [ ] **2 — Medium: additional top-right Create action.**
+  - [x] Show it for new tasks/folders in short or keyboard-constrained layouts
+    on every platform; keep normal layouts unchanged and retain bottom Create.
+  - [x] Use the same draft validation/Save and busy guards for both actions;
+    preserve typed text, focus and composition through keyboard/window changes.
+  - [x] Keep top controls visible while the short form scrolls; adapt narrow/
+    enlarged-text controls and retain the fully scrolling extreme-height fallback.
+  - [ ] Verify physical phone keyboards, landscape/enlarged text and short
+    desktop windows on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [constrained creation actions](item-editor-drafts.md#constrained-creation-actions).
+  Presentation-only; no data conversion, schema or app-version change.
+- [ ] **3 — Medium: show linked appearances.**
+  - [x] Display compact `Links: N` below the row menu only for N >= 2, counting
+    all collection hierarchy paths, including those through linked parents.
+  - [ ] Verify counters/layout on physical phones and desktop upgrades.
+  Shared candidate: [link/copy/removal behavior and acceptance](link-copy-removal.md).
+- [ ] **4 — Medium: per-view sorting and clear drag insertion targets.**
+  - [x] Offer Manual, Title, Due date and Priority for every parent and the top
+    level. Automatic modes support ascending/descending; modes are per view.
+  - [x] Keep one shared manual order. A between-sibling drop while automatically
+    sorted switches that parent/current view to Manual, uses the displayed order
+    as its starting point, applies the drop and saves the shared manual order.
+  - [x] In automatic sorts, keep folders first and sort each kind separately.
+    Undated and None-priority items stay last in either direction. Break ties by
+    title, then manual order for identical titles.
+  - [x] Show between-item insertion indicators as well as inside-parent targets.
+  - [x] Preserve hidden siblings' manual slots during filtered reordering.
+  - [x] Block moving a child out of a shared parent, including inherited sharing;
+    explain that an independent copy is needed first. Allow shared reordering.
+  - [ ] Verify upgrades, physical phone gestures/layout, native desktop behavior
+    and cross-platform collection transfer.
+  Shared candidate: [sorting, drag insertion and acceptance](sorting-drag-insertion.md).
+  Optional metadata needs no schema-2 conversion or rewrite on open. Host tests
+  and native Linux integration pass; physical acceptance keeps the parent open.
+- [ ] **5 — Medium: compact direct-child summary indicators.**
+  - [x] Default Total and High-priority count on; Low/Medium counts and next due
+    date off. Allow an optional ratio replacing the plain count: `Total: 2 / 5`.
+  - [x] Count direct child tasks only, included by the view rules/current tab.
+    The ratio is the exception: include both completion states matching the view
+    rules regardless of tab. Next due means earliest date today or later.
+  - [x] Put Total (including zero) and Next date on one bottom footer line,
+    Total first. Show enabled priority icon/count pairs only for nonzero counts;
+    vertically center the remaining one/two/three-pair stack in the card.
+  - [x] Match the approved mockup: title/metadata and ordinary controls center
+    within the main body; priority stacks center across the full card including
+    its footer. Preserve these alignments with enlarged text.
+  - [x] Inherit each indicator independently: collection defaults, optional
+    parent defaults, then parent/view overrides. Only non-overridden settings
+    follow later default changes. Skip disabled indicators' metric computation.
+  - [x] Hide next date when none qualifies; show summaries only on tasks or
+    folders currently having children. Empty folders and leaf tasks show none.
+  - [ ] Verify physical phone/desktop layouts, accessibility, date rollover,
+    provider recovery, upgrades and cross-platform transfer.
+  Shared candidate: [summary calculation, layout and acceptance](summary-indicators.md).
+  Queries are read-only derived data; no stored-data conversion is needed.
+- [ ] **6 — Medium: clear selected tags and a bounded suggestion list.**
+  - [x] Show all selected tags above a light divider; below show up to N popular
+    unselected tags plus Select other. N defaults to 5 and is a collection setting.
+  - [x] Select other opens searchable multi-select with Done/Cancel; Done applies
+    to the item draft and picker Cancel discards the picker operation.
+  - [x] Rank committed manual assignments by gradually decaying usage, excluding
+    automatic/copied assignments. Influence halves after 3 days by default;
+    configure that period in collection settings. Older collections start without
+    usage scores and use alphabetical suggestions until usage establishes rank.
+  - [ ] Verify physical phone/native desktop search, selection/cancellation,
+    popularity, keyboard/layout and upgrade/transfer/recovery behavior.
+  Shared candidate: [tag selection, ranking and acceptance](tag-selection.md).
+  Optional history requires no conversion of existing assignments or schema-2
+  files. Read-only rank/open checks retain existing bytes and private drafts.
+- [ ] **7 — Medium: collection Settings page.**
+  - [x] Add Settings to the top-right menu, with isolated Save/Cancel and validated
+    tag suggestion count (default 5) and fading half-life (default 3 days).
+  - [x] Store collection indicator defaults, optional shared defaults per parent
+    and independent parent/view overrides. Allow each field to resume inheritance.
+  - [x] Provide shared controls, reject stale/different-collection saves, preserve
+    existing visibility and document-save safeguards, and verify old-file retention.
+  - [ ] Verify physical upgrades, keyboard/layout behavior and cross-platform
+    collection transfer on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Implementation candidate: [collection settings and acceptance](collection-settings.md).
+  Optional metadata needs no conversion of existing schema-2 data; loading defaults
+  does not rewrite files. Summary metrics and tag-picker/popularity behavior remain
+  in items 5/6; these settings provide their shared foundation.
+- [ ] **8 — Medium: consistent priority icons.** None: no icon; Low: gray `!`;
+  Medium: soft yellow leaning orange; High: red rounded-triangle outline with
+  red `!`. Use the same designs at smaller sizes in the summary counters.
+  - [x] Replace row flags with a reusable shared icon and use the same designs
+    in item/view-rule priority selectors, retaining accessible labels/tooltips.
+    Provide an explicit size for the upcoming compact counters.
+  - [ ] Verify physical-device legibility, large text and accessibility across
+    Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [priority icon design and acceptance](priority-icons.md).
+  This is presentation-only and needs no stored-data migration. Summary counter
+  integration remains in item 5.
+- [ ] **9 — Medium: new branding across platforms.**
+  - [x] Implement the sketch's filled blue diagonal infinity-like shape with a
+    white tick in each lobe; use one canonical vector and generated platform assets.
+  - [x] Replace shared header/About branding, Windows runner/installer ICO,
+    Fedora SVG/portable window icon and Android density/adaptive/themed icons.
+  - [x] Replace native Android splash and add shared branded initialization on
+    all platforms, as the owner selected, with no added minimum display delay.
+  - [ ] Verify physical installed icons, startup, accessibility and in-place
+    upgrades on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Shared candidate: [branding, startup and acceptance](branding.md).
+- [x] **10 — High: coherent editor Save/Cancel controls.** Replace Done with
+  top-right Save, add top-left Cancel, and remove both confusing X controls.
+  Save closes the editor; never leave its empty outer window open.
+- [ ] **11 — High: cancellable item drafts and stable text editing.**
+  - [x] Fix the reported note-cursor jump; stage title/notes/tags/due date/priority
+    and automatic completion until Save or a valid existing-editor outside tap.
+    Cancel discards the draft. Apply the same policy to task and folder editors.
+  - [x] With unsaved changes, Back/Escape and desktop item/view/collection
+    switches prompt Save/Discard/Keep editing. New-item outside taps prompt
+    Create/Discard/Keep editing. Invalid existing-editor outside saves stay open.
+  - [x] Retain unfinished drafts separately and offer restore/discard after an
+    app close/crash. Keep external document save/recovery barriers intact.
+  - [x] Apply visibility settings immediately. Newly created collection tags
+    survive item Cancel, but cancelled assignments do not. Conversion and
+    Link/Unlink/Delete are separate operations after resolving unfinished edits.
+  Shared implementation: [item draft behavior and acceptance](item-editor-drafts.md).
+  Controls, atomic Save, private recovery, cursor/composition retention and action
+  guards are implemented. Item 11 remains open for physical device/upgrade
+  acceptance; host checks do not establish that result. The collection format
+  stays schema 2 and needs no data migration for these editor changes.
+- [ ] **12 — Low: move the update indicator.**
+  - [x] Put every state immediately left of the top-right three-dot menu.
+    Reserve a 48px slot while hidden so the brand, filename and menu do not shift.
+    Reuse existing animations, reduced motion and download/install safeguards.
+  - [ ] Verify physical layouts and update transitions on all target platforms.
+  Shared candidate: [branding and header acceptance](branding.md).
+- [ ] **Additional approved work — revise Unlink/Delete and add Link/Copy.**
+  - [x] Two or more appearances: offer both Unlink and Delete; one appearance:
+    Delete only. Delete removes the item everywhere and always confirms. For
+    multiple appearances, explain the global effect and direct users to Unlink
+    for local removal. Preserve children that have surviving appearances elsewhere.
+  - [x] Keep linked parents' children shared. Block a child Unlink that would
+    affect other parent appearances; identify the blocking linked parent and
+    offer Cancel or replacement of the selected parent occurrence with a full,
+    independent copy. Then delete the selected copied child/descendants, leaving
+    originals elsewhere untouched. Force full depth/every appearance independent
+    for this special operation; do not leave the removed copied branch at top level.
+  - [x] Add a searchable Link/Copy destination popup for tasks/folders/Top level.
+    Default to Link, with copy depth disabled. Bottom actions: Cancel and a single
+    mode-dependent Link to/Copy to. Info expands the popup with two explanations.
+  - [x] Copy defaults to source only, linking its children. Offer available
+    depths and All descendants. By default copy each unique item once, preserving
+    internal links; an unchecked Make every appearance independent option disables
+    reuse when checked. Deeper references reuse an item copied within the depth.
+  - [x] Exclude self/descendants in Link mode. Copying into self/descendants is
+    allowed only with All descendants: automatically select/lock that depth and
+    show an explanation. Preserve acyclicity and original identities elsewhere.
+
+  - [ ] Complete physical upgrade, keyboard/layout and graph-action acceptance
+    on Pixel/GrapheneOS, Samsung, Windows and Fedora.
+  Implementation candidate: [shared actions and acceptance](link-copy-removal.md).
+  No automatic graph/schema conversion is needed. Host verification is separate
+  from the remaining device/provider checks.
+
+Dependencies: migration safety before any feature that converts existing stored
+data; 7 before 6; 8 before 5; collection/default support from 7 also
+supports 5; 10 and 11 together. Coordinate 3 with the revised linking/removal
+contract. Earlier intermediate choices permitting different child lists for two
+linked appearances, and the old three-button Link/Copy design, were superseded.
+
+Checked subitems record implemented scope; physical acceptance remains separately
+open. See the specification for the exact editor action matrix and copy examples.
 
 ## Remaining agreed work
 
@@ -222,6 +500,9 @@ approved follow-up tasks; this entry records the reports, not completed fixes.
   Implementation handoff: [Unlink/Delete plan](unlink-delete-plan.md).
   Owner semantics confirmed 2026-10-14. Shared implementation and automated
   domain/UI checks are complete; physical acceptance remains pending.
+  The 2026-10-28 backlog above revises this baseline's menu, global Delete and
+  blocked-child Unlink behavior. Checked entries below record the earlier
+  implementation; they are not evidence that the new behavior is implemented.
   - [x] When an item has two or more actual placements, label the action
     Unlink and remove only the selected placement. Preserve the shared item,
     its data, and its remaining placements.
@@ -398,8 +679,6 @@ and verification.
 
 ## Optional features to discuss
 
-- [ ] Delete items everywhere, clearly distinguished from removing one placement;
-  decide how shared subitems and recovery/trash should behave.
 - [ ] Undo/redo for edits, moves, and completion changes.
 - [ ] Quick search without creating a saved filter view.
 - [ ] Import exported JSON, with rules for restoring versus merging collections.

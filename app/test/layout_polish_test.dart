@@ -61,7 +61,9 @@ void main() {
       return jsonEncode({
         'ok': true,
         'snapshot': {
+          'path': '${directory.path}/working.ihtd',
           'document': {
+            'document_id': 'layout-test',
             'views': {
               '1': {'id': 1, 'name': 'All tasks'},
               '2': _view,
@@ -94,6 +96,8 @@ void main() {
   });
   tearDown(() async {
     container.dispose();
+    // Draft writes may still hold files open after the widget test finishes.
+    await controller.itemDrafts.flush();
     await controller.documentServices.diagnostics.flush();
     await directory.delete(recursive: true);
   });
@@ -252,7 +256,9 @@ void main() {
         tester.getTopLeft(find.text('Title *')).dy,
         greaterThanOrEqualTo(viewportRect.top),
       );
-      await tester.enterText(title, 'Keep this input');
+      // This edit schedules real draft-file IO; keep it outside the fake clock
+      // so teardown can await the write before deleting the support directory.
+      await tester.runAsync(() => tester.enterText(title, 'Keep this input'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 0);
       await tester.pumpAndSettle();
       expect(
@@ -406,7 +412,7 @@ void main() {
           greaterThanOrEqualTo(tester.getRect(scroll).top),
         );
         await capture(tester, 'folder-${scenario.name}-top');
-        final create = find.widgetWithText(FilledButton, 'Create');
+        final create = find.byKey(const ValueKey('item-create-bottom'));
         if (find
             .ancestor(of: create, matching: find.byType(SingleChildScrollView))
             .evaluate()

@@ -80,6 +80,39 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
             .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
             .map_err(err)?;
     }
+    for (key, value) in [
+        (
+            "collection_settings",
+            serde_json::to_string(&document.collection_settings).map_err(err)?,
+        ),
+        (
+            "parent_indicator_defaults",
+            serde_json::to_string(&document.parent_indicator_defaults).map_err(err)?,
+        ),
+    ] {
+        transaction
+            .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
+            .map_err(err)?;
+    }
+    if let Some(id) = document.all_tasks_view_id {
+        transaction
+            .execute(
+                "INSERT INTO metadata VALUES ('all_tasks_view_id',?1)",
+                [id.to_string()],
+            )
+            .map_err(err)?;
+    }
+    if !document.tag_usage.is_empty() {
+        transaction
+            .execute(
+                "INSERT INTO metadata VALUES (?1,?2)",
+                params![
+                    "tag_usage",
+                    serde_json::to_string(&document.tag_usage).map_err(err)?
+                ],
+            )
+            .map_err(err)?;
+    }
     for item in document.items.values() {
         transaction
             .execute(
@@ -118,6 +151,14 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
 }
 
 pub fn decode(bytes: &[u8]) -> Result<Document, String> {
+    let mut document = decode_preserving(bytes)?;
+    document.recompute_completion()?;
+    Ok(document)
+}
+
+/// Migration validation must preserve stored field values, not compare two
+/// independently normalized versions that could both hide the same data loss.
+pub fn decode_preserving(bytes: &[u8]) -> Result<Document, String> {
     let mut local = NamedTempFile::new().map_err(err)?;
     local.write_all(bytes).map_err(err)?;
     local.flush().map_err(err)?;
@@ -178,8 +219,31 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         )
         .optional()
         .map_err(err)?;
+    let optional_json = |key: &str| -> Result<Option<String>, String> {
+        connection
+            .query_row("SELECT value FROM metadata WHERE key=?1", [key], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(err)
+    };
     let mut document = Document {
+        all_tasks_view_id: optional_json("all_tasks_view_id")?
+            .map(|s| s.parse::<i64>().map_err(err))
+            .transpose()?,
+        tag_usage: optional_json("tag_usage")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         schema_version: ihtd_core::model::SCHEMA_VERSION,
+        collection_settings: optional_json("collection_settings")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
+        parent_indicator_defaults: optional_json("parent_indicator_defaults")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         document_id: metadata("document_id")?,
         revision: metadata("revision")?.parse().map_err(err)?,
         next_id: metadata("next_id")?.parse().map_err(err)?,
@@ -225,7 +289,6 @@ pub fn decode(bytes: &[u8]) -> Result<Document, String> {
         .collect::<Result<_, _>>()
         .map_err(err)?;
     document.validate()?;
-    document.recompute_completion()?;
     Ok(document)
 }
 
@@ -262,7 +325,19 @@ pub struct Session {
 }
 impl Session {
     pub fn open(path: PathBuf, recovery_dir: &Path) -> Result<Self, String> {
+        Self::open_expected(path, recovery_dir, None)
+    }
+    pub fn open_expected(
+        path: PathBuf,
+        recovery_dir: &Path,
+        expected_hash: Option<&str>,
+    ) -> Result<Self, String> {
         let bytes = fs::read(&path).map_err(err)?;
+        if expected_hash.is_some_and(|expected| expected != fingerprint(&bytes)) {
+            return Err("Validated migration candidate changed before opening.".into());
+        }
+        crate::migration::reject_sidecars(&path).map_err(|e| e.0.to_string())?;
+        crate::migration::require_current(&bytes)?;
         let document = decode(&bytes)?;
         let recovery_path = recovery_dir.join(format!(
             "{}-{}.ihtd",
@@ -285,11 +360,22 @@ impl Session {
         Self::open(path, recovery_dir)
     }
     pub fn restore_recovery(&mut self, recovery: &Path) -> Result<(), String> {
-        let document = decode(&fs::read(recovery).map_err(err)?)?;
+        self.restore_recovery_mode(recovery, true)
+    }
+    pub fn restore_recovery_if_newer(&mut self, recovery: &Path) -> Result<(), String> {
+        self.restore_recovery_mode(recovery, false)
+    }
+    fn restore_recovery_mode(&mut self, recovery: &Path, force: bool) -> Result<(), String> {
+        let bytes = fs::read(recovery).map_err(err)?;
+        crate::migration::require_current(&bytes)?;
+        let document = decode(&bytes)?;
         if document.document_id != self.document.document_id
-            || document.revision < self.document.revision
+            || (force && document.revision < self.document.revision)
         {
             return Err("Recovery does not belong to this working collection revision.".into());
+        }
+        if !force && document.revision <= self.document.revision {
+            return Ok(());
         }
         self.document = document;
         self.dirty = true;
@@ -297,7 +383,9 @@ impl Session {
     }
     pub fn restore_available(&mut self) -> Result<(), String> {
         if self.recovery_path.exists() {
-            let recovered = decode(&fs::read(&self.recovery_path).map_err(err)?)?;
+            let bytes = fs::read(&self.recovery_path).map_err(err)?;
+            crate::migration::require_current(&bytes)?;
+            let recovered = decode(&bytes)?;
             if recovered.document_id == self.document.document_id
                 && recovered.revision > self.document.revision
             {
@@ -313,6 +401,7 @@ impl Session {
         if fingerprint == self.baseline {
             return Ok(false);
         }
+        crate::migration::require_current(&bytes)?;
         let replacement = decode(&bytes)?;
         if self.dirty {
             return Err("The file changed while local edits are waiting to save. Use Save a copy as to preserve your edits.".into());
@@ -521,5 +610,167 @@ mod tests {
         s.save_as(copy.clone()).unwrap();
         assert_eq!(decode(&fs::read(copy).unwrap()).unwrap(), candidate);
         assert!(!s.dirty);
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+    use ihtd_core::settings::{CollectionSettings, IndicatorOverrides};
+    #[test]
+    fn distributed_schema_two_defaults_are_readonly_and_settings_roundtrip_preserves_everything_else(
+    ) {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let original = decode_preserving(bytes).unwrap();
+        assert_eq!(original.collection_settings, CollectionSettings::default());
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("existing.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let mut session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        let mut changed = session.document.clone();
+        let old = changed.collection_settings.clone();
+        let mut settings = old.clone();
+        settings.tag_suggestion_count = 0;
+        settings.tag_half_life_days = 7;
+        settings.indicators.next_due_date = true;
+        changed.set_collection_settings(&old, settings).unwrap();
+        let parent = *changed.items.keys().next().unwrap();
+        let view = *changed.views.keys().next().unwrap();
+        let empty = IndicatorOverrides::default();
+        changed
+            .set_indicator_settings(
+                parent,
+                view,
+                &empty,
+                &empty,
+                IndicatorOverrides {
+                    total: Some(false),
+                    ..empty.clone()
+                },
+                IndicatorOverrides {
+                    low_priority: Some(true),
+                    ..empty.clone()
+                },
+            )
+            .unwrap();
+        session.commit(changed.clone()).unwrap();
+        let reopened = decode_preserving(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(reopened, changed);
+        let mut preserved = reopened;
+        preserved.collection_settings = original.collection_settings.clone();
+        preserved.parent_indicator_defaults.clear();
+        preserved
+            .views
+            .get_mut(&view)
+            .unwrap()
+            .preferences
+            .get_mut(&parent)
+            .unwrap()
+            .indicators = empty;
+        // Remove only the new preference entry if none existed in the source.
+        if !original.views[&view].preferences.contains_key(&parent) {
+            preserved
+                .views
+                .get_mut(&view)
+                .unwrap()
+                .preferences
+                .remove(&parent);
+        }
+        preserved.revision = original.revision;
+        assert_eq!(preserved, original);
+    }
+    #[test]
+    fn malformed_optional_settings_are_not_silently_reset() {
+        let doc = Document::new("settings".into());
+        let file = NamedTempFile::new().unwrap();
+        fs::write(file.path(), encode(&doc).unwrap()).unwrap();
+        let c = Connection::open(file.path()).unwrap();
+        c.execute(
+            "UPDATE metadata SET value=?1 WHERE key='collection_settings'",
+            [r#"{"tag_half_life_days":0}"#],
+        )
+        .unwrap();
+        c.close().unwrap();
+        assert!(decode(&fs::read(file.path()).unwrap()).is_err());
+    }
+}
+
+#[cfg(test)]
+mod sorting_preservation_tests {
+    use super::*;
+    use ihtd_core::sorting::{SortMode, SortSpec};
+    #[test]
+    fn distributed_files_default_to_manual_without_rewrite_and_new_choices_roundtrip() {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("Original.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        assert_eq!(fs::read(path).unwrap(), bytes);
+        let mut d = session.document.clone();
+        let before = d.clone();
+        assert!(d.views.values().all(|v| v.sorting.is_empty()));
+        d.set_sort(
+            1,
+            None,
+            SortSpec::default(),
+            SortSpec {
+                mode: SortMode::DueDate,
+                descending: true,
+            },
+        )
+        .unwrap();
+        let parent = *d.items.keys().next().unwrap();
+        d.set_sort(
+            1,
+            Some(parent),
+            SortSpec::default(),
+            SortSpec {
+                mode: SortMode::Priority,
+                descending: true,
+            },
+        )
+        .unwrap();
+        let mut reopened = decode_preserving(&encode(&d).unwrap()).unwrap();
+        assert_eq!(reopened, d);
+        reopened.views.get_mut(&1).unwrap().sorting.clear();
+        reopened.revision = before.revision;
+        assert_eq!(reopened, before);
+    }
+}
+
+#[cfg(test)]
+mod tag_usage_preservation_tests {
+    use super::*;
+    #[test]
+    fn old_files_have_no_invented_history_and_manual_history_roundtrips_without_other_changes() {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("Original.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        let before = session.document.clone();
+        assert!(before.tag_usage.is_empty());
+        assert_eq!(before.ranked_tags(1_800_000_000).unwrap(), [6]);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        let mut changed = before.clone();
+        changed.record_tag_assignments(&[6], 1_800_000_000).unwrap();
+        let mut restored = decode_preserving(&encode(&changed).unwrap()).unwrap();
+        assert_eq!(restored, changed);
+        restored.tag_usage.clear();
+        restored.revision = before.revision;
+        assert_eq!(restored, before);
+        let corrupt = tmp.path().join("Invalid.ihtd");
+        fs::write(&corrupt, encode(&changed).unwrap()).unwrap();
+        let connection = Connection::open(&corrupt).unwrap();
+        connection
+            .execute(
+                "UPDATE metadata SET value=?1 WHERE key='tag_usage'",
+                [r#"{"999":{"1800000000":1}}"#],
+            )
+            .unwrap();
+        drop(connection);
+        assert!(decode_preserving(&fs::read(corrupt).unwrap()).is_err());
     }
 }

@@ -1,12 +1,20 @@
 pub mod export;
 pub mod filesystem;
+pub mod item_drafts;
+pub mod migration;
 pub mod presentation;
+pub mod sorting;
 pub mod storage;
+#[cfg(test)]
+mod upgrade_acceptance;
 
 use ihtd_core::{
     graph::ItemId,
+    hierarchy::{ActionPreview, ItemAction},
     model::{ContainerPreferences, ItemKind},
     removal::RemovalPreview,
+    settings::{CollectionSettings, IndicatorOverrides},
+    sorting::SortSpec,
 };
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -55,6 +63,14 @@ fn decode<T: serde::de::DeserializeOwned>(v: &Value) -> Result<T, String> {
 impl Backend {
     pub fn execute(&mut self, request: &str) -> String {
         if let Ok(value) = serde_json::from_str::<Value>(request) {
+            if value["op"] == "migration" {
+                return match migration::execute(&value) {
+                    Ok(data) => json!({"ok":true,"data":data}).to_string(),
+                    Err(migration::Failure(code)) => {
+                        json!({"ok":false,"error_code":code,"error":code}).to_string()
+                    }
+                };
+            }
             if value["op"] == "filesystem" {
                 return match filesystem::execute(&value) {
                     Ok(data) => json!({"ok":true,"data":data}).to_string(),
@@ -76,7 +92,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
+                json!({"all_tasks_view_id":s.document.all_tasks_view_id(),"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"appearances":s.document.appearance_counts(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
             }
         }
     }
@@ -102,11 +118,19 @@ impl Backend {
                 let mut next = if op == "new" {
                     Session::new(path, &self.recovery_dir)?
                 } else {
-                    Session::open(path, &self.recovery_dir)?
+                    Session::open_expected(
+                        path,
+                        &self.recovery_dir,
+                        request["expected_hash"].as_str(),
+                    )?
                 };
                 if op == "open" {
                     if let Some(recovery) = request.get("recovery_path").and_then(Value::as_str) {
-                        next.restore_recovery(std::path::Path::new(recovery))?;
+                        if flag(&request, "recovery_if_newer") {
+                            next.restore_recovery_if_newer(std::path::Path::new(recovery))?;
+                        } else {
+                            next.restore_recovery(std::path::Path::new(recovery))?;
+                        }
                     }
                     if request
                         .get("recover_local")
@@ -126,6 +150,25 @@ impl Backend {
             .as_mut()
             .ok_or("Open or create a collection first")?;
         match op.as_str() {
+            "item_draft_status" => {
+                return Ok(
+                    json!({"committed":request["digest"].as_str()==Some(item_drafts::digest(&session.document)?.as_str())}),
+                )
+            }
+            "preview_item_draft" => return item_drafts::preview(&session.document, &request),
+            "save_item_draft" => {
+                if request["expected_revision"].as_u64() != Some(session.document.revision) {
+                    return Err("The collection changed while preparing Save. Your draft has been retained; try Save again.".into());
+                }
+                let (candidate, id) = item_drafts::prepare(&session.document, &request)?;
+                if request["expected_digest"].as_str()
+                    != Some(item_drafts::digest(&candidate)?.as_str())
+                {
+                    return Err("The prepared draft changed. Nothing was saved.".into());
+                }
+                session.commit(candidate)?;
+                return Ok(json!({"id":id}));
+            }
             "copy" => {
                 let path = PathBuf::from(string(&request, "path")?);
                 storage::publish(&path, &storage::encode(&session.document)?, false)?;
@@ -151,9 +194,56 @@ impl Backend {
             }
             "query" => {
                 let expanded: BTreeSet<String> = decode(&request["expanded"])?;
+                let view = number(&request, "view_id")?;
+                let completed = flag(&request, "completed_only");
+                // Older/internal outline consumers may omit the local date.
+                // Product UI always supplies it to request shared summaries.
+                let rows = if request.get("today").is_some() {
+                    presentation::outline_with_summaries(
+                        &session.document,
+                        view,
+                        completed,
+                        &expanded,
+                        &string(&request, "today")?,
+                    )?
+                } else {
+                    presentation::outline(&session.document, view, completed, &expanded)?
+                };
+                return Ok(json!({"rows": rows}));
+            }
+            "preview_sorted_move" => {
+                return serde_json::to_value(sorting::preview(
+                    &session.document,
+                    decode::<sorting::MoveRequest>(&request["request"])?,
+                )?)
+                .map_err(|e| e.to_string());
+            }
+            "apply_sorted_move" => {
+                let candidate = sorting::accepted_candidate(
+                    &session.document,
+                    &decode::<sorting::MovePlan>(&request["plan"])?,
+                )?;
+                session.commit(candidate)?;
+                return Ok(json!({}));
+            }
+            "copy_options" => {
+                let (descendants, max_depth) =
+                    session.document.copy_options(number(&request, "id")?)?;
                 return Ok(
-                    json!({"rows":presentation::outline(&session.document,number(&request,"view_id")?,flag(&request,"completed_only"),&expanded)?}),
+                    json!({"descendants":descendants,"max_depth":max_depth,"revision":session.document.revision}),
                 );
+            }
+            "rank_tags" => {
+                return Ok(
+                    json!({"order": session.document.ranked_tags(number(&request, "now")?)?}),
+                );
+            }
+            "preview_item_action" => {
+                return serde_json::to_value(session.document.preview_item_action(
+                    decode::<Vec<i64>>(&request["path"])?,
+                    decode::<ItemAction>(&request["action"])?,
+                )?)
+                .map_err(|e| e.to_string());
             }
             "preview_removal" => {
                 return serde_json::to_value(session.document.preview_removal(
@@ -261,6 +351,39 @@ impl Backend {
                 )?;
                 json!({})
             }
+            "link_or_copy" => {
+                let depth = match request.get("depth") {
+                    Some(Value::Null) => None,
+                    Some(v) => Some(
+                        v.as_u64()
+                            .and_then(|n| u32::try_from(n).ok())
+                            .ok_or("Invalid copy depth")?,
+                    ),
+                    None => return Err("Missing copy depth".into()),
+                };
+                let mode = string(&request, "mode")?;
+                if mode != "link" && mode != "copy" {
+                    return Err("Invalid operation mode".into());
+                }
+                let id = document.link_or_copy(
+                    number(&request, "source")?,
+                    optional_number(&request, "destination")?,
+                    mode == "copy",
+                    depth,
+                    flag(&request, "independent"),
+                    request["expected_revision"]
+                        .as_u64()
+                        .ok_or("Missing revision")?,
+                )?;
+                json!({"id":id})
+            }
+            "apply_item_action" => {
+                document.apply_item_action(
+                    &decode::<ActionPreview>(&request["preview"])?,
+                    flag(&request, "confirmed"),
+                )?;
+                json!({})
+            }
             "remove_placement" => {
                 let preview: RemovalPreview = decode(&request["preview"])?;
                 document.remove_placement(&preview, flag(&request, "confirm_delete"))?;
@@ -319,6 +442,33 @@ impl Backend {
                 document.remove_view(number(&request, "id")?)?;
                 json!({})
             }
+            "set_sort" => {
+                document.set_sort(
+                    number(&request, "view_id")?,
+                    optional_number(&request, "parent")?,
+                    decode::<SortSpec>(&request["expected_sort"])?,
+                    decode::<SortSpec>(&request["sort"])?,
+                )?;
+                json!({})
+            }
+            "set_collection_settings" => {
+                document.set_collection_settings(
+                    &decode::<CollectionSettings>(&request["expected_settings"])?,
+                    decode::<CollectionSettings>(&request["settings"])?,
+                )?;
+                json!({})
+            }
+            "set_indicator_settings" => {
+                document.set_indicator_settings(
+                    number(&request, "item_id")?,
+                    number(&request, "view_id")?,
+                    &decode::<IndicatorOverrides>(&request["expected_parent"])?,
+                    &decode::<IndicatorOverrides>(&request["expected_view"])?,
+                    decode::<IndicatorOverrides>(&request["parent_overrides"])?,
+                    decode::<IndicatorOverrides>(&request["view_overrides"])?,
+                )?;
+                json!({})
+            }
             "set_preferences" => {
                 document.set_container_preferences(
                     number(&request, "view_id")?,
@@ -340,6 +490,49 @@ mod tests {
     use super::*;
     fn execute(b: &mut Backend, v: Value) -> Value {
         serde_json::from_str(&b.execute(&v.to_string())).unwrap()
+    }
+    #[test]
+    fn tag_usage_preview_and_replayed_saves_never_count_an_assignment_twice() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("file.ihtd");
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        assert_eq!(execute(&mut b, json!({"op":"new","path":path}))["ok"], true);
+        let tag = execute(&mut b, json!({"op":"add_tag","name":"Travel"}))["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let id = execute(
+            &mut b,
+            json!({"op":"add_item","kind":"task","title":"Task","view_id":1}),
+        )["data"]["id"]
+            .as_i64()
+            .unwrap();
+        let source = b.session.as_ref().unwrap().document.clone();
+        let mut request = json!({"op":"preview_item_draft","id":id,"expected_item":source.items[&id],"title":"Task","notes":"","due_date":null,"priority":0,"tag_ids":[tag],"auto_complete":false,"tag_assignment_time":1800000000});
+        let before = std::fs::read(&path).unwrap();
+        let plan = execute(&mut b, request.clone());
+        assert_eq!(plan["ok"], true);
+        assert_eq!(b.session.as_ref().unwrap().document, source);
+        request["op"] = json!("save_item_draft");
+        request["expected_revision"] = plan["data"]["revision"].clone();
+        request["expected_digest"] = plan["data"]["digest"].clone();
+        let mut wrong_time = request.clone();
+        wrong_time["tag_assignment_time"] = json!(1800001000);
+        assert_eq!(execute(&mut b, wrong_time)["ok"], false);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(execute(&mut b, request.clone())["ok"], true);
+        let accepted = std::fs::read(&path).unwrap();
+        assert_eq!(execute(&mut b, request)["ok"], false);
+        assert_eq!(
+            execute(&mut b, json!({"op":"rank_tags","now":1800000000}))["data"]["order"],
+            json!([tag])
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), accepted);
+        let restored = storage::decode_preserving(&accepted).unwrap();
+        assert_eq!(restored.tag_usage[&tag][&1_800_000_000], 1);
+        assert_eq!(restored.revision, source.revision + 1);
     }
     #[test]
     fn filtered_creation_is_atomic_and_saves_every_accepted_change() {
@@ -508,5 +701,61 @@ mod removal_tests {
             1
         );
         assert_eq!(std::fs::read(other).unwrap(), b"untouched");
+    }
+}
+
+#[cfg(test)]
+mod settings_command_tests {
+    use super::*;
+    fn run(b: &mut Backend, request: Value) -> Value {
+        serde_json::from_str(&b.execute(&request.to_string())).unwrap()
+    }
+    #[test]
+    fn settings_commands_reject_stale_changes_and_preserve_unrelated_visibility() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut b = Backend {
+            session: None,
+            recovery_dir: tmp.path().join("recovery"),
+        };
+        let initial = run(
+            &mut b,
+            json!({"op":"new","path":tmp.path().join("working.ihtd")}),
+        );
+        let mut settings = initial["snapshot"]["collection_settings"].clone();
+        assert_eq!(settings["tag_suggestion_count"], 5);
+        let expected = settings.clone();
+        settings["tag_half_life_days"] = json!(6);
+        let saved = run(
+            &mut b,
+            json!({"op":"set_collection_settings","expected_settings":expected,"settings":settings}),
+        );
+        assert_eq!(saved["ok"], true);
+        let stale = run(
+            &mut b,
+            json!({"op":"set_collection_settings","expected_settings":expected,"settings":expected}),
+        );
+        assert_eq!(stale["ok"], false);
+        assert_eq!(stale["snapshot"]["document"], saved["snapshot"]["document"]);
+        let id = run(
+            &mut b,
+            json!({"op":"add_item","kind":"folder","title":"Parent","view_id":1}),
+        )["data"]["id"]
+            .clone();
+        assert_eq!(
+            run(
+                &mut b,
+                json!({"op":"set_preferences","view_id":1,"item_id":id,"preferences":{"folder_hidden":true}})
+            )["ok"],
+            true
+        );
+        let accepted = run(
+            &mut b,
+            json!({"op":"set_indicator_settings","view_id":1,"item_id":id,
+            "expected_parent":{},"expected_view":{},"parent_overrides":{"total":false},"view_overrides":{"next_due_date":true}}),
+        );
+        assert_eq!(accepted["ok"], true);
+        let pref = &accepted["snapshot"]["document"]["views"]["1"]["preferences"][id.to_string()];
+        assert_eq!(pref["folder_hidden"], true);
+        assert_eq!(pref["indicators"]["next_due_date"], true);
     }
 }

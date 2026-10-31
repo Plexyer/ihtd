@@ -15,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'support/settle_controller.dart';
+
 void main() {
   late Directory directory;
   late AppController app;
@@ -186,16 +188,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 2)),
-      );
-      if (i > 5 && !app.busy) break;
-    }
-    await tester.pumpAndSettle();
-  }
+  Future<void> settle(WidgetTester tester) => settleController(tester, app);
 
   Future<void> addHigh(WidgetTester tester, Finder plus) async {
     await tap(tester, plus);

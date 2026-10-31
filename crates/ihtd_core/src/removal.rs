@@ -148,12 +148,16 @@ impl Document {
                 RemovalAction::Delete => {
                     let deleted: BTreeSet<_> = preview.deleted_ids.iter().copied().collect();
                     document.deleted_item_ids.extend(deleted.iter().copied());
+                    document
+                        .parent_indicator_defaults
+                        .retain(|id, _| !deleted.contains(id));
                     document.items.retain(|id, _| !deleted.contains(id));
                     document.links.retain(|link| {
                         !deleted.contains(&link.parent) && !deleted.contains(&link.child)
                     });
                     document.root_order.retain(|id| !deleted.contains(id));
                     for view in document.views.values_mut() {
+                        view.sorting.retain(|id, _| !deleted.contains(id));
                         view.preferences.retain(|id, _| !deleted.contains(id));
                     }
                 }

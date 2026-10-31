@@ -1,11 +1,12 @@
 # Update implementation and physical acceptance
 
-Implementation candidate: 0.2.3 build 12. This is not a published stable release.
-The repository is now public and its corrected protections are verified. There
-is no compatible stable updater release yet; publication and phone acceptance
-remain pending. No credential is embedded
-in the app. See [publication audit](publication-audit.md) and
-[public conversion guide](public-repository-guide.md).
+The updater was introduced in 0.2.3+12; v0.2.5+14 is now a published stable
+release. The owner reported successful update checks on both phones after
+enabling IHTD's network permission. This is historical evidence, not full
+acceptance of the next 0.3.0+15 candidate. Follow the current
+[upgrade guide](upgrade-acceptance.md) and [result sheet](upgrade-acceptance-results.md).
+The repository is public; no credential is embedded in the app. See
+[publication audit](publication-audit.md) and [public conversion guide](public-repository-guide.md).
 
 ## Implemented boundaries and trust
 
@@ -72,7 +73,7 @@ reviewed version with a higher semantic version and Android build number through
 the normal release process. Do not reuse distributed tags or replace assets.
 Do not publish a dummy test release as stable merely to make an icon appear.
 
-## Required physical acceptance (not yet run)
+## Required physical acceptance (record per candidate)
 
 Record model, Android version/API, installed build/certificate and result for
 both Pixel 9 Pro/GrapheneOS and the father's Samsung (must be ARM64, API 35+).

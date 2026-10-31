@@ -16,6 +16,7 @@
     <style name="LaunchTheme" parent="IhtdWindowTheme">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">@color/ihtd_header</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ihtd_splash</item>
     </style>
     <style name="NormalTheme" parent="IhtdWindowTheme" />
 </resources>

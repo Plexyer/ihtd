@@ -16,7 +16,7 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
-    'phone editor flushes on Done and swipes scroll without moving items',
+    'phone editor saves and closes on Save and swipes scroll without moving items',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       tester.view.physicalSize = const Size(390, 844);
@@ -84,14 +84,33 @@ void main() {
         (widget) =>
             widget is TextField && widget.decoration?.labelText == 'Title',
       );
-      await tester.enterText(title, 'Saved on Done');
-      await tester.tap(find.text('Done'));
+      await tester.enterText(title, 'Saved on Save');
+      expect(
+        controller.document!['items']['${controller.selectedItemId}']['title'],
+        'Scroll item 0',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      // pumpAndSettle alone does not await filesystem/journal futures. Start
+      // the swipe assertion only after the asynchronous Save closes the editor.
+      for (
+        var i = 0;
+        i < 250 &&
+            (controller.itemDraft != null ||
+                controller.savingItemDraft ||
+                controller.busy);
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
       await tester.pumpAndSettle();
-      expect(find.text('Saved on Done'), findsOneWidget);
+      expect(controller.itemDraft, isNull, reason: controller.error);
+      expect(controller.savingItemDraft, false);
+      expect(find.text('Saved on Save'), findsOneWidget);
       expect(controller.error, isNull);
       final revision = controller.document!['revision'];
       final links = '${controller.document!['links']}';
-      await tester.drag(find.text('Saved on Done'), const Offset(0, -280));
+      await tester.drag(find.text('Saved on Save'), const Offset(0, -280));
       await tester.pumpAndSettle();
       expect(controller.document!['revision'], revision);
       expect('${controller.document!['links']}', links);
@@ -125,6 +144,17 @@ void main() {
       await gesture.moveTo(end);
       await tester.pump();
       await gesture.up();
+      // The drop now plans and commits asynchronously; wait for the observed
+      // hierarchy change rather than treating frame settling as an IO barrier.
+      for (
+        var i = 0;
+        i < 250 &&
+            !(controller.document!['root_order'] as List).contains(branch);
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
       await tester.pumpAndSettle();
       expect(controller.error, isNull);
       expect(controller.document!['root_order'], [branch]);
@@ -192,7 +222,8 @@ void main() {
         greaterThanOrEqualTo(tester.getRect(titleScroll).top),
       );
       await tester.enterText(newTitle, 'Created with keyboard');
-      await tester.tap(find.text('Create'));
+      expect(find.byKey(const ValueKey('item-create-bottom')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('item-create-top')));
       await tester.pumpAndSettle();
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();

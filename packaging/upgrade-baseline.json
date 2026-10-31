@@ -1,0 +1,23 @@
+{
+  "version": "0.2.5",
+  "build": 14,
+  "tag": "v0.2.5",
+  "commit": "ec7144a6a03dc666e3fad885e1fe1562cf144569",
+  "assets": {
+    "windows": {
+      "name": "IHTD-0.2.5-windows-x64-setup.exe",
+      "size": 12288020,
+      "sha256": "dd7a438e80cffe6648ef944ee0ee80e2eb21f6988a088a41b77885c788d461b4"
+    },
+    "fedora": {
+      "name": "ihtd-0.2.5-1.fc44.x86_64.rpm",
+      "size": 10008004,
+      "sha256": "c844b90159ffe18420e72c321ebdf7d3d7c9340b1b36f4a902b57b173b467a28"
+    },
+    "android": {
+      "name": "IHTD-0.2.5-android-arm64.apk",
+      "size": 22714183,
+      "sha256": "9334450df902a84c5cd80ad2e3f9d4f67eca499b0de0c52ae441819e2592777e"
+    }
+  }
+}

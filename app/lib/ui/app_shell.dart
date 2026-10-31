@@ -1,206 +1,224 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/app_controller.dart';
+import '../services/item_draft.dart';
 import 'item_editor.dart';
+import 'collection_settings.dart';
 import 'item_removal.dart';
 import 'item_drag.dart';
+import 'sort_settings.dart';
+import 'priority_icon.dart';
+import 'summary_indicators.dart';
 import 'shared.dart';
 import 'view_editor.dart';
 import 'document_status.dart';
 import 'app_theme.dart';
 import 'app_updates.dart';
 import 'app_license.dart';
+import 'app_brand.dart';
 import '../services/update_composition.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  bool _escape(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return false;
+    }
+    final app = ref.read(appProvider);
+    if (app.itemDraft == null) return false;
+    unawaited(app.resolveItemDraft(reason: DraftExitReason.back, close: true));
+    return true;
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_escape);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_escape);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final app = ref.watch(appProvider);
     app.confirmDocumentAction = (title, message) => context.mounted
         ? confirmDocumentAction(context, title, message)
         : Future.value(false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1100;
-        final drawer = constraints.maxWidth < 780;
-        final surfaces = AppSurfaces.of(context);
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: surfaceOverlays(top: surfaces.header, bottom: surfaces.canvas),
-          child: Scaffold(
-            drawer: drawer
-                ? AnnotatedRegion<SystemUiOverlayStyle>(
-                    value: surfaceOverlays(
-                      top: surfaces.sidebar,
-                      bottom: surfaces.sidebar,
-                    ),
-                    child: Drawer(
-                      backgroundColor: surfaces.sidebar,
-                      surfaceTintColor: Colors.transparent,
-                      child: SafeArea(child: _Sidebar(app: app)),
-                    ),
-                  )
-                : null,
-            body: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  ColoredBox(
-                    key: const ValueKey('header-surface'),
-                    color: surfaces.header,
-                    child: SafeArea(
-                      bottom: false,
-                      child: _FileBar(app: app, drawer: drawer),
-                    ),
-                  ),
-                  if ((app.document != null ||
-                          app.documentServices.binding != null) &&
-                      (constraints.maxWidth <= 540 || app.documentIssue))
-                    DocumentStatus(app: app),
-                  if (app.busy) const LinearProgressIndicator(minHeight: 2),
-                  if (app.error != null)
-                    Material(
-                      color: Theme.of(context).colorScheme.errorContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, size: 19),
-                            const SizedBox(width: 12),
-                            Expanded(child: SelectableText(app.error!)),
-                            IconButton(
-                              tooltip: 'Dismiss error',
-                              onPressed: app.clearError,
-                              icon: const Icon(Icons.close),
-                            ),
-                          ],
+    app.chooseDraftExit = (draft, reason) => context.mounted
+        ? chooseItemDraftExit(context, draft, reason)
+        : Future.value(DraftExitChoice.keepEditing);
+    if ((app.recoveredDrafts.isNotEmpty ||
+            app.itemDrafts.unreadableCount > 0) &&
+        !app.recoveryOfferShown) {
+      app.recoveryOfferShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) showRecoveredItemDrafts(context, app);
+      });
+    }
+    return PopScope<void>(
+      canPop: app.itemDraft == null,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await app.resolveItemDraft(reason: DraftExitReason.back, close: true);
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 1100;
+          final draft = app.itemDraft;
+          if (!wide && draft != null && !app.editorOverlayVisible) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted &&
+                  identical(app.itemDraft, draft) &&
+                  !app.editorOverlayVisible) {
+                showItemDraftDialog(context, app);
+              }
+            });
+          }
+          final drawer = constraints.maxWidth < 780;
+          final surfaces = AppSurfaces.of(context);
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: surfaceOverlays(
+              top: surfaces.header,
+              bottom: surfaces.canvas,
+            ),
+            child: Scaffold(
+              drawer: drawer
+                  ? AnnotatedRegion<SystemUiOverlayStyle>(
+                      value: surfaceOverlays(
+                        top: surfaces.sidebar,
+                        bottom: surfaces.sidebar,
+                      ),
+                      child: Drawer(
+                        backgroundColor: surfaces.sidebar,
+                        surfaceTintColor: Colors.transparent,
+                        child: SafeArea(child: _Sidebar(app: app)),
+                      ),
+                    )
+                  : null,
+              body: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () async {
+                  if (!app.editorOverlayVisible) {
+                    await app.resolveItemDraft(
+                      reason: DraftExitReason.outside,
+                      close: true,
+                    );
+                  }
+                },
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    children: [
+                      ColoredBox(
+                        key: const ValueKey('header-surface'),
+                        color: surfaces.header,
+                        child: SafeArea(
+                          bottom: false,
+                          child: AppFileBar(app: app, drawer: drawer),
                         ),
                       ),
-                    ),
-                  Expanded(
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: Row(
-                        children: [
-                          if (!drawer)
-                            SizedBox(width: 242, child: _Sidebar(app: app)),
-                          Expanded(
-                            child: app.document == null
-                                ? _Welcome(app: app)
-                                : _TaskPane(
-                                    app: app,
-                                    showDetail: (id) async {
-                                      await app.selectItem(id);
-                                      if (!context.mounted ||
-                                          app.selectedItemId != id) {
-                                        return;
-                                      }
-                                      if (!wide) {
-                                        showModalBottomSheet<void>(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          useSafeArea: true,
-                                          isDismissible: false,
-                                          enableDrag: false,
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 620,
-                                          ),
-                                          builder: (context) => Padding(
-                                            padding: EdgeInsets.only(
-                                              bottom: MediaQuery.viewInsetsOf(
-                                                context,
-                                              ).bottom,
-                                            ),
-                                            child: PopScope(
-                                              canPop: false,
-                                              onPopInvokedWithResult:
-                                                  (didPop, result) async {
-                                                    if (!didPop &&
-                                                        await app
-                                                            .finishDraft() &&
-                                                        context.mounted) {
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                    }
-                                                  },
-                                              child: SizedBox(
-                                                height:
-                                                    MediaQuery.sizeOf(context)
-                                                        .height *
-                                                    .88,
-                                                child: Column(
-                                                  children: [
-                                                    Align(
-                                                      alignment:
-                                                          Alignment.centerRight,
-                                                      child: TextButton.icon(
-                                                        onPressed: () async {
-                                                          if (await app
-                                                                  .finishDraft() &&
-                                                              context.mounted) {
-                                                            Navigator.of(
-                                                              context,
-                                                            ).pop();
-                                                          }
-                                                        },
-                                                        icon: const Icon(
-                                                          Icons.close,
-                                                        ),
-                                                        label: const Text(
-                                                          'Done',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Consumer(
-                                                        builder:
-                                                            (
-                                                              context,
-                                                              ref,
-                                                              child,
-                                                            ) => ItemEditor(
-                                                              app: ref.watch(
-                                                                appProvider,
-                                                              ),
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                      if ((app.document != null ||
+                              app.documentServices.binding != null ||
+                              app.documentServices.migrations.hasIssue) &&
+                          (constraints.maxWidth <= 540 || app.documentIssue))
+                        DocumentStatus(app: app),
+                      if (app.recoveredDrafts.isNotEmpty ||
+                          app.itemDrafts.unreadableCount > 0)
+                        Material(
+                          color: const Color(0xffffefbd),
+                          child: ListTile(
+                            title: const Text(
+                              'Unfinished drafts are available on this device',
+                            ),
+                            trailing: TextButton(
+                              onPressed: () =>
+                                  showRecoveredItemDrafts(context, app),
+                              child: const Text('Review drafts…'),
+                            ),
                           ),
-                          if (wide &&
-                              app.document != null &&
-                              app.selectedItemId != null) ...[
-                            const VerticalDivider(width: 1),
-                            SizedBox(width: 360, child: ItemEditor(app: app)),
-                          ],
-                        ],
+                        ),
+                      if (app.busy) const LinearProgressIndicator(minHeight: 2),
+                      if (app.error != null)
+                        Material(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, size: 19),
+                                const SizedBox(width: 12),
+                                Expanded(child: SelectableText(app.error!)),
+                                IconButton(
+                                  tooltip: 'Dismiss error',
+                                  onPressed: app.clearError,
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: MediaQuery.removePadding(
+                          context: context,
+                          removeTop: true,
+                          child: Row(
+                            children: [
+                              if (!drawer)
+                                SizedBox(width: 242, child: _Sidebar(app: app)),
+                              Expanded(
+                                child: app.document == null
+                                    ? _Welcome(app: app)
+                                    : _TaskPane(
+                                        app: app,
+                                        showDetail: (id, path) async {
+                                          await app.selectItem(id, path: path);
+                                        },
+                                      ),
+                              ),
+                              if (wide &&
+                                  app.document != null &&
+                                  app.itemDraft != null &&
+                                  !app.editorOverlayVisible) ...[
+                                const VerticalDivider(width: 1),
+                                SizedBox(
+                                  width: 360,
+                                  child: ItemEditor(app: app),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
 
-class _FileBar extends ConsumerWidget {
-  const _FileBar({required this.app, required this.drawer});
+class AppFileBar extends ConsumerWidget {
+  const AppFileBar({super.key, required this.app, required this.drawer});
   final AppController app;
   final bool drawer;
 
@@ -216,8 +234,7 @@ class _FileBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          AppUpdateButton(app: app),
-          const Icon(Icons.check_circle, color: Color(0xff2763a5), size: 23),
+          const IhtdLogo(key: ValueKey('app-logo')),
           const SizedBox(width: 10),
           const Text(
             'IHTD',
@@ -231,6 +248,7 @@ class _FileBar extends ConsumerWidget {
           Expanded(
             child: Text(
               name ?? 'Your tasks, connected',
+              key: const ValueKey('collection-filename'),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, color: Color(0xff657589)),
             ),
@@ -256,11 +274,15 @@ class _FileBar extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
           ],
+          AppUpdateButton(app: app),
           PopupMenuButton<String>(
+            key: const ValueKey('file-menu'),
             tooltip: 'File and export',
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) {
               switch (value) {
+                case 'settings':
+                  showCollectionSettings(context, app);
                 case 'about':
                   showIhtdAbout(context);
                 case 'updates':
@@ -285,6 +307,11 @@ class _FileBar extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
+              if (app.document != null)
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Text('Settings…'),
+                ),
               const PopupMenuItem(
                 value: 'about',
                 child: Text('About and licenses…'),
@@ -343,7 +370,11 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final views = documentValues(app, 'views');
+    final storedViews = documentValues(app, 'views');
+    final views = [
+      ...storedViews.where((v) => app.isProtectedView(intValue(v['id']))),
+      ...storedViews.where((v) => !app.isProtectedView(intValue(v['id']))),
+    ];
     return Material(
       color: AppSurfaces.of(context).sidebar,
       child: Padding(
@@ -388,7 +419,7 @@ class _Sidebar extends StatelessWidget {
                         leading: Icon(
                           app.issuesForView(intValue(view['id'])).isNotEmpty
                               ? Icons.warning_amber_rounded
-                              : intValue(view['id']) == 1
+                              : app.isProtectedView(intValue(view['id']))
                               ? Icons.layers_outlined
                               : Icons.filter_alt_outlined,
                           size: 21,
@@ -406,14 +437,24 @@ class _Sidebar extends StatelessWidget {
                           right: 0,
                         ),
                         trailing: IconButton(
-                          tooltip: 'Edit view',
-                          icon: const Icon(Icons.tune, size: 16),
+                          tooltip: app.isProtectedView(intValue(view['id']))
+                              ? 'About All tasks'
+                              : 'Edit view',
+                          icon: Icon(
+                            app.isProtectedView(intValue(view['id']))
+                                ? Icons.info_outline
+                                : Icons.tune,
+                            size: 16,
+                          ),
                           onPressed: () =>
                               showViewEditor(context, app, existing: view),
                         ),
-                        onTap: () {
-                          app.selectView(intValue(view['id']));
-                          if (Scaffold.of(context).isDrawerOpen) {
+                        onTap: () async {
+                          final id = intValue(view['id']);
+                          await app.selectView(id);
+                          if (context.mounted &&
+                              app.selectedViewId == id &&
+                              Scaffold.of(context).isDrawerOpen) {
                             Navigator.pop(context);
                           }
                         },
@@ -504,7 +545,7 @@ class _Welcome extends StatelessWidget {
 class _TaskPane extends StatelessWidget {
   const _TaskPane({required this.app, required this.showDetail});
   final AppController app;
-  final ValueChanged<int> showDetail;
+  final void Function(int, String) showDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -552,9 +593,15 @@ class _TaskPane extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Edit this view',
+                tooltip: app.isProtectedView(intValue(view['id']))
+                    ? 'About All tasks'
+                    : 'Edit this view',
                 onPressed: () => showViewEditor(context, app, existing: view),
-                icon: const Icon(Icons.tune),
+                icon: Icon(
+                  app.isProtectedView(intValue(view['id']))
+                      ? Icons.info_outline
+                      : Icons.tune,
+                ),
               ),
             ],
           ),
@@ -594,13 +641,13 @@ class _TaskPane extends StatelessWidget {
                 icon: const Icon(Icons.create_new_folder_outlined, size: 20),
                 label: const Text('Folder'),
               ),
+              SortControl(app: app),
             ],
           ),
           const SizedBox(height: 12),
           ItemDropTarget(
             key: const ValueKey('top-level-drop'),
             app: app,
-            reorder: true,
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Row(
@@ -692,6 +739,17 @@ class _TaskPane extends StatelessWidget {
                       return PlacementRow(
                         app: app,
                         row: row,
+                        endPaths: [
+                          for (
+                            var level = depth;
+                            level >
+                                (index + 1 < app.rows.length
+                                    ? intValue(app.rows[index + 1]['depth'])
+                                    : -1);
+                            level--
+                          )
+                            '${row['path']}'.split('/').take(level).join('/'),
+                        ],
                         child: Padding(
                           padding: EdgeInsets.only(
                             left: (depth * 22.0).clamp(
@@ -714,195 +772,301 @@ class _TaskPane extends StatelessWidget {
                             ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(10),
-                              onTap: () => showDetail(id),
+                              onTap: () => showDetail(id, '${row['path']}'),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(3, 8, 8, 8),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 30,
-                                      child: row['has_children'] == true
-                                          ? IconButton(
-                                              tooltip: row['expanded'] == true
-                                                  ? 'Collapse children'
-                                                  : 'Expand children',
-                                              padding: EdgeInsets.zero,
-                                              icon: Icon(
-                                                row['expanded'] == true
-                                                    ? Icons.keyboard_arrow_down
-                                                    : Icons
-                                                          .keyboard_arrow_right,
-                                                size: 21,
-                                              ),
-                                              onPressed: () => app.toggleExpand(
-                                                '${row['path']}',
-                                              ),
-                                            )
-                                          : null,
-                                    ),
-                                    if (folder)
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                        ),
-                                        child: Icon(
-                                          Icons.folder_outlined,
-                                          color: Color(0xffa68755),
-                                          size: 23,
-                                        ),
-                                      )
-                                    else
-                                      Checkbox(
-                                        value: completed,
-                                        shape: const CircleBorder(),
-                                        onChanged: app.busy
-                                            ? null
-                                            : (value) => changeCompletion(
-                                                context,
-                                                app,
-                                                id,
-                                                value!,
-                                              ),
-                                      ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${item['title']}',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: contextOnly
-                                                  ? const Color(0xff8290a2)
-                                                  : const Color(0xff233f5d),
-                                              decoration: completed
-                                                  ? TextDecoration.lineThrough
+                                child: IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SummaryBodyControls(
+                                        summary: asMap(row['summary']),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 30,
+                                              child: row['has_children'] == true
+                                                  ? IconButton(
+                                                      tooltip:
+                                                          row['expanded'] ==
+                                                              true
+                                                          ? 'Collapse children'
+                                                          : 'Expand children',
+                                                      padding: EdgeInsets.zero,
+                                                      icon: Icon(
+                                                        row['expanded'] == true
+                                                            ? Icons
+                                                                  .keyboard_arrow_down
+                                                            : Icons
+                                                                  .keyboard_arrow_right,
+                                                        size: 21,
+                                                      ),
+                                                      onPressed: () =>
+                                                          app.toggleExpand(
+                                                            '${row['path']}',
+                                                          ),
+                                                    )
                                                   : null,
-                                              fontSize: 14,
-                                              fontWeight: folder
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w400,
                                             ),
-                                          ),
-                                          if (tags.isNotEmpty ||
-                                              item['due_date'] != null ||
-                                              contextOnly ||
-                                              depth > 10) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              [
-                                                if (contextOnly) 'Context',
-                                                if (depth > 10) 'Depth $depth',
-                                                if (item['due_date'] != null)
-                                                  'Due ${item['due_date']}',
-                                                ...tags.map((tag) => '#$tag'),
-                                              ].join('  ·  '),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Color(0xff7f8fa1),
+                                            if (folder)
+                                              const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                ),
+                                                child: Icon(
+                                                  Icons.folder_outlined,
+                                                  color: Color(0xffa68755),
+                                                  size: 23,
+                                                ),
+                                              )
+                                            else
+                                              Checkbox(
+                                                value: completed,
+                                                shape: const CircleBorder(),
+                                                onChanged: app.busy
+                                                    ? null
+                                                    : (value) =>
+                                                          changeCompletion(
+                                                            context,
+                                                            app,
+                                                            id,
+                                                            value!,
+                                                          ),
                                               ),
-                                            ),
                                           ],
-                                        ],
-                                      ),
-                                    ),
-                                    if (intValue(item['priority']) > 0)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        child: Tooltip(
-                                          message:
-                                              '${priorityLabel(item['priority'])} priority',
-                                          child: Icon(
-                                            Icons.flag_outlined,
-                                            size: 18,
-                                            color:
-                                                intValue(item['priority']) == 3
-                                                ? const Color(0xffc57d49)
-                                                : const Color(0xff91a3b8),
-                                          ),
                                         ),
                                       ),
-                                    PopupMenuButton<String>(
-                                      key: ValueKey('menu-${row['path']}'),
-                                      tooltip: 'Item actions',
-                                      icon: const Icon(
-                                        Icons.more_horiz,
-                                        size: 19,
-                                      ),
-                                      onSelected: (action) {
-                                        if (action == 'details') showDetail(id);
-                                        if (action == 'remove') {
-                                          removeItemPlacement(
-                                            context,
-                                            app,
-                                            id,
-                                            row['parent_id'] as int?,
-                                          );
-                                        }
-                                        if (action == 'task') {
-                                          showCreateItem(
-                                            context,
-                                            app,
-                                            parentId: id,
-                                          );
-                                        }
-                                        if (action == 'folder') {
-                                          showCreateItem(
-                                            context,
-                                            app,
-                                            parentId: id,
-                                            kind: 'folder',
-                                          );
-                                        }
-                                        if (action == 'link') {
-                                          showLinkItem(context, app, id);
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'details',
-                                          child: Text('Open details'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'task',
-                                          child: Text('Add subtask'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'folder',
-                                          child: Text('Add subfolder'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'link',
-                                          child: Text(
-                                            'Add existing item here…',
-                                          ),
-                                        ),
-                                        const PopupMenuDivider(),
-                                        PopupMenuItem(
-                                          value: 'remove',
-                                          child: Row(
+                                      Expanded(
+                                        child: SummaryItemContent(
+                                          summary: asMap(row['summary']),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              Icon(
-                                                removalLabel(app, id) ==
-                                                        'Unlink'
-                                                    ? Icons.link_off
-                                                    : Icons.delete_outline,
-                                                size: 20,
+                                              Text(
+                                                '${item['title']}',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: contextOnly
+                                                      ? const Color(0xff8290a2)
+                                                      : const Color(0xff233f5d),
+                                                  decoration: completed
+                                                      ? TextDecoration
+                                                            .lineThrough
+                                                      : null,
+                                                  fontSize: 14,
+                                                  fontWeight: folder
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w400,
+                                                ),
                                               ),
-                                              const SizedBox(width: 8),
-                                              Text(removalLabel(app, id)),
+                                              if (tags.isNotEmpty ||
+                                                  item['due_date'] != null ||
+                                                  contextOnly ||
+                                                  depth > 10) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  [
+                                                    if (contextOnly) 'Context',
+                                                    if (depth > 10)
+                                                      'Depth $depth',
+                                                    if (item['due_date'] !=
+                                                        null)
+                                                      'Due ${item['due_date']}',
+                                                    ...tags.map(
+                                                      (tag) => '#$tag',
+                                                    ),
+                                                  ].join('  ·  '),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xff7f8fa1),
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                      if (SummaryPriorityCounts.hasCounts(
+                                        asMap(row['summary']),
+                                      ))
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                          ),
+                                          child: SummaryPriorityCounts(
+                                            summary: asMap(row['summary']),
+                                          ),
+                                        ),
+                                      SummaryBodyControls(
+                                        summary: asMap(row['summary']),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (intValue(item['priority']) > 0)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                    ),
+                                                child: PriorityIcon(
+                                                  priority: intValue(
+                                                    item['priority'],
+                                                  ),
+                                                ),
+                                              ),
+                                            Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                PopupMenuButton<String>(
+                                                  key: ValueKey(
+                                                    'menu-${row['path']}',
+                                                  ),
+                                                  tooltip: 'Item actions',
+                                                  icon: const Icon(
+                                                    Icons.more_horiz,
+                                                    size: 19,
+                                                  ),
+                                                  onSelected: (action) {
+                                                    if (action == 'sort') {
+                                                      showSortSettings(
+                                                        context,
+                                                        app,
+                                                        parent: id,
+                                                      );
+                                                    }
+                                                    if (action == 'details') {
+                                                      showDetail(
+                                                        id,
+                                                        '${row['path']}',
+                                                      );
+                                                    }
+                                                    if (action == 'remove' ||
+                                                        action == 'delete' ||
+                                                        action == 'unlink') {
+                                                      removeItemPlacement(
+                                                        context,
+                                                        app,
+                                                        id,
+                                                        row['parent_id']
+                                                            as int?,
+                                                        path: '${row['path']}',
+                                                        action:
+                                                            action == 'remove'
+                                                            ? null
+                                                            : action,
+                                                      );
+                                                    }
+                                                    if (action == 'task') {
+                                                      showCreateItem(
+                                                        context,
+                                                        app,
+                                                        parentId: id,
+                                                      );
+                                                    }
+                                                    if (action == 'folder') {
+                                                      showCreateItem(
+                                                        context,
+                                                        app,
+                                                        parentId: id,
+                                                        kind: 'folder',
+                                                      );
+                                                    }
+                                                    if (action == 'link') {
+                                                      showLinkItem(
+                                                        context,
+                                                        app,
+                                                        id,
+                                                      );
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'sort',
+                                                      child: Text(
+                                                        'Sort children…',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'details',
+                                                      child: Text(
+                                                        'Open details',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'task',
+                                                      child: Text(
+                                                        'Add subtask',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'folder',
+                                                      child: Text(
+                                                        'Add subfolder',
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'link',
+                                                      child: Text(
+                                                        'Link / copy task to…',
+                                                      ),
+                                                    ),
+                                                    const PopupMenuDivider(),
+                                                    if (hasMultipleAppearances(
+                                                      app,
+                                                      id,
+                                                    ))
+                                                      const PopupMenuItem(
+                                                        value: 'unlink',
+                                                        child: Text('Unlink'),
+                                                      ),
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Text('Delete'),
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (hasMultipleAppearances(
+                                                  app,
+                                                  id,
+                                                ))
+                                                  SizedBox(
+                                                    width: 64,
+                                                    child: Tooltip(
+                                                      message:
+                                                          'Links: ${appearanceCount(app, id)}',
+                                                      child: Text(
+                                                        'Links: ${appearanceCount(app, id)}',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: Color(
+                                                            0xff7f8fa1,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

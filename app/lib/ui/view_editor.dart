@@ -13,6 +13,28 @@ Future<void> showViewEditor(
   AppController app, {
   Map<String, dynamic>? existing,
 }) async {
+  if (existing != null && app.isProtectedView(intValue(existing['id']))) {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('All tasks'),
+        content: const Text(
+          'This built-in view shows all tasks and folders. Its name and rules '
+          'are protected, and it cannot be deleted.\n\n'
+          'You can still change sorting and display preferences, and edit '
+          'the tasks and folders themselves.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+  if (!await app.finishDraft() || !context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (_) => _ViewDialog(app: app, existing: existing),

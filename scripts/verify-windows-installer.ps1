@@ -25,8 +25,10 @@ if (-not $env:IHTD_INSTALLER_TEST_COLLECTION -or -not (Test-Path $env:IHTD_INSTA
     throw 'UI integration test must produce a real installer preservation fixture'
 }
 New-Item -ItemType Directory -Path $work | Out-Null
+# Use an actual released-format document for the real baseline application.
+$baselineCollection = Join-Path $projectRoot 'app/test/fixtures/upgrade-0.2.5/intact.sqlite'
 $fixture = Join-Path $work '日本 travel collection.ihtd'
-Copy-Item $env:IHTD_INSTALLER_TEST_COLLECTION $fixture
+Copy-Item $baselineCollection $fixture
 $fixtureHash = (Get-FileHash $fixture -Algorithm SHA256).Hash
 
 function Invoke-Setup([string] $Executable, [string[]] $Options) {
@@ -80,12 +82,15 @@ foreach ($file in Get-ChildItem $stage -Recurse -File) {
 }
 Assert-Launch (Join-Path $portable 'ihtd.exe')
 
-# Use the real payload with an older installer version to test upgrade identity.
-# This tests installer migration; it is not a claim to run historical app code.
-& $CompilerPath '/DAppVersion=0.0.0' '/DAppBuild=1' "/DBundleDir=$stage" "/DOutputDir=$work" (Join-Path $projectRoot 'packaging/windows/ihtd.iss')
-if ($LASTEXITCODE -ne 0) { throw 'Baseline installer compilation failed' }
-Invoke-Setup (Join-Path $work 'IHTD-0.0.0-windows-x64-setup.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$install`"", '/TASKS=desktopicon,fileassociation', "/LOG=`"$work\install.log`"")
-Assert-Installed '0.0.0'
+# Exercise the actual published installer/application, pinned by size and SHA-256.
+# Downloads are never executed outside this script's disposable-runner guard.
+$baselineJson = & python (Join-Path $PSScriptRoot 'download-upgrade-baseline.py') --platform windows --output (Join-Path $work 'baseline')
+if ($LASTEXITCODE -ne 0) { throw 'Published Windows baseline verification failed' }
+$baselineSetup = ($baselineJson | ConvertFrom-Json).path
+Invoke-Setup $baselineSetup @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$install`"", '/TASKS=desktopicon,fileassociation', "/LOG=`"$work\install.log`"")
+if ((Get-ItemProperty $uninstallKey).DisplayVersion -ne '0.2.5') { throw 'Historical installer version registration is incorrect' }
+Assert-Launch (Join-Path $install 'ihtd.exe') @("`"$fixture`"")
+Assert-FileHash $fixture $fixtureHash
 
 # Real collection and support/recovery files must survive upgrade and removal.
 # The support directory is derived from existing CompanyName/ProductName and
@@ -124,4 +129,4 @@ Invoke-Setup (Join-Path $install 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGB
 Assert-FileHash $fixture $fixtureHash
 Assert-FileHash $userFile $fixtureHash
 Assert-FileHash $recovery $fixtureHash
-Write-Output "Installer verification passed: install, upgrade, shortcuts, file registration, launches, uninstall, reinstall and preserved data. Logs: $work"
+Write-Output "Installer verification passed: real v0.2.5 install, candidate upgrade, shortcuts, file registration, launches, uninstall, reinstall and preserved data. Logs: $work"
