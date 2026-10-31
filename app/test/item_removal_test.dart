@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'document_contract_test.dart' show FakeAdapter;
+import 'support/settle_controller.dart';
 
 void main() {
   late Directory directory;
@@ -210,25 +211,12 @@ void main() {
   });
   tearDown(() async {
     container.dispose();
+    await app.itemDrafts.flush();
     await app.documentServices.diagnostics.flush();
     await directory.delete(recursive: true);
   });
 
-  Future<void> settle(WidgetTester tester) async {
-    for (var attempt = 0; attempt < 120; attempt++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 2)),
-      );
-      if (attempt >= 5 && !app.busy) break;
-    }
-    expect(app.busy, false, reason: 'Commands: $commands; error: ${app.error}');
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 3),
-    );
-  }
+  Future<void> settle(WidgetTester tester) => settleController(tester, app);
 
   Future<void> shell(
     WidgetTester tester, {
