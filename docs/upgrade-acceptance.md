@@ -1,28 +1,29 @@
-# 0.3.0 upgrade acceptance
+# 0.3.1 upgrade acceptance
 
-Candidate: **0.3.0, Android build 15**. Baseline: published **0.2.5, build 14**.
+Candidate: **0.3.1, Android build 16**. Baseline: published **0.2.5, build 14**.
 This is step 12 in the [implementation order](FEATURE_CHECKLIST.md#implementation-order).
 All feature implementations are candidates; physical results must be recorded,
 not inferred from CI. Use [the result sheet](upgrade-acceptance-results.md).
 
 ## Getting a usable candidate
 
-1. Review/merge the acceptance task into `development`. The draft release PR
-   targets `master` from `release/0.3.0` and runs the existing full validation:
+1. Review/merge the version/notes task into `development`. The release PR
+   targets `master` from `release/0.3.1` and runs the existing full validation:
    Android, Windows and Fedora builds plus native tests/package verification.
 2. After review and green checks, merge the release PR into `master`. Tag that
-   reviewed master commit `v0.3.0` using the normal release process. The tag run
+   reviewed master commit `v0.3.1` using the normal release process. The tag run
    signs Android with the permanent key and creates a complete draft prerelease.
-3. Review all draft assets, signing certificate/checksums and notes. For phone
-   testing, publish it **with Prerelease still checked**, without making it latest.
-   This makes direct asset downloads available while the stable updater continues
-   to exclude the candidate. Do not promote it to stable until acceptance passes.
-4. Download the platform package and `IHTD-0.3.0-upgrade-tests.zip` from that release.
+3. Review all draft assets, signing certificate/checksums and notes. The owner
+   explicitly authorized **stable Latest** publication for 0.3.1: clear Prerelease
+   and publish as Latest after verification. This supersedes the 0.3.0 prerelease
+   testing policy for this version; physical acceptance results remain open.
+   See [release/update-button steps](release-0.3.1.md).
+4. Download the platform package and `IHTD-0.3.1-upgrade-tests.zip` from that release.
    Extract the test ZIP using Files/My Files/Explorer. Follow its README.
 
 The branch/PR Android `*-test.apk` uses a test key. Android will reject it as an
 in-place update over permanent-key installations. Use the permanently signed
-`IHTD-0.3.0-android-arm64.apk` from the tag run for the two phones. Keep the installed
+`IHTD-0.3.1-android-arm64.apk` from the tag run for the two phones. Keep the installed
 app/data in place; signing failures must be investigated, not worked around by
 uninstalling. The stable certificate is recorded in `SIGNING-CERTIFICATE.sha256`.
 
@@ -143,19 +144,19 @@ runs only on disposable runners/containers. The real laptop/PC checks remain:
 
 ## Publication and updater acceptance
 
-Keep the candidate a prerelease during this testing. The production updater must
-ignore drafts/prereleases. A manually installed 0.3.0 candidate correctly receives
-no update offer for that same version or older stable 0.2.5.
+The owner has requested stable Latest publication of 0.3.1 after reviewed builds,
+permanent signing and complete asset verification. Keep 0.3.0+15 installed on the
+phone to test discovery of the higher stable 0.3.1+16 through the update button.
+Use manual Check for updates to bypass the normal daily automatic interval.
+Drafts/prereleases must still be ignored by the production updater. A phone
+already manually updated to 0.3.1 correctly receives no offer for that same build.
 
-The owner previously reported successful v0.2.5 update checks on both phones after
-enabling network permission. That is historical evidence, not a result for this
-candidate's new layout/draft behavior. Record any new end-to-end updater run when
-a genuinely later stable release exists; do not publish a dummy stable release
-merely to force an icon. Shared update/installation-preparation tests cover the
-new draft barriers and indicator states in the meantime.
+Follow [the 0.3.1 guide](release-0.3.1.md#test-the-update-button) and record actual
+results. Earlier successful update checks on both phones are historical evidence,
+not a physical result for these new features. Stable authorization does not mark
+untested device checks complete.
 
-Promote the reviewed prerelease to stable/latest only after critical physical
-upgrade/data checks pass. Keep the exact tested tag/commit/assets; fixes require
-an updated candidate and increasing Android build. Keep pre-upgrade backups:
-old apps can drop new metadata if used to edit upgraded files. Restoring a backup
-is distinct from downgrading/reinstalling the app or clearing its private data.
+Keep exact reviewed tags/commits/assets; fixes require a new version/tag and higher
+Android build. Keep independent backups: older apps can drop new metadata if used
+to edit upgraded files. Restoring a backup is distinct from downgrading the app
+or clearing its private data.
