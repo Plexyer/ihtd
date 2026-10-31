@@ -6,8 +6,9 @@ contract. This step provides the stored settings and shared controls needed by
 the later tag-picker and summary-indicator tasks; it does not implement those
 consumers, their metrics, tag-usage history or the priority-icon redesign.
 The later [summary-indicator candidate](summary-indicators.md) now consumes these
-settings and the shared [priority artwork](priority-icons.md). Tag suggestions
-remain a separate pending task.
+settings and the shared [priority artwork](priority-icons.md). The later
+[tag-selection candidate](tag-selection.md) now consumes the suggestion count
+and half-life too; this document records the settings foundation.
 
 ## Controls and ownership
 

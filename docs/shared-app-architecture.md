@@ -119,6 +119,15 @@ centers at different font/text scales. Never duplicate matching/default logic in
 Flutter or store
 these summaries in collection files. See [summary indicators](summary-indicators.md).
 
+Shared tag selection: `crates/ihtd_core/src/tag_usage.rs` owns history validation
+and ranking. Application `item_drafts.rs` records authoritative manual additions
+in the accepted candidate; copying and filter defaults do not record events.
+`AppController.rankedTags` is an identity-checked read-only query that applies no
+snapshot and does not block editing. `ui/tag_selector.dart` owns selected/suggested
+presentation and isolated picker choices with session/metadata guards. Read
+[tag selection](tag-selection.md) before adding assignment paths; never count
+typing, cancellation, copies or mere queries as manual usage.
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

@@ -94,6 +94,28 @@ pub fn prepare(source: &Document, request: &Value) -> Result<(Document, i64), St
             );
         }
     }
+    if let Some(time) = request.get("tag_assignment_time") {
+        let time = time.as_i64().ok_or("Invalid tag assignment time")?;
+        ihtd_core::tag_usage::validate_time(time)?;
+        let initial: std::collections::BTreeSet<_> = if let Some(id) = existing_id {
+            source.items[&id].tag_ids.iter().copied().collect()
+        } else {
+            view_filter(source, request)?
+                .creation_defaults(source)
+                .tag_ids
+                .into_iter()
+                .collect()
+        };
+        let manual: Vec<_> = doc.items[&id]
+            .tag_ids
+            .iter()
+            .copied()
+            .filter(|id| !initial.contains(id))
+            .collect();
+        if !manual.is_empty() {
+            doc.record_tag_assignments(&manual, time)?;
+        }
+    }
     doc.revision = source.revision.checked_add(1).ok_or("Revision exhausted")?;
     doc.validate()?;
     Ok((doc, id))
@@ -115,6 +137,40 @@ pub fn preview(source: &Document, request: &Value) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manual_tag_events_join_the_candidate_once_and_automatic_defaults_or_unchanged_tags_do_not() {
+        let mut doc = Document::new("usage".into());
+        let automatic = doc.add_tag("Automatic".into()).unwrap();
+        let manual = doc.add_tag("Manual".into()).unwrap();
+        let view = doc
+            .add_view(
+                "Tagged".into(),
+                ihtd_core::filter::FilterExpr::Tag { tag_id: automatic },
+            )
+            .unwrap();
+        let mut request = json!({"id":null,"view_id":view,"expected_view":doc.views[&view],"kind":"task","title":"New","notes":"","due_date":null,"priority":0,"tag_ids":[automatic, manual],"auto_complete":false,"parent_id":null,"tag_assignment_time":1800000000});
+        let preview = preview(&doc, &request).unwrap();
+        assert!(doc.tag_usage.is_empty());
+        let (saved, id) = prepare(&doc, &request).unwrap();
+        assert_eq!(preview["digest"], digest(&saved).unwrap());
+        assert_eq!(saved.revision, doc.revision + 1);
+        assert_eq!(saved.tag_usage[&manual][&1_800_000_000], 1);
+        assert!(!saved.tag_usage.contains_key(&automatic));
+        request["id"] = json!(id);
+        request["expected_item"] = json!(saved.items[&id]);
+        request["notes"] = json!("Notes only");
+        request["tag_assignment_time"] = json!(1800001000);
+        let (notes, _) = prepare(&saved, &request).unwrap();
+        assert_eq!(notes.tag_usage, saved.tag_usage);
+        request["priority"] = json!(9);
+        assert!(prepare(&saved, &request).is_err());
+        assert_eq!(saved.tag_usage[&manual][&1_800_000_000], 1);
+        let mut copied = saved.clone();
+        copied
+            .link_or_copy(id, None, true, None, false, copied.revision)
+            .unwrap();
+        assert_eq!(copied.tag_usage, saved.tag_usage);
+    }
     #[test]
     fn staged_fields_and_auto_completion_commit_atomically_and_reject_stale_edits() {
         let mut doc = Document::new("test".into());

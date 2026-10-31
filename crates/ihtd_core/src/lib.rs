@@ -9,3 +9,4 @@ pub mod model;
 pub mod removal;
 pub mod settings;
 pub mod sorting;
+pub mod tag_usage;

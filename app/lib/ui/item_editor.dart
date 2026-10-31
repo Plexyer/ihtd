@@ -13,6 +13,7 @@ import 'editor_dialog.dart';
 import 'collection_settings.dart';
 import 'sort_settings.dart';
 import 'priority_icon.dart';
+import 'tag_selector.dart';
 
 Future<DraftExitChoice> chooseItemDraftExit(
   BuildContext context,
@@ -510,27 +511,12 @@ class _ItemEditorState extends State<ItemEditor> {
                         },
                 ),
               ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final tag in documentValues(app, 'tags'))
-                    FilterChip(
-                      label: Text('${tag['name']}'),
-                      selected: tags.contains(intValue(tag['id'])),
-                      onSelected: disabled
-                          ? null
-                          : (selected) {
-                              final updated = tags.toSet();
-                              if (selected) {
-                                updated.add(intValue(tag['id']));
-                              } else {
-                                updated.remove(intValue(tag['id']));
-                              }
-                              change('tag_ids', updated.toList()..sort());
-                            },
-                    ),
-                ],
+              TagSelector(
+                key: ValueKey('tag-selector-${d.sessionId}'),
+                app: app,
+                sessionId: d.sessionId,
+                selected: tags,
+                disabled: disabled,
               ),
               if (!folder) ...[
                 const SectionLabel('Completion'),

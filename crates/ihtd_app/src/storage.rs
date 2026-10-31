@@ -94,6 +94,17 @@ pub fn encode(document: &Document) -> Result<Vec<u8>, String> {
             .execute("INSERT INTO metadata VALUES (?1,?2)", params![key, value])
             .map_err(err)?;
     }
+    if !document.tag_usage.is_empty() {
+        transaction
+            .execute(
+                "INSERT INTO metadata VALUES (?1,?2)",
+                params![
+                    "tag_usage",
+                    serde_json::to_string(&document.tag_usage).map_err(err)?
+                ],
+            )
+            .map_err(err)?;
+    }
     for item in document.items.values() {
         transaction
             .execute(
@@ -209,6 +220,10 @@ pub fn decode_preserving(bytes: &[u8]) -> Result<Document, String> {
             .map_err(err)
     };
     let mut document = Document {
+        tag_usage: optional_json("tag_usage")?
+            .map(|s| serde_json::from_str(&s).map_err(err))
+            .transpose()?
+            .unwrap_or_default(),
         schema_version: ihtd_core::model::SCHEMA_VERSION,
         collection_settings: optional_json("collection_settings")?
             .map(|s| serde_json::from_str(&s).map_err(err))
@@ -711,5 +726,40 @@ mod sorting_preservation_tests {
         reopened.views.get_mut(&1).unwrap().sorting.clear();
         reopened.revision = before.revision;
         assert_eq!(reopened, before);
+    }
+}
+
+#[cfg(test)]
+mod tag_usage_preservation_tests {
+    use super::*;
+    #[test]
+    fn old_files_have_no_invented_history_and_manual_history_roundtrips_without_other_changes() {
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("Original.ihtd");
+        fs::write(&path, bytes).unwrap();
+        let session = Session::open(path.clone(), &tmp.path().join("recovery")).unwrap();
+        let before = session.document.clone();
+        assert!(before.tag_usage.is_empty());
+        assert_eq!(before.ranked_tags(1_800_000_000).unwrap(), [6]);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        let mut changed = before.clone();
+        changed.record_tag_assignments(&[6], 1_800_000_000).unwrap();
+        let mut restored = decode_preserving(&encode(&changed).unwrap()).unwrap();
+        assert_eq!(restored, changed);
+        restored.tag_usage.clear();
+        restored.revision = before.revision;
+        assert_eq!(restored, before);
+        let corrupt = tmp.path().join("Invalid.ihtd");
+        fs::write(&corrupt, encode(&changed).unwrap()).unwrap();
+        let connection = Connection::open(&corrupt).unwrap();
+        connection
+            .execute(
+                "UPDATE metadata SET value=?1 WHERE key='tag_usage'",
+                [r#"{"999":{"1800000000":1}}"#],
+            )
+            .unwrap();
+        drop(connection);
+        assert!(decode_preserving(&fs::read(corrupt).unwrap()).is_err());
     }
 }
