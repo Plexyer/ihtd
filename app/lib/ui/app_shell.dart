@@ -840,6 +840,17 @@ class _TaskPane extends StatelessWidget {
                                       ),
                                       Expanded(
                                         child: SummaryItemContent(
+                                          onHiddenTap: () => showHiddenChildren(
+                                            context,
+                                            app,
+                                            parent: id,
+                                            path: '${row['path']}',
+                                            count: intValue(
+                                              asMap(
+                                                row['summary'],
+                                              )['hidden_by_rules'],
+                                            ),
+                                          ),
                                           summary: asMap(row['summary']),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,

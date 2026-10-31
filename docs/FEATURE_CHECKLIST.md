@@ -8,19 +8,20 @@ implementation candidate; physical acceptance remains open.
 
 ## Approved follow-up: sorting labels, hidden children and editor polish
 
-Agreed 2026-10-31 after the owner's v0.3.0 phone test. These tasks are specified
-and **not implemented**. The owner will review this checklist and separately
-approve starting the first task. Implement general behavior/UI once for Android,
+Agreed 2026-10-31 after the owner's v0.3.0 phone test. Tasks 1 and 2 are
+implemented candidates; physical acceptance remains open. Tasks 3 and 4 await
+the owner’s separate implementation approval. Implement general behavior/UI once for Android,
 Windows and Fedora; preserve existing data, drafts and save/recovery safeguards.
 
-1. [ ] **Rename sorting Title to Alphabetic.** Use “Alphabetic” consistently in
+1. [x] **Rename sorting Title to Alphabetic.** Use “Alphabetic” consistently in
    user-facing sorting options/descriptions. Preserve the existing sorting
    algorithm, ascending/descending behavior, stored values and preferences.
-2. [ ] **Explain children hidden by view rules.**
+2. [x] **Explain children hidden by view rules.**
    - Keep the existing filtered Total/completed-total semantics. Add a compact
      hidden-items icon plus count for direct child tasks excluded by the view's
      rules; distinguish rule exclusion from the Unfinished/Completed tab and
-     other visibility settings. Do not count deeper descendants in this summary.
+     other visibility settings. Do not count deeper descendants or label tasks
+     still visible as ancestor context as hidden.
    - Show it whenever such hidden children exist, even if Total is disabled;
      omit it at zero. Provide an accessible label explaining the icon/count.
    - Keep the established centered title, bottom footer with Total followed by
