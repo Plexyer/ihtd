@@ -1,0 +1,21 @@
+{
+  "source": "fd27c69c46019fbc2f30ded27a2bc7930959a566f9df6d14627b61ba24618cf9",
+  "generator": "86f04c8f6cd5b4817c3326e061cb3e201526a305f1f916de8729cadd595b31f6",
+  "files": {
+    "app/android/app/src/main/res/drawable/ic_launcher_foreground.xml": "573033e66f080aa46a0685016dffd511b0aea341eb08ff629a198b9cdad99d21",
+    "app/android/app/src/main/res/drawable/ic_launcher_monochrome.xml": "80901e197e59ba5f17dd212f9dfa1c2ec0acbb4647643b563605c57e4b893dab",
+    "app/android/app/src/main/res/drawable/ihtd_logo.xml": "998604b0f87e1e82be3b013d5663039227d11bc0a62d6724080291716e0b34f2",
+    "app/android/app/src/main/res/drawable/ihtd_splash.xml": "e5187e5d21c3896579c4df93335ebde33fe82c21c5efa7fa31f75190ef3f4df0",
+    "app/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": "b9050064ae397a6bfd6a57e80437259c11b3df136484bf683069084219b78f5a",
+    "app/android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml": "7730c46174d74a2df0260c508d31fc02b3097485b4fa789edf35b5d165201f32",
+    "app/android/app/src/main/res/mipmap-hdpi/ic_launcher.png": "9d78e28e9604514e12862e29778ebfa412ac7205d68810c2d95047fa29ef831c",
+    "app/android/app/src/main/res/mipmap-mdpi/ic_launcher.png": "8d3dec84dbf27fb1c057b6ec28aedac1a55292230f620ddd33743168872768fe",
+    "app/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png": "30830b7c67df8b105fd08b4fe215cf95ae49664c9edee806e0b94a8897df4cf6",
+    "app/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png": "265d082dfd93ac284ffcbec6927789c653f2f53422c71d3393585410e9a73f27",
+    "app/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": "0fa9868d1662ec8ef049dc51d94c4c7ffc4ee7828d8e16386b4e3116f7cf8df8",
+    "app/android/app/src/main/res/values/branding.xml": "c590507c1755d4c7eccdaf3d34f1ac9aa86dfacbfd14c1739e29c536edd6d1db",
+    "app/assets/branding/ihtd.png": "b1a7811720977b22e36fe92eb8133f893aad52daae1513b561d78914e4c958cf",
+    "app/windows/runner/resources/app_icon.ico": "d8091fb73590690fc6c7535510b474f68f88c2f5a076d11e1328b17c9e5834c6",
+    "packaging/fedora/ihtd.svg": "fd27c69c46019fbc2f30ded27a2bc7930959a566f9df6d14627b61ba24618cf9"
+  }
+}

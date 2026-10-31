@@ -325,3 +325,17 @@ Use the existing native desktop target/Xvfb wrapper, sequentially in one checkou
 Both native tests are already included in Windows/Fedora pipelines. No storage
 conversion or version change is required. See
 [creation behavior and physical acceptance](item-editor-drafts.md#constrained-creation-actions).
+
+## Branding and startup verification
+
+Run `python3 scripts/generate-branding.py --check`, the standard Python tests,
+Flutter analysis and Flutter tests. Focused UI coverage is
+`test/branding_header_test.dart`, `test/update_test.dart` and
+`test/layout_polish_test.dart`. Native `integration_test/app_test.dart` uses the
+real initialization Future and asserts core readiness before opening model
+services; the existing Windows/Fedora pipelines run it. Native phone-layout
+integration covers the updated header within the full shell. Compile Android
+resources with an ARM64 APK build and run both ELF and ZIP alignment verification.
+Windows ICO/frame validation runs in Python; native Windows packaging and physical
+platform appearance/upgrade acceptance remain separate. Regeneration instructions
+and the complete asset inventory are in [branding](branding.md).

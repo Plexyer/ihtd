@@ -101,6 +101,12 @@ of cross-platform completion. Follow the implemented
   Never add cleanup that deletes user collections or recovery data. Installer
   verification installs/uninstalls on disposable native CI runners only.
 
+- Read `docs/branding.md` before changing app icons/startup. Edit the canonical
+  `assets/branding/ihtd.svg`, regenerate platform outputs and verify the inventory;
+  do not maintain separate artwork or change package/support/signing identities.
+  Shared startup waits only for real Rust initialization, with no splash timer.
+  Keep model services behind that gate and the update indicator's reserved slot.
+
 - Shared updates live in update_contract/catalog/coordinator and ui/app_updates.
   Native selection belongs only in update_composition; verify downloads before
   ready and before OS handoff. Never embed GitHub credentials or execute unsigned

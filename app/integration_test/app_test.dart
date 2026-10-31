@@ -27,12 +27,21 @@ void main() {
     });
     final directory = await Directory.systemTemp.createTemp('ihtd-ui-test-');
     Future<void> start([String? initialPath]) async {
-      await RustLib.init();
+      var coreReady = false;
+      final initialization = RustLib.init().then((_) {
+        coreReady = true;
+      });
       runApp(
         ProviderScope(
           overrides: [
-            appProvider.overrideWith(
-              (ref) => AppController(
+            appProvider.overrideWith((ref) {
+              expectSync(
+                coreReady,
+                true,
+                reason:
+                    'Open model services only after branded startup finishes',
+              );
+              return AppController(
                 // This test drives poll explicitly after filesystem changes.
                 // A periodic poll already in flight can skip that call and
                 // race its immediate assertions, independently of UI layout.
@@ -47,12 +56,13 @@ void main() {
                   supportDirectory: () async =>
                       Directory('${directory.path}/support'),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
-          child: const app.IhtdApp(),
+          child: app.IhtdApp(initialization: initialization),
         ),
       );
+      await initialization;
     }
 
     await start();

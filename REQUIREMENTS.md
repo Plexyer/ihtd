@@ -354,12 +354,28 @@ surfaces; Android window themes prevent extra system contrast strips and use
 the current light palette even when the OS uses dark mode. Keyboard-owned bars
 remain controlled by the keyboard. A full app dark theme is a separate feature.
 
+## Shared branding and startup
+
+The brand is the owner's diagonal connected blue shape with a white tick in each
+lobe, distinct from update-ready feedback. A canonical SVG generates the Flutter
+header/About/startup artwork, Android launcher/adaptive/themed/splash resources,
+Windows application/installer ICO and Fedora desktop icon. Desktop portable
+windows also use the bundled icon. Native application identities remain stable.
+
+All platforms show shared branding while the actual Rust initialization is pending,
+without a minimum display timer. Model services mount only after success; a core
+startup failure shows a branded restart message. Native Android launch branding
+matches the shared mark. This changes presentation, not collection formats or
+save/recovery policy. See [branding and acceptance](docs/branding.md).
+
 ## Updates (implementation candidate, physical acceptance pending)
 
 Owner approved 2026-10-15. Implement one shared release-discovery/coordinator/UI
 flow for Android, Windows and Fedora; native adapters supply OS capabilities.
 The drawer button sits beside the current view name. A newer compatible stable
-GitHub Release shows a blue download arrow/circle in the header; its popup shows
+GitHub Release shows a blue download arrow/circle immediately left of the
+header's top-right menu, in a reserved 48px slot that stays empty while hidden.
+All update states use that slot, keeping filename/branding positions stable. Its popup shows
 version, notes and size. Download confirmation closes the popup, then animated
 progress runs while editing continues. Only a verified download becomes a green
 tick. Android tapping that tick flushes drafts/checkpoints locally and opens the
