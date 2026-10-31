@@ -106,6 +106,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, dynamic> viewIssues = {};
   List<Map<String, dynamic>> rows = [];
   int selectedViewId = 1;
+  int? allTasksViewId;
+  bool isProtectedView(int id) => id == allTasksViewId;
   bool completedOnly = false;
   final Set<String> expandedPaths = {'*'};
   int? selectedItemId;
@@ -427,9 +429,49 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (itemDraft?.isNew == false) await discardItemDraft(close: false);
   }
 
+  Future<ItemDraft?> _draftForCurrentOwner(ItemDraft draft) async {
+    final owner = editIdentity;
+    if (owner.workingPath == null ||
+        draft.ownerPath == owner.workingPath ||
+        draft.documentId != owner.documentId) {
+      return draft;
+    }
+    final evidence = await _documents.migrations.draftOwnerEvidence(
+      draft.ownerPath,
+      owner.workingPath!,
+    );
+    if (_disposed || editIdentity != owner) return null;
+    if (evidence == null) return draft;
+    // Explicit Restore only. Preserve values, baselines and Save receipts;
+    // the original private draft is not rewritten or automatically committed.
+    final restored = ItemDraft.fromJson({
+      ...draft.toJson(),
+      'ownerPath': owner.workingPath,
+    });
+    final intent = restored.intent;
+    if (intent != null &&
+        evidence['sourceDigest'] is String &&
+        intent['digest'] == evidence['sourceDigest']) {
+      restored.accepted = true; // Exact pre-conversion Save receipt.
+    } else if (restored.isNew &&
+        intent != null &&
+        evidence['sourceNextId'] is int &&
+        intent['id'] == evidence['sourceNextId'] &&
+        intent['id'] == allTasksViewId) {
+      // This proposed item was never accepted in the retained source. The new
+      // protected view consumed its old proposed ID. A newer recovery with an
+      // accepted creation has a different protected ID and stays guarded.
+      restored.intent = null;
+    }
+    return restored;
+  }
+
   Future<bool> restoreItemDraft(ItemDraft draft) async {
     await ready;
     if (!await finishDraft()) return false;
+    final mapped = await _draftForCurrentOwner(draft);
+    if (mapped == null) return false;
+    draft = mapped;
     if (draft.ownerPath != _workingPath ||
         draft.documentId != document?['document_id']) {
       final saved = [
@@ -443,10 +485,19 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         return false;
       }
       await restoreRetained(matches.first);
+      final mapped = await _draftForCurrentOwner(draft);
+      if (mapped == null) return false;
+      draft = mapped;
       if (draft.ownerPath != _workingPath ||
           draft.documentId != document?['document_id']) {
         return false;
       }
+    }
+    if (draft.accepted) {
+      await itemDrafts.remove(draft.sessionId);
+      error = 'This draft was already saved before the interruption.';
+      notifyListeners();
+      return true;
     }
     if (draft.intent != null) {
       final status = await dispatch({
@@ -627,15 +678,17 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (snapshot == null) return;
     final state = _map(snapshot);
     final next = _map(state['document']);
-    if (document?['document_id'] != next['document_id']) {
+    final nextPath = state['path'] as String?;
+    allTasksViewId = state['all_tasks_view_id'] as int?;
+    if (document?['document_id'] != next['document_id'] ||
+        _workingPath != nextPath) {
       selectedItemId = null;
-      selectedViewId = 1;
+      selectedViewId = allTasksViewId ?? 1;
       expandedPaths
         ..clear()
         ..add('*');
     }
     document = next;
-    final nextPath = state['path'] as String?;
     if (itemDraft != null &&
         (nextPath != itemDraft!.ownerPath ||
             (itemDraft!.itemId != null &&
@@ -665,7 +718,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _recoveryPath = state['recovery_path'] as String?;
     final views = _map(document?['views']);
     if (!views.containsKey('$selectedViewId') && views.isNotEmpty) {
-      selectedViewId = int.parse(views.keys.first);
+      selectedViewId = allTasksViewId ?? int.parse(views.keys.first);
     }
     if (selectedItemId != null &&
         !_map(document?['items']).containsKey('$selectedItemId')) {

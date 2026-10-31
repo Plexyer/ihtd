@@ -3,7 +3,7 @@
 Implementation candidate, 2026-10-28. This implements the first prerequisite in
 [the agreed order](FEATURE_CHECKLIST.md#implementation-order). Physical upgrade
 acceptance on Pixel/GrapheneOS, Samsung, Windows and Fedora is still required.
-It does not implement the later editor, linking, sorting or settings features.
+Later feature behavior is recorded in the corresponding shared feature contracts.
 The app version and release tags are unchanged.
 
 ## Shared flow
@@ -16,9 +16,11 @@ conversion/validation. `MigrationBackupAdapter` provides native folder selection
 and create-new backup access; it cannot approve or publish a migration itself.
 
 1. Stage the selected document privately and inspect its format without opening
-   a mutable model session. Current schema-2 collections, including files from
-   0.2.5, need no conversion and request no migration backup/folder permission.
-   Schema 1 needs conversion; unsupported/corrupt/WAL snapshots are refused.
+   a mutable model session. Schema-2 collections with an intact original All
+   tasks view need no conversion or backup/folder permission. A customized or
+   missing original needs the explicit protected-view semantic plan, even at
+   schema 2. Schema 1 needs format conversion, combined with protected-view
+   installation when necessary. Unsupported/corrupt/WAL snapshots are refused.
 2. Save the attempt and source references privately. Check the selected external
    file's current hash, name and available identity against its opening baseline.
 3. Create a uniquely named `IHTD-before-upgrade-<attempt>-<role>.ihtd` backup.
@@ -37,8 +39,10 @@ and create-new backup access; it cannot approve or publish a migration itself.
    older copy of the external file. If the external baseline is unavailable or
    changed, stop rather than publish local work over it.
 6. Convert each necessary store into a separate private candidate. Validate
-   SQLite integrity and full model equality: identities, revision, next ID,
-   items/fields, tags, views/preferences, links/order and deletion metadata.
+   SQLite integrity and equality with the explicitly planned model: format-only
+   conversion preserves every model field; protected-view installation adds only
+   one fresh view/identity marker and increments next ID/revision once. Items,
+   tags, existing views/preferences, links/order and deletion metadata remain equal.
    Also compare the stored representation, so unknown fields/tables/columns or
    metadata cannot disappear unnoticed during deserialization. Refuse unknown
    extensions rather than discard them. Candidate open checks the validated
@@ -57,8 +61,9 @@ and create-new backup access; it cannot approve or publish a migration itself.
    that completed but reported failure. A partial/different file cannot clear the
    barrier this way, and no write is replayed during reconciliation.
 
-`Session::open`, recovery restore and external reload refuse old-schema data,
-so direct model loading cannot silently bypass the backup gate. Schema decoding
+`Session::open`, recovery restore and external reload refuse old-schema data
+and unconverted customized/missing built-ins, so direct model loading cannot
+silently bypass the backup gate. Schema decoding
 used for migration validation remains read-only. Private registry upgrades to
 schema 3 also keep verified JSON backups beside their original metadata,
 validate a separate serialized candidate, and automatically log conversion
@@ -118,9 +123,10 @@ conflict checks still cannot provide a cross-device distributed lock.
 - Protect every existing store that will be transformed, preserve pending
   recovery, use fresh candidate identities/paths and retain originals/backups.
 - Add frozen previous-format fixtures and failure injection for the new plan.
-  This implementation only contains the existing schema-1-to-2 conversion and
-  legacy registry conversion. A future schema/data conversion needs its own
-  implementation and acceptance; it is not automatically proven by this task.
+  Supported plans are schema-1-to-2, protected-all-tasks, their combined plan,
+  and the separate legacy registry conversion. See [protected-view preservation
+  and acceptance](protected-all-tasks.md). Future conversions still need their
+  own implementation and acceptance.
 
 ## Automated verification
 
@@ -161,11 +167,11 @@ Use **copies** of important collections, retain an independent known-good backup
 and test both the Pixel/GrapheneOS and Samsung. Also exercise Windows and Fedora
 local/removable/mounted storage through their native packages.
 
-1. Upgrade a representative 0.2.5 schema-2 collection: it opens unchanged, without
-   an unnecessary conversion or folder prompt. Check tasks, notes, tags, dates,
+1. Upgrade a representative 0.2.5 schema-2 collection with an intact original
+   All tasks view: it opens unchanged, without an unnecessary conversion or folder prompt. Check tasks, notes, tags, dates,
    priority/completion, custom views, links/order and preferences.
-2. Open the legacy fixture (rename a copy to `.ihtd`) and, for a future feature
-   migration, that feature's previous-format fixture. Authorize the containing
+2. Open the legacy fixture and the protected-view customized/pending fixtures
+   (rename copies to `.ihtd`), and any future feature's previous-format fixture. Authorize the containing
    or chosen backup folder. Verify the retained backup is pre-conversion and
    the published collection has all expected data. Restart/reopen the app.
 3. Repeat with unpublished edits and a newer recovery copy. Verify independent

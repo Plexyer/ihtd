@@ -203,6 +203,15 @@ class MigrationSafety {
         'environment': environment,
         'sourceFormat': job['from'] is int ? job['from'] : null,
         'targetFormat': job['target'] is int ? job['target'] : null,
+        'plans': [
+          for (final plan in job['plans'] as List? ?? [])
+            if ({
+              'schema-1-to-2',
+              'protected-all-tasks',
+              'schema-1-to-2-and-protected-all-tasks',
+            }.contains(plan))
+              plan,
+        ],
         'started': DateTime.tryParse('${job['started']}')
             ?.toUtc()
             .toIso8601String(),
@@ -407,6 +416,10 @@ class MigrationSafety {
         (probe?['target'] as int?) ?? 0,
       );
       job['original'] = record;
+      job['plans'] = [
+        probe?['plan'],
+        recoveryProbe?['plan'],
+      ].whereType<String>().toSet().toList();
       await _save(job);
       final source = _reference(record);
       // Protect the bound external baseline independently of unpublished local
@@ -446,6 +459,8 @@ class MigrationSafety {
         (job['candidates'] ??= <dynamic>[]).add({
           'role': entry.$3,
           'path': candidate,
+          'sourcePath': entry.$1,
+          'sourceHash': entry.$2!['hash'],
         });
         await _stage(job, 'candidate');
         final result = await _engine(
@@ -456,6 +471,9 @@ class MigrationSafety {
         if (result['validated'] != true) {
           throw const MigrationFailure('validation_failed');
         }
+        final evidence = (job['candidates'] as List).last as Map;
+        evidence['sourceDigest'] = result['source_digest'];
+        evidence['sourceNextId'] = result['source_next_id'];
         next[entry.$3] = candidate;
         (job['candidateHashes'] ??= <String, dynamic>{})[candidate] =
             result['hash'];
@@ -568,6 +586,54 @@ class MigrationSafety {
       if (job['status'] == 'running' && job['candidateHashes'] is Map) {
         final expected = job['candidateHashes'][path] as String?;
         if (expected != null) return expected;
+      }
+    }
+    return null;
+  }
+
+  /// An explicit draft Restore may follow this exact, backed-up conversion.
+  /// UUID equality alone never authorizes rebinding a draft to another file.
+  /// This is read-only: the original draft and source remain untouched.
+  Future<bool> preservesDraftOwner(String original, String current) async =>
+      await draftOwnerEvidence(original, current) != null;
+
+  Future<Map<String, dynamic>?> draftOwnerEvidence(
+    String original,
+    String current,
+  ) async {
+    for (final job in await recoveryAttempts()) {
+      final plans = job['plans'];
+      if (plans is! List ||
+          plans.isEmpty ||
+          !plans.every(
+            (plan) => {
+              'none',
+              'schema-1-to-2',
+              'protected-all-tasks',
+              'schema-1-to-2-and-protected-all-tasks',
+            }.contains(plan),
+          )) {
+        continue;
+      }
+      if (job['candidateValidated'] != true ||
+          (job['prepared'] as Map?)?['path'] != current) {
+        continue;
+      }
+      for (final candidate in job['candidates'] as List? ?? []) {
+        if (candidate is! Map ||
+            candidate['role'] != 'path' ||
+            candidate['path'] != current ||
+            candidate['sourcePath'] != original ||
+            candidate['sourceHash'] is! String) {
+          continue;
+        }
+        try {
+          if (await adapter.localHash(original) == candidate['sourceHash']) {
+            return Map<String, dynamic>.from(candidate);
+          }
+        } catch (_) {
+          // Missing/changed evidence cannot authorize another owner.
+        }
       }
     }
     return null;

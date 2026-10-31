@@ -90,7 +90,7 @@ impl Backend {
         match &self.session {
             None => Value::Null,
             Some(s) => {
-                json!({"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"appearances":s.document.appearance_counts(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
+                json!({"all_tasks_view_id":s.document.all_tasks_view_id(),"collection_settings":s.document.collection_settings,"document":s.document,"path":s.path,"dirty":s.dirty,"persistence_failed":s.persistence_failed,"recovery_path":s.recovery_path,"completion":s.document.completion_states().unwrap_or_default(),"placements":s.document.placements(),"appearances":s.document.appearance_counts(),"view_issues":s.document.views.values().map(|view| (view.id, view.filter.deleted_container_rules(&s.document))).collect::<std::collections::BTreeMap<_,_>>()})
             }
         }
     }

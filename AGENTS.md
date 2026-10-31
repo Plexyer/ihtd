@@ -48,9 +48,13 @@ of cross-platform completion. Follow the implemented
   safety gate: verified backup beside the original/authorized backup folder,
   staged validation, guarded publication and automatic redacted failure logs.
   Follow `docs/migration-safety.md`: shared MigrationSafety owns policy, Rust owns
-  read-only probes/candidate validation, adapters supply backup access. Current
-  schema-2 files need no conversion; future semantic/schema changes must extend
-  the explicit plan and preservation tests. Physical upgrade acceptance is pending.
+  read-only probes/candidate validation, adapters supply backup access. Read
+  `docs/protected-all-tasks.md`: intact original view 1 needs no conversion;
+  customized/missing originals require the explicit protected-view migration,
+  even for schema 2. Preserve every old view and item; never normalize this in
+  the loader. Use the snapshot's protected ID in shared UI, not a hardcoded 1.
+  Future semantic/schema changes must extend the plan and preservation tests.
+  Physical upgrade acceptance is pending.
 - Windows 11 and Fedora 44 x86-64 desktop prototypes work. Android development
   targets Pixel 9 Pro / GrapheneOS first (ARM64, API 35+). SAF uses private working
   copies and local recovery; physical phone validation remains outstanding.

@@ -160,3 +160,24 @@ phone-layout integration and new restart/recovery integration passed with real
 Rust/Flutter on the Linux host. An ARM64 release APK built successfully; all four
 native libraries passed the 16 KB ELF check and the APK passed ZIP alignment.
 Native Windows/Fedora CI and the physical acceptance above remain separate checks.
+
+## Protected-view upgrade and draft ownership
+
+The protected All tasks conversion can produce a new private working path.
+Migration journals retain the exact source path/hash and validated candidate
+path. Explicit draft Restore may follow that mapping only while its original
+source hash still matches and the current document UUID/owner are unchanged.
+The draft's values, baseline, original custom view and Save receipt are preserved;
+Restore does not rewrite its private JSON or auto-commit. A subsequent accepted
+edit uses the new owning path through normal checkpoint/Save safeguards. Original
+working/recovery files and their verified backups remain available. Unrelated
+same-UUID copies or changed/missing source evidence cannot authorize rebinding.
+See [protected-view acceptance](protected-all-tasks.md).
+
+A validated conversion also records the source model's digest and next ID in its
+private journal (excluded from diagnostic exports). An exact pre-conversion Save
+receipt can clear an obsolete recovered draft without replaying Save. A proposed
+creation whose ID was still available in that immutable source can prepare a fresh
+Save, even if migration allocated that ID to the new protected view. Ambiguous
+creation receipts continue to require review/export; never create a duplicate to
+work around an uncertain result.

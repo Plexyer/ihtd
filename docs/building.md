@@ -303,3 +303,14 @@ versus filter-default/copied tags, decay, pending publication and restart/draft
 recovery. Widget tests cover suggestion limits, isolated search/multi-select,
 ownership/stale metadata and constrained layouts. See
 [tag behavior and physical acceptance](tag-selection.md).
+
+## Protected All tasks verification
+
+Run the Rust/Flutter suites and native `integration_test/protected_view_test.dart`
+using the usual desktop target/Xvfb wrapper. Windows/Fedora pipelines include it.
+The frozen customized/pending fixtures exercise a schema-2 semantic conversion,
+byte-exact sibling backups, preservation of custom rules/settings/tag history,
+backend protection, editable sorting/display preferences, retained pending files
+and explicit unfinished-draft restoration without automatic publication.
+`integration_test/sorting_drag_test.dart` now uses a custom filtered view; it must
+not edit the protected built-in. See [protected-view acceptance](protected-all-tasks.md).

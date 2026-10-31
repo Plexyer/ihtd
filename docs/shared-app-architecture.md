@@ -128,6 +128,14 @@ presentation and isolated picker choices with session/metadata guards. Read
 [tag selection](tag-selection.md) before adding assignment paths; never count
 typing, cancellation, copies or mere queries as manual usage.
 
+Shared protected view: Rust resolves the built-in ID and rejects rename/filter/
+delete commands. The snapshot exposes that ID; Flutter navigation and view
+information use it instead of assuming view 1. The migration engine installs a
+fresh ID only under the explicit backed-up semantic plan, preserving customized
+old views and all item state. Draft restoration can follow the exact validated
+working-path conversion with unchanged source evidence; same-UUID copies never
+qualify on their own. Read [protected All tasks](protected-all-tasks.md).
+
 ## Rules for future changes
 
 1. Identify the shared product behavior first. Put domain semantics in Rust and

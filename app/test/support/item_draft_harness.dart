@@ -78,6 +78,7 @@ class DraftHarness {
   };
   Map<String, dynamic> snapshot() => {
     'document': doc,
+    'all_tasks_view_id': doc['all_tasks_view_id'] ?? 1,
     'path': working,
     'dirty': false,
     'completion': {},

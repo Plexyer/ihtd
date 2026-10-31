@@ -82,12 +82,14 @@ void main() {
         'expected_sort': {'mode': 'manual', 'descending': false},
         'sort': {'mode': 'title', 'descending': true},
       });
-      await app.dispatch({
-        'op': 'edit_view',
-        'id': 1,
-        'name': 'Priority filter',
-        'filter': {'op': 'priority', 'comparison': 'ge', 'value': 1},
-      });
+      final filteredView =
+          (await app.dispatch({
+                'op': 'add_view',
+                'name': 'Priority filter',
+                'filter': {'op': 'priority', 'comparison': 'ge', 'value': 1},
+              }))!['id']
+              as int;
+      await app.selectView(filteredView);
       final beforeItems = jsonDecode(jsonEncode(app.document!['items']));
       final oldRoot = List.from(app.document!['root_order'] as List);
       await tester.pumpWidget(
@@ -163,7 +165,7 @@ void main() {
 
       await drag('drag-$z', 'before-$b');
       expect(app.document!['root_order'], [h, a, middle, z, b]);
-      expect(sortFor(app, 1, null)['mode'], 'manual');
+      expect(sortFor(app, filteredView, null)['mode'], 'manual');
       expect(sortFor(app, autoView, null), {
         'mode': 'title',
         'descending': true,
@@ -175,12 +177,6 @@ void main() {
       expect(app.rows.map((r) => r['id']).toList(), [h, a, middle, b, z]);
       // Moving out of a parent with inherited appearances is blocked without mutation.
       await app.selectView(1);
-      await app.dispatch({
-        'op': 'edit_view',
-        'id': 1,
-        'name': 'All',
-        'filter': {'op': 'all'},
-      });
       final p = await add('Parent A'),
           q = await add('Parent B'),
           f = await add('Shared folder', parent: p),

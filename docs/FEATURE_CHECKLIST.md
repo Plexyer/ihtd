@@ -72,13 +72,23 @@ until step 12. This order is a plan, not completed implementation.
     the currently distributed version before releasing data-migrating features.
   Implementation candidate: [migration safety and acceptance](migration-safety.md).
   Shared policy, Rust conversion, native backup adapters and host verification are
-  implemented; the parent stays open for physical acceptance. Current schema-2
-  files need no migration. Future semantic/schema conversions must register their
-  own plan and preservation checks before shipping.
+  implemented; the parent stays open for physical acceptance. Schema-2 files with
+  an intact original All tasks view need no migration; customized/missing
+  originals use the protected-view semantic plan. Future conversions must
+  register their own plan and preservation checks before shipping.
   See [migration safety requirements](changes-2026-10-28.md#14-migration-safety-prerequisite).
-- [ ] **1 — Medium: protect All tasks.** Lock its name, unfiltered rule and
-  deletion; allow sorting and visibility/display preferences. Ensure it exists
-  when opening older collections, preserving customized old views separately.
+- [ ] **1 — Medium: protect All tasks.**
+  - [x] Protect its name, unfiltered rule and deletion in shared Rust and UI;
+    keep sorting, visibility/display preferences and item editing available.
+  - [x] Infer an intact original view without rewriting the file. For renamed,
+    filtered or missing originals, add a fresh protected view through the verified
+    backup/candidate gate, preserving every old view and all other collection data.
+  - [x] Keep pending working/recovery files and unfinished private drafts safe;
+    use validated migration-owner evidence rather than UUID-only draft rebinding.
+  - [ ] Verify physical upgrades, authorization/refusal and recovery on Pixel /
+    GrapheneOS, Samsung, Windows and Fedora before release.
+  Shared candidate: [protected-view behavior and acceptance](protected-all-tasks.md).
+  No app version bump; schema-2 semantic conversion is explicit, not a loader repair.
 - [ ] **2 — Medium: additional top-right Create action.** Show it for new
   tasks/folders in short or keyboard-constrained layouts on any platform, retaining
   the bottom Create action. Make creation possible without scrolling to the end.

@@ -57,6 +57,12 @@ pub fn require_current(bytes: &[u8]) -> Result<(), String> {
     if from != ihtd_core::model::SCHEMA_VERSION {
         return Err("Migration requires a verified backup before opening this collection.".into());
     }
+    if storage::decode_preserving(bytes)?
+        .all_tasks_view_id()
+        .is_none()
+    {
+        return Err("Restoring the protected All tasks view requires a verified backup before opening this collection.".into());
+    }
     Ok(())
 }
 
@@ -81,7 +87,11 @@ fn retains(source: &Value, candidate: &Value) -> bool {
 /// Comparing only decoded models can silently drop unknown stored fields from
 /// both sides. Check the stored projection too; refuse unsupported extensions
 /// rather than publish a candidate that has lost their data.
-fn preserves_storage(source: &[u8], candidate: &[u8]) -> Result<(), Failure> {
+fn preserves_storage(
+    source: &[u8],
+    candidate: &[u8],
+    expected: &ihtd_core::model::Document,
+) -> Result<(), Failure> {
     let (_source_file, before) = connection_for(source)?;
     let (_candidate_file, after) = connection_for(candidate)?;
     let invalid = |_| Failure("validation_failed");
@@ -126,10 +136,23 @@ fn preserves_storage(source: &[u8], candidate: &[u8]) -> Result<(), Failure> {
     for row in rows {
         let (key, value) = row.map_err(invalid)?;
         let stored: String = after
-            .query_row("SELECT value FROM metadata WHERE key=?1", [key], |r| {
+            .query_row("SELECT value FROM metadata WHERE key=?1", [&key], |r| {
                 r.get(0)
             })
             .map_err(invalid)?;
+        // The protected-view plan may allocate one new view and one revision.
+        // Accept only the exact values in the independently computed candidate.
+        if key == "next_id" || key == "revision" {
+            let planned = if key == "next_id" {
+                expected.next_id.to_string()
+            } else {
+                expected.revision.to_string()
+            };
+            if stored != planned {
+                return Err(Failure("validation_failed"));
+            }
+            continue;
+        }
         // JSON metadata may be canonically serialized with different whitespace.
         if value != stored
             && !matches!((serde_json::from_str::<Value>(&value), serde_json::from_str::<Value>(&stored)), (Ok(a),Ok(b)) if a == b)
@@ -170,6 +193,10 @@ pub fn execute(request: &Value) -> Result<Value, Failure> {
     let bytes = fs::read(source).map_err(|_| Failure("local_failed"))?;
     let from = version(&bytes)?;
     let target = ihtd_core::model::SCHEMA_VERSION;
+    let needs_view = storage::decode_preserving(&bytes)
+        .map_err(|_| Failure("validation_failed"))?
+        .all_tasks_view_id()
+        .is_none();
     match request["action"].as_str() {
         Some("probe") => {
             let recovery_path = if let Some(dir) = request["recovery_dir"].as_str() {
@@ -192,8 +219,16 @@ pub fn execute(request: &Value) -> Result<Value, Failure> {
             } else {
                 None
             };
-            Ok(json!({"from":from,"target":target,"needed":from != target,
-            "hash":storage::fingerprint(&bytes),"plan":"schema-1-to-2", "recovery_path":recovery_path}))
+            let plan = match (from != target, needs_view) {
+                (true, true) => "schema-1-to-2-and-protected-all-tasks",
+                (true, false) => "schema-1-to-2",
+                (false, true) => "protected-all-tasks",
+                (false, false) => "none",
+            };
+            Ok(
+                json!({"from":from,"target":target,"needed":from != target || needs_view,
+            "hash":storage::fingerprint(&bytes),"plan":plan, "recovery_path":recovery_path}),
+            )
         }
         Some("prepare") => {
             if request["expected_hash"].as_str() != Some(storage::fingerprint(&bytes).as_str()) {
@@ -203,11 +238,15 @@ pub fn execute(request: &Value) -> Result<Value, Failure> {
             // all item/tag/view fields, links/order, preferences and deletion metadata.
             let before =
                 storage::decode_preserving(&bytes).map_err(|_| Failure("validation_failed"))?;
-            let candidate = storage::encode(&before).map_err(|_| Failure("candidate_failed"))?;
+            let mut expected = before.clone();
+            expected
+                .install_all_tasks_view()
+                .map_err(|_| Failure("candidate_failed"))?;
+            let candidate = storage::encode(&expected).map_err(|_| Failure("candidate_failed"))?;
             let after =
                 storage::decode_preserving(&candidate).map_err(|_| Failure("validation_failed"))?;
-            preserves_storage(&bytes, &candidate)?;
-            if before != after || version(&candidate)? != target {
+            preserves_storage(&bytes, &candidate, &expected)?;
+            if expected != after || version(&candidate)? != target {
                 return Err(Failure("validation_failed"));
             }
             let destination = Path::new(
@@ -222,6 +261,8 @@ pub fn execute(request: &Value) -> Result<Value, Failure> {
             }
             Ok(
                 json!({"hash":storage::fingerprint(&candidate),"validated":true,
+                "source_digest":crate::item_drafts::digest(&before).map_err(|_| Failure("validation_failed"))?,
+                "source_next_id":before.next_id,
                 "items":after.items.len(),"tags":after.tags.len(),"views":after.views.len(),"links":after.links.len()}),
             )
         }
@@ -378,5 +419,126 @@ mod tests {
         bytes[18] = 1;
         bytes[68] = 0;
         assert!(version(&bytes).is_err());
+    }
+    #[test]
+    fn customized_current_views_require_backups_and_preserve_every_existing_field() {
+        use ihtd_core::filter::FilterExpr;
+        for variant in ["renamed", "filtered", "deleted", "empty", "schema1"] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join("source.ihtd");
+            let mut doc = storage::decode_preserving(include_bytes!(
+                "../../../app/test/fixtures/protected-view-customized.sqlite"
+            ))
+            .unwrap();
+            match variant {
+                "renamed" | "schema1" => {
+                    doc.views.get_mut(&1).unwrap().name = "My original view".into()
+                }
+                "filtered" => doc.views.get_mut(&1).unwrap().filter = doc.views[&7].filter.clone(),
+                "deleted" => {
+                    doc.views.remove(&1);
+                }
+                "empty" => doc.views.clear(),
+                _ => unreachable!(),
+            }
+            // A user-created same-name view is not repurposed as the built-in.
+            let user_view = (variant != "empty")
+                .then(|| doc.add_view("All tasks".into(), FilterExpr::All).unwrap());
+            storage::publish(&source, &storage::encode(&doc).unwrap(), false).unwrap();
+            if variant == "schema1" {
+                let c = Connection::open(&source).unwrap();
+                c.execute_batch("PRAGMA user_version=1; UPDATE metadata SET value='1' WHERE key='schema_version';").unwrap();
+                c.close().unwrap();
+            }
+            let bytes = fs::read(&source).unwrap();
+            let before = storage::decode_preserving(&bytes).unwrap();
+            assert!(storage::Session::open(source.clone(), dir.path()).is_err());
+            let probe = execute(&json!({"action":"probe","source":source}))
+                .ok()
+                .unwrap();
+            assert_eq!(probe["needed"], true);
+            assert!(probe["plan"]
+                .as_str()
+                .unwrap()
+                .contains("protected-all-tasks"));
+            let candidate = dir.path().join("candidate");
+            let result = execute(&json!({"action":"prepare","source":source,"candidate":candidate,"expected_hash":probe["hash"]})).ok().unwrap();
+            assert_eq!(
+                result["source_digest"],
+                crate::item_drafts::digest(&before).unwrap()
+            );
+            assert_eq!(result["source_next_id"], before.next_id);
+            let output = fs::read(&candidate).unwrap();
+            let after = storage::decode_preserving(&output).unwrap();
+            let mut expected = before.clone();
+            expected.install_all_tasks_view().unwrap();
+            assert_eq!(after, expected);
+            if let Some(user_view) = user_view {
+                assert_ne!(after.all_tasks_view_id(), Some(user_view));
+                assert_eq!(after.views[&user_view], before.views[&user_view]);
+            }
+            assert_eq!(after.items, before.items);
+            assert_eq!(after.tags, before.tags);
+            assert_eq!(after.tag_usage, before.tag_usage);
+            assert_eq!(after.links, before.links);
+            assert_eq!(after.root_order, before.root_order);
+            assert_eq!(after.deleted_item_ids, before.deleted_item_ids);
+            assert_eq!(after.collection_settings, before.collection_settings);
+            assert_eq!(
+                after.parent_indicator_defaults,
+                before.parent_indicator_defaults
+            );
+            assert_eq!(after.views.len(), before.views.len() + 1);
+            for (id, view) in &before.views {
+                assert_eq!(&after.views[id], view);
+            }
+            assert_eq!(after.next_id, before.next_id + 1);
+            assert_eq!(after.revision, before.revision + 1);
+            assert_eq!(fs::read(&source).unwrap(), bytes);
+            assert!(storage::Session::open(candidate.clone(), dir.path()).is_ok());
+            let again = execute(&json!({"action":"probe","source":candidate}))
+                .ok()
+                .unwrap();
+            assert_eq!(again["needed"], false);
+            assert_eq!(again["plan"], "none");
+        }
+    }
+    #[test]
+    fn unchanged_current_files_are_not_migrations_and_corrupt_markers_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source");
+        let bytes = include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite");
+        fs::write(&source, bytes).unwrap();
+        assert_eq!(
+            execute(&json!({"action":"probe","source":source}))
+                .ok()
+                .unwrap()["needed"],
+            false
+        );
+        assert!(require_current(bytes).is_ok());
+        assert_eq!(fs::read(&source).unwrap(), bytes);
+        let c = Connection::open(&source).unwrap();
+        c.execute(
+            "INSERT INTO metadata(key,value) VALUES('all_tasks_view_id','7')",
+            [],
+        )
+        .unwrap();
+        c.close().unwrap();
+        assert!(execute(&json!({"action":"probe","source":source})).is_err());
+        assert!(storage::Session::open(source, dir.path()).is_err());
+    }
+    #[test]
+    fn semantic_conversion_refuses_unknown_fields_and_metadata_without_losing_source() {
+        for sql in [
+            "UPDATE views SET data=json_set(data,'$.name','Customized','$.future_setting',42) WHERE id=1;",
+            "UPDATE views SET data=json_set(data,'$.name','Customized') WHERE id=1; INSERT INTO metadata VALUES('future_metadata','keep me');"
+        ] {
+            let dir = tempfile::tempdir().unwrap(); let source = dir.path().join("source");
+            fs::write(&source, include_bytes!("../../../app/test/fixtures/migration-schema2.sqlite")).unwrap();
+            let c = Connection::open(&source).unwrap(); c.execute_batch(sql).unwrap(); c.close().unwrap();
+            let bytes = fs::read(&source).unwrap(); let candidate = dir.path().join("candidate");
+            assert!(matches!(execute(&json!({"action":"prepare","source":source,"candidate":candidate,"expected_hash":storage::fingerprint(&bytes)})), Err(Failure("validation_failed"))));
+            assert!(!candidate.exists()); assert_eq!(fs::read(&source).unwrap(), bytes);
+        }
     }
 }
