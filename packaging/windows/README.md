@@ -71,20 +71,20 @@ because it installs/uninstalls software and changes the user's registrations.
 It checks:
 
 - identical portable and installed payloads, including runtime DLLs;
-- an older installer version upgrading in the same directory, retaining tasks;
+- the actual published v0.2.5 installer upgrading in the same directory, retaining tasks;
 - Start Menu/desktop shortcut targets and quoted document registration;
 - installed and portable app launch and normal close from another directory;
 - preserved real collection and recovery bytes after upgrade/uninstall; and
 - removal of registration/shortcuts and reinstall with optional tasks omitted.
 
-The upgrade baseline uses the current app payload with older installer
-metadata. This exercises installer migration, not historical app-code or
-document-schema migration. The UI integration test separately proves that a
-startup path containing spaces and Japanese characters loads the correct
-collection. Physical Windows 11 Explorer/default-app and interactive wizard
+The baseline is the actual published v0.2.5 EXE, pinned by exact size/SHA-256
+in `packaging/upgrade-baseline.json`. The baseline app opens synthetic documents
+written by its own historical storage library. Shared native tests separately
+verify full document preservation, guarded migration and recovery across the
+candidate's feature changes. Physical Windows 11 Explorer/default-app and interactive wizard
 checks remain necessary before declaring the installer ready for public use.
 
-Native verification passed on 2026-10-13 in
+Historical verification of the previous synthetic-installer baseline passed on 2026-10-13 in
 [Windows run 38405384372](https://github.com/Plexyer/ihtd/actions/runs/38405384372).
 Both UI scenarios, installer compilation, every installer check above and
 artifact upload passed. Its `windows-package` artifact contains the setup EXE,

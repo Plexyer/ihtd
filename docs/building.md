@@ -339,3 +339,34 @@ resources with an ARM64 APK build and run both ELF and ZIP alignment verificatio
 Windows ICO/frame validation runs in Python; native Windows packaging and physical
 platform appearance/upgrade acceptance remain separate. Regeneration instructions
 and the complete asset inventory are in [branding](branding.md).
+
+## Released-version upgrade acceptance
+
+The 0.3.0+15 candidate uses the pinned v0.2.5+14 baseline in
+`packaging/upgrade-baseline.json`. `python3 scripts/generate-upgrade-fixtures.py
+--check` verifies committed synthetic fixtures without Git history/toolchains.
+To regenerate them, use Python 3.12+, Rust 1.93.1 and fetch the unchanged v0.2.5
+tag; run the script without `--check`. Its temporary archived workspace uses the
+historical lockfile offline and verifies every file in the historical reader.
+Do not replace these with fixtures written by current code or personal data.
+
+Run `cargo test --workspace --locked`, the Python release tests, Flutter analysis
+and unit tests, then the native test:
+
+```sh
+cd app
+GDK_BACKEND=x11 dbus-run-session -- xvfb-run -a flutter test --no-pub integration_test/upgrade_acceptance_test.dart -d linux
+```
+
+Windows and Fedora native pipelines include this test. Disposable installer
+verification downloads the real pinned 0.2.5 EXE/RPM, verifies exact size/SHA-256
+and tests upgrade/removal/data retention. The Fedora verifier additionally
+requires a container plus `IHTD_DISPOSABLE_FEDORA=1`; never run it on your laptop.
+The downloader itself only fetches and verifies; it executes no installer.
+
+Release validation uploads `upgrade-acceptance-kit` separately from runtime
+packages. Tag releases attach `IHTD-X.Y.Z-upgrade-tests.zip` and add its checksum
+to SHA256SUMS. It contains synthetic data/docs/provenance only. Follow
+[physical upgrade testing](upgrade-acceptance.md), recording actual results in
+[the result sheet](upgrade-acceptance-results.md). Branch test APKs cannot
+replace permanent-key phone installations; reviewed tag signing is required.

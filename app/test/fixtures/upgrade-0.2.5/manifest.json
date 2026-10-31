@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "baselineTag": "v0.2.5",
+  "baselineCommit": "ec7144a6a03dc666e3fad885e1fe1562cf144569",
+  "producer": "a20365d97f1bb5acdeb40c0de77ae78431631f890c202b68187279351af7b8b4",
+  "toolchain": "1.93.1",
+  "files": {
+    "customized.json": "252686957b83ddf18fe7bc386cb7a1e41a049913434d9809f34b9b8add46125d",
+    "customized.sqlite": "f6af15fb7ad55f2dcc36544b45cd1a85b2ffd50e6d76e5148145a86d5798ed04",
+    "deleted-default.json": "f081d88f9159fb89362e10b9fe41ece07c7544a8970bb48357e9abb1fd8a3622",
+    "deleted-default.sqlite": "89307a4c7b3723b5eff009615738bd962420697d02cc003b35c778a695085a0a",
+    "intact.json": "7b1d5ae1b0f6d3011c6978bfc00fbb0436c50007f7178010d69ea5383df104f2",
+    "intact.sqlite": "6378de2fe098a9890ade12ea0e374df56847e86f9bbedd2ffe39f9053a4d6097",
+    "pending.json": "3e62c0b53a7039bc178b8cc94e39659b14fc218d283aac03f2d1ff4dd4031de4",
+    "pending.sqlite": "8bc9dc2f61c756634749a0094ef2439240bf92bcd6b57f65b06bc75b72fa4fc1",
+    "roles.json": "c4880dfd429a4a6f95d1306db8309b951d8f267ff24b6cac0456e849864b046c"
+  }
+}

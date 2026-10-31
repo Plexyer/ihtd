@@ -22,7 +22,7 @@ With a working Docker Linux engine, run these commands from the repository root:
 
 ```
 docker build -f packaging/fedora/Dockerfile -t ihtd-fedora-builder .
-docker run -e IHTD_SOURCE_REVISION="$(git rev-parse HEAD)" --name ihtd-fedora-package ihtd-fedora-builder
+docker run -e IHTD_DISPOSABLE_FEDORA=1 -e IHTD_SOURCE_REVISION="$(git rev-parse HEAD)" --name ihtd-fedora-package ihtd-fedora-builder
 docker cp ihtd-fedora-package:/workspace/dist/fedora ./dist/fedora
 ```
 
@@ -50,7 +50,7 @@ After copying current source into `/workspace`, run inside that distribution:
 
 ```
 bash /workspace/packaging/fedora/build.sh > /workspace/fedora-build.log 2>&1
-bash /workspace/packaging/fedora/verify.sh > /workspace/fedora-verify.log 2>&1
+# Current upgrade/removal verification requires a disposable Docker/Podman container.
 ```
 
 For a fresh dedicated Fedora environment, copy the source to `/workspace` and
@@ -74,3 +74,15 @@ References:
 - Fedora release: https://www.fedoraproject.org/workstation/download/
 - Flutter Linux requirements: https://docs.flutter.dev/platform-integration/linux/setup
 - SDK checksums: https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json
+
+## Current released-version verification
+
+`verify.sh` now requires both a container and `IHTD_DISPOSABLE_FEDORA=1`.
+The coordinated CI container explicitly runs build.sh then verify.sh. The
+verifier downloads the actual published v0.2.5 RPM, pinned by size/SHA-256,
+launches it with its historical synthetic document, upgrades to the candidate,
+and checks external/private collection bytes through launch, uninstall and
+reinstall. These installs/removals must never run on an everyday workstation.
+The default Docker CMD only builds; for verification pass the same command as
+CI: `bash -c 'bash packaging/fedora/build.sh && bash packaging/fedora/verify.sh'`.
+See [upgrade acceptance](../../docs/upgrade-acceptance.md) for physical checks.

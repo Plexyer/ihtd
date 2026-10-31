@@ -33,6 +33,14 @@ jobs:
           fi
       - name: Test release validation
         run: python3 -m unittest discover -s scripts/tests -v
+      - name: Prepare synthetic upgrade test kit
+        run: python3 scripts/package-upgrade-fixtures.py --output dist/acceptance
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-acceptance-kit
+          path: dist/acceptance/*-upgrade-tests.zip
+          if-no-files-found: error
+          retention-days: 14
   android:
     needs: version
     uses: ./.github/workflows/android-release.yml
@@ -91,6 +99,14 @@ jobs:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
           PRODUCTION_ANDROID: 'true'
         run: python3 scripts/assemble-release.py incoming release-files "$RELEASE_VERSION"
+      - uses: actions/download-artifact@v4
+        with:
+          name: upgrade-acceptance-kit
+          path: release-files
+      - name: Include upgrade kit checksum
+        run: |
+          cd release-files
+          sha256sum *-upgrade-tests.zip >> SHA256SUMS
       - name: Create complete draft release
         env:
           GH_TOKEN: ${{ github.token }}

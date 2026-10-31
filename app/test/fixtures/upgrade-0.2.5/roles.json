@@ -1,0 +1,15 @@
+{
+  "adapter": 9,
+  "automatic_parent": 10,
+  "broken_view": 14,
+  "completed_child": 11,
+  "custom_view": 12,
+  "deleted_container": 13,
+  "home": 5,
+  "hotel": 7,
+  "nested": 8,
+  "passport": 6,
+  "travel_tag": 2,
+  "trip": 4,
+  "urgent_tag": 3
+}

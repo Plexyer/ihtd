@@ -48,6 +48,34 @@ Steps 6, 9 and 11 are mostly independent and may be brought forward. Migration
 and preservation tests accompany every data-changing step; do not defer them
 until step 12. This order is a plan, not completed implementation.
 
+### Full upgrade acceptance — step 12
+
+Candidate **0.3.0+15**, baseline **v0.2.5+14**. Feature implementation candidates
+are in place; release readiness still requires the physical results below.
+Follow [upgrade instructions](upgrade-acceptance.md) and record each platform in
+[the result sheet](upgrade-acceptance-results.md).
+
+- [x] Generate synthetic intact/customized/deleted-default/pending fixtures using
+  the actual pinned v0.2.5 model/storage, with old-reader checks and provenance.
+- [x] Compare every released document field with the upgraded projection; verify
+  backups and exactly the protected-view conversion, with no unrelated changes.
+- [x] Combine feature edits/settings/copying, disconnected file saves, private
+  draft restart/restore and safe update preparation in a native acceptance test.
+- [x] Add checksum-pinned actual v0.2.5 Windows EXE/Fedora RPM upgrade, uninstall,
+  reinstall and data-retention verification to disposable native CI.
+- [x] Package synthetic test data, provenance and instructions as a separate CI
+  artifact and version-tag release asset; keep production signing/tag gates.
+- [ ] Review successful three-platform candidate CI and merge the release PR.
+- [ ] Create the reviewed master tag; verify the permanently signed APK and
+  complete release assets. Publish as a prerelease for direct testing first.
+- [ ] Test in-place upgrade, migrations, backups/refusal/failure diagnostics,
+  existing data/recovery and combined features on Pixel/GrapheneOS and Samsung.
+- [ ] Test Windows 11 Explorer/installer and Fedora Wayland/scaling/file picker/
+  rclone on physical machines, recording exact OS and package identities.
+- [ ] Record issues/retests and approve stable promotion of the exact tested
+  assets. New updater end-to-end checks need a genuinely later stable version;
+  prereleases remain excluded from discovery.
+
 ### Implementation and acceptance tasks
 
 - [ ] **Migration safety prerequisite — before migrating existing data.**
