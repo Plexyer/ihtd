@@ -86,3 +86,19 @@ review the draft, clear prerelease status and publish as latest when ready.
 Changing visibility requires the [audit and owner steps](public-repository-guide.md).
 See [implementation/acceptance](update-acceptance.md) for first manual migration
 and two-build test. No new push/merge workflows were introduced for updates.
+
+## Upgrade candidate acceptance
+
+The next stabilization candidate is 0.3.0+15. Step 12 adds actual pinned 0.2.5
+installer upgrades, released-encoder fixtures and the separate
+`upgrade-acceptance-kit` artifact. The tag release includes the synthetic ZIP
+and checksum alongside existing complete runtime packages. Its presence does
+not change updater package selection or publication triggers.
+
+Review the task PR into development and the draft release/0.3.0 PR into master.
+A permanently signed phone candidate still requires the normal reviewed master
+tag. Publish that candidate as a **prerelease**, without latest, for direct
+asset downloads during acceptance; stable discovery must ignore it. Promote
+the exact tested assets only after physical acceptance and owner review.
+See [instructions/results](upgrade-acceptance.md). Never replace an existing
+distributed tag/package or use a differently signed APK to bypass this process.

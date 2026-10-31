@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/item_draft_harness.dart';
+import 'support/settle_controller.dart';
 
 class SettingsHarness extends DraftHarness {
   SettingsHarness() : super(memoryDrafts: true);
@@ -62,15 +63,7 @@ void main() {
   tearDown(() async {
     await h.dispose();
   });
-  Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 25; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 12)),
-      );
-      await tester.pump(const Duration(milliseconds: 20));
-    }
-    await tester.pumpAndSettle();
-  }
+  Future<void> settle(WidgetTester tester) => settleController(tester, h.app);
 
   Future<void> mount(WidgetTester tester, {bool parent = false}) async {
     await tester.pumpWidget(

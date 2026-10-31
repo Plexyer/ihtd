@@ -5,6 +5,8 @@ pub mod migration;
 pub mod presentation;
 pub mod sorting;
 pub mod storage;
+#[cfg(test)]
+mod upgrade_acceptance;
 
 use ihtd_core::{
     graph::ItemId,

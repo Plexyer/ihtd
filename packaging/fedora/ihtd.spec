@@ -1,5 +1,5 @@
 Name: ihtd
-Version: 0.2.5
+Version: 0.3.0
 Release: 1%{?dist}
 Summary: Tasks and folders with shared identities and saved views
 License: AGPL-3.0-only

@@ -394,3 +394,19 @@ trusted package signing is available. Public visibility requires the history/
 asset audit and owner review. Public visibility and corrected protections are
 verified; original source uses AGPL-3.0-only following the owner's confirmation. See
 [update acceptance and limitations](docs/update-acceptance.md).
+
+## Upgrade acceptance and release readiness
+
+The next candidate is 0.3.0+15, upgrading from released 0.2.5+14. Synthetic
+fixtures must be generated with the pinned historical model/storage, not the
+new encoder. Automated tests compare full preserved documents, permit only the
+planned protected-view migration, verify backup bytes and combine new features
+with disconnected saving/private draft recovery. Native packaging checks use
+checksum-pinned actual released installers on disposable systems only.
+
+Follow [upgrade acceptance](docs/upgrade-acceptance.md) and its per-device result
+sheet. Include the synthetic-data kit with tag releases. Permanent Android
+signing, reviewed master ancestry and stable-versus-prerelease updater rules
+remain required; no test APK may be offered as an in-place production update.
+Physical acceptance and owner review precede stable promotion. No host/CI pass
+stands in for a real phone, Windows 11 PC or Fedora laptop result.

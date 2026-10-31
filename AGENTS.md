@@ -118,6 +118,13 @@ of cross-platform completion. Follow the implemented
 
 ## Verification
 
+- For combined released-version acceptance, follow `docs/upgrade-acceptance.md`
+  and record results in `docs/upgrade-acceptance-results.md`. Use the historical
+  encoder fixtures/provenance, not current-writer substitutes. CI installs the
+  pinned published v0.2.5 EXE/RPM only on disposable runners/containers. Never
+  substitute branch test signing for permanent-key phone upgrades or infer
+  physical results from CI. Data-kit release assets are separate from runtimes.
+
 - Core/storage: `cargo test --workspace --locked`.
 - UI: inside `app`, run `flutter pub get`, then
   `flutter analyze lib integration_test/app_test.dart`.

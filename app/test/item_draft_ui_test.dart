@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/item_draft_harness.dart';
+import 'support/settle_controller.dart';
 
 void main() {
   late DraftHarness h;
@@ -14,15 +15,7 @@ void main() {
   tearDown(() async {
     await h.dispose();
   });
-  Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 25; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 15)),
-      );
-      await tester.pump(const Duration(milliseconds: 20));
-    }
-    await tester.pumpAndSettle();
-  }
+  Future<void> settle(WidgetTester tester) => settleController(tester, h.app);
 
   Future<void> closeWidget(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());

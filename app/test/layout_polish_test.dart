@@ -96,6 +96,8 @@ void main() {
   });
   tearDown(() async {
     container.dispose();
+    // Draft writes may still hold files open after the widget test finishes.
+    await controller.itemDrafts.flush();
     await controller.documentServices.diagnostics.flush();
     await directory.delete(recursive: true);
   });
@@ -254,7 +256,9 @@ void main() {
         tester.getTopLeft(find.text('Title *')).dy,
         greaterThanOrEqualTo(viewportRect.top),
       );
-      await tester.enterText(title, 'Keep this input');
+      // This edit schedules real draft-file IO; keep it outside the fake clock
+      // so teardown can await the write before deleting the support directory.
+      await tester.runAsync(() => tester.enterText(title, 'Keep this input'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 0);
       await tester.pumpAndSettle();
       expect(
